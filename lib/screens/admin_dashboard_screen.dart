@@ -40,11 +40,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       appBar: AppBar(
         backgroundColor: backgroundColor,
         elevation: 0,
-        title: Row(
+        title: const Row(
           children: [
-            const Icon(Icons.admin_panel_settings_rounded, color: accentColor, size: 24),
-            const SizedBox(width: 10),
-            const Text(
+            Icon(Icons.admin_panel_settings_rounded, color: accentColor, size: 24),
+            SizedBox(width: 10),
+            Text(
               'Admin Control Center',
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
             ),
@@ -71,7 +71,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               },
               extended: isWideScreen,
               minExtendedWidth: 200,
-              indicatorColor: accentColor.withOpacity(0.2),
+              indicatorColor: accentColor.withValues(alpha: 0.2),
               selectedIconTheme: const IconThemeData(color: accentColor),
               selectedLabelTextStyle: const TextStyle(
                 color: accentColor,
@@ -233,7 +233,7 @@ class _SyllabusModerationTab extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: cardColor,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -266,7 +266,7 @@ class _SyllabusModerationTab extends StatelessWidget {
                     child: DataTable(
                       headingRowColor: WidgetStateProperty.all(cardColor),
                       dataRowColor: WidgetStateProperty.all(const Color(0xFF110D0C)),
-                      border: TableBorder.all(color: Colors.white.withOpacity(0.08)),
+                      border: TableBorder.all(color: Colors.white.withValues(alpha: 0.08)),
                       columns: const [
                         DataColumn(
                           label: Text('Document ID',
@@ -423,7 +423,7 @@ class _GradingScaleControlTab extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: cardColor,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -456,7 +456,7 @@ class _GradingScaleControlTab extends StatelessWidget {
                     child: DataTable(
                       headingRowColor: WidgetStateProperty.all(cardColor),
                       dataRowColor: WidgetStateProperty.all(const Color(0xFF110D0C)),
-                      border: TableBorder.all(color: Colors.white.withOpacity(0.08)),
+                      border: TableBorder.all(color: Colors.white.withValues(alpha: 0.08)),
                       columns: const [
                         DataColumn(
                           label: Text('University Name',
@@ -579,10 +579,10 @@ class _SystemMetricsTab extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: cardColor,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: accentColor.withOpacity(0.2)),
+                  border: Border.all(color: accentColor.withValues(alpha: 0.2)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Colors.black.withValues(alpha: 0.2),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -603,7 +603,7 @@ class _SystemMetricsTab extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: accentColor.withOpacity(0.12),
+                                color: accentColor.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Icon(Icons.school_rounded, color: accentColor, size: 28),
@@ -646,10 +646,10 @@ class _SystemMetricsTab extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: cardColor,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: successColor.withOpacity(0.2)),
+                  border: Border.all(color: successColor.withValues(alpha: 0.2)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Colors.black.withValues(alpha: 0.2),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -670,7 +670,7 @@ class _SystemMetricsTab extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: successColor.withOpacity(0.12),
+                                color: successColor.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Icon(Icons.auto_stories_rounded, color: successColor, size: 28),

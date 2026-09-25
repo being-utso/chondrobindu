@@ -3,10 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/exam_model.dart';
 import '../providers/analytics_provider.dart';
 import '../providers/performance_provider.dart';
-import '../providers/syllabus_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/exam_service.dart';
 import '../services/syllabus_factory.dart';
@@ -153,7 +151,7 @@ class _AdmissionArchiveScreenState extends ConsumerState<AdmissionArchiveScreen>
               decoration: BoxDecoration(
                 color: cardColor,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: accentColor.withOpacity(0.3)),
+                border: Border.all(color: accentColor.withValues(alpha: 0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,7 +202,7 @@ class _AdmissionArchiveScreenState extends ConsumerState<AdmissionArchiveScreen>
                 decoration: BoxDecoration(
                   color: cardColor,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                 ),
                 child: ExpansionTile(
                   iconColor: accentColor,
@@ -328,14 +326,14 @@ class _AdmissionArchiveScreenState extends ConsumerState<AdmissionArchiveScreen>
           decoration: BoxDecoration(
             color: cardColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.12),
+                  color: accentColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(Icons.assignment_turned_in_rounded, color: accentColor, size: 22),
@@ -400,7 +398,7 @@ class _AdmissionArchiveScreenState extends ConsumerState<AdmissionArchiveScreen>
           decoration: BoxDecoration(
             color: cardColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: accentColor.withOpacity(0.3)),
+            border: Border.all(color: accentColor.withValues(alpha: 0.3)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,7 +434,7 @@ class _AdmissionArchiveScreenState extends ConsumerState<AdmissionArchiveScreen>
           decoration: BoxDecoration(
             color: cardColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

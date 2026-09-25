@@ -18,7 +18,7 @@ import 'package:chondrobindu/models/syllabus_node.dart';
 import 'package:chondrobindu/models/session_metadata.dart';
 import 'package:chondrobindu/screens/add_course_screen.dart' hide Course, CourseType;
 import 'package:chondrobindu/screens/insights_screen.dart';
-import 'package:chondrobindu/screens/exams_screen.dart';
+import 'package:chondrobindu/screens/exams_screen.dart' hide PlannerScreen;
 import 'package:chondrobindu/screens/admin_dashboard_screen.dart';
 import 'package:chondrobindu/screens/admin_login_screen.dart';
 import 'package:chondrobindu/screens/course_assessment_screen.dart';
@@ -70,6 +70,11 @@ import 'package:chondrobindu/main.dart';
 import 'package:chondrobindu/widgets/desktop_nav_bar.dart';
 import 'package:chondrobindu/screens/home_screen.dart';
 import 'package:chondrobindu/screens/courses_screen.dart';
+import 'package:chondrobindu/screens/main_shell.dart';
+import 'package:chondrobindu/screens/timer_screen.dart';
+import 'package:chondrobindu/screens/planner_screen.dart';
+import 'package:chondrobindu/providers/firestore_providers.dart';
+import 'package:chondrobindu/models/routine_slot_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 class FakeUserProfileNotifier extends StateNotifier<UserProfile> implements UserProfileNotifier {
   FakeUserProfileNotifier(super.state);
@@ -677,10 +682,10 @@ void main() {
       expect(AppConstants.developerName, 'Shahriyer Sayem');
       expect(AppConstants.developerPortfolioUrl, 'https://being-utso.github.io/');
       expect(AppConstants.developerBuyMeACoffeeUrl, 'https://being-utso.github.io/contact.html');
-      expect(AppConstants.donationBkashNumber, '+8801622988969');
+      expect(AppConstants.donationBkashNumber, 'https://being-utso.github.io/contact.html');
       expect(AppConstants.donationLink, 'https://buymeacoffee.com/utso.sayem');
       expect(AppConstants.privacyPolicyUrl, 'https://being-utso.github.io/privacy.html');
-      expect(AppConstants.supportEmail, 's.sayemx@gmail.com');
+      expect(AppConstants.supportEmail, 'https://being-utso.github.io/contact.html');
       expect(AppConstants.playStoreLink, '');
       expect(AppConstants.appName, 'Chondrobindu');
     });
@@ -7054,12 +7059,33 @@ void main() {
           phone: '01700000000',
           primaryTarget: 'Engineering',
           isUniversityStudent: true,
+          streakDays: 28,
+          totalFocusMinutes: 7470,
+          targetGpa: 3.75,
         );
+
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final testSlots = [
+          RoutineSlot(
+            id: 'a1',
+            courseId: 'eee_2105',
+            courseCode: 'EEE 2105',
+            courseTitle: 'Signals & Systems',
+            dayOfWeek: now.weekday,
+            startTime: '10:00 AM',
+            endTime: '11:30 AM',
+            room: 'LT-1',
+            slotType: CourseType.theory,
+          ),
+        ];
 
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
               userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(profile)),
+              coursesStreamProvider.overrideWith((ref) => Stream.value(kDefaultTestCourses)),
+              dailyAgendaStreamProvider(today).overrideWith((ref) => Stream.value(testSlots)),
             ],
             child: const MaterialApp(
               home: HomeScreen(),
@@ -7079,14 +7105,52 @@ void main() {
         expect(find.text('Start Focus →'), findsOneWidget);
       });
 
+      testWidgets('HomeScreen renders authentic empty states when metrics are zero', (tester) async {
+        tester.view.physicalSize = const Size(1200, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        const profile = UserProfile(
+          fullName: 'Test Student',
+          streakDays: 0,
+          totalFocusMinutes: 0,
+        );
+
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(profile)),
+              coursesStreamProvider.overrideWith((ref) => Stream.value([])),
+              dailyAgendaStreamProvider(today).overrideWith((ref) => Stream.value([])),
+            ],
+            child: const MaterialApp(
+              home: HomeScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('0 days'), findsOneWidget);
+        expect(find.text('0.0 hrs'), findsOneWidget);
+        expect(find.text('No classes scheduled for today.'), findsOneWidget);
+        expect(find.text('Select or create a course to begin'), findsOneWidget);
+      });
+
       testWidgets('CoursesScreen renders course cards, syllabus tabs, and atomic checkable topics', (tester) async {
         tester.view.physicalSize = const Size(1200, 900);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(() => tester.view.resetPhysicalSize());
 
         await tester.pumpWidget(
-          const ProviderScope(
-            child: MaterialApp(
+          ProviderScope(
+            overrides: [
+              coursesStreamProvider.overrideWith((ref) => Stream.value(kDefaultTestCourses)),
+              syllabusTopicsStreamProvider('eee_2105').overrideWith((ref) => Stream.value(kDefaultTestTopics)),
+            ],
+            child: const MaterialApp(
               home: CoursesScreen(),
             ),
           ),
@@ -7105,6 +7169,68 @@ void main() {
         final checkboxFinder = find.byType(Checkbox).first;
         await tester.tap(checkboxFinder);
         await tester.pumpAndSettle();
+      });
+
+      testWidgets('CoursesScreen renders authentic empty states when no courses enrolled', (tester) async {
+        tester.view.physicalSize = const Size(1200, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              coursesStreamProvider.overrideWith((ref) => Stream.value([])),
+            ],
+            child: const MaterialApp(
+              home: CoursesScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text("No courses added yet. Tap '+ Add Course' to set up your syllabus."), findsOneWidget);
+        expect(find.text('Select or create a course to view syllabus.'), findsOneWidget);
+      });
+
+      testWidgets('MainShell switches active screens via DesktopNavBar', (tester) async {
+        tester.view.physicalSize = const Size(1200, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() => tester.view.resetPhysicalSize());
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              coursesStreamProvider.overrideWith((ref) => Stream.value([])),
+            ],
+            child: const MaterialApp(
+              home: MainShell(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Initially on HomeScreen (index 0)
+        expect(find.byType(HomeScreen), findsOneWidget);
+
+        // Tap Courses tab
+        await tester.tap(find.text('Courses'));
+        await tester.pumpAndSettle();
+        expect(find.byType(CoursesScreen), findsOneWidget);
+
+        // Tap Timer tab
+        await tester.tap(find.text('Timer'));
+        await tester.pumpAndSettle();
+        expect(find.byType(TimerScreen), findsOneWidget);
+
+        // Tap Planner tab
+        await tester.tap(find.text('Planner'));
+        await tester.pumpAndSettle();
+        expect(find.byType(PlannerScreen), findsOneWidget);
+
+        // Tap Insights tab
+        await tester.tap(find.text('Insights'));
+        await tester.pumpAndSettle();
+        expect(find.byType(InsightsScreen), findsOneWidget);
       });
     });
   });

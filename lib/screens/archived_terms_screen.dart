@@ -95,7 +95,7 @@ class ArchivedTermsScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: cardColor,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                 ),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
@@ -122,7 +122,7 @@ class ArchivedTermsScreen extends ConsumerWidget {
                                   Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: accentColor.withOpacity(0.12),
+                                      color: accentColor.withValues(alpha: 0.12),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: const Icon(Icons.history_edu_rounded, color: accentColor, size: 20),
@@ -145,8 +145,8 @@ class ArchivedTermsScreen extends ConsumerWidget {
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: attendanceRate >= 75.0
-                                    ? const Color(0xFF10B981).withOpacity(0.15)
-                                    : const Color(0xFFEF4444).withOpacity(0.15),
+                                    ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                                    : const Color(0xFFEF4444).withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -345,7 +345,7 @@ class ArchivedTermDetailScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: cardColor,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: accentColor.withOpacity(0.3)),
+                  border: Border.all(color: accentColor.withValues(alpha: 0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,7 +355,7 @@ class ArchivedTermDetailScreen extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: accentColor.withOpacity(0.12),
+                            color: accentColor.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(Icons.school_rounded, color: accentColor, size: 24),
@@ -487,7 +487,7 @@ class ArchivedTermDetailScreen extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: cardColor,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -557,7 +557,7 @@ class ArchivedTermDetailScreen extends ConsumerWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF59E0B).withOpacity(0.15),
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text('Alternating', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.bold)),

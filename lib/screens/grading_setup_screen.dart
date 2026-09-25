@@ -123,7 +123,7 @@ class _GradingSetupScreenState extends ConsumerState<GradingSetupScreen> {
         backgroundColor: const Color(0xFFF2B78A),
         behavior: SnackBarBehavior.floating,
         content: Text(
-          'Imported ${_universityName} grading scale!',
+          'Imported $_universityName grading scale!',
           style: const TextStyle(color: Color(0xFF110D0C), fontWeight: FontWeight.bold),
         ),
       ),
@@ -276,13 +276,13 @@ class _GradingSetupScreenState extends ConsumerState<GradingSetupScreen> {
                             gradient: LinearGradient(
                               colors: [
                                 cardColor,
-                                accentColor.withOpacity(0.15),
+                                accentColor.withValues(alpha: 0.15),
                               ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: accentColor.withOpacity(0.3)),
+                            border: Border.all(color: accentColor.withValues(alpha: 0.3)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,7 +366,7 @@ class _GradingSetupScreenState extends ConsumerState<GradingSetupScreen> {
                               foregroundColor: accentColor,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(color: accentColor.withOpacity(0.3)),
+                                side: BorderSide(color: accentColor.withValues(alpha: 0.3)),
                               ),
                             ),
                             onPressed: _addGradingRow,
@@ -385,7 +385,7 @@ class _GradingSetupScreenState extends ConsumerState<GradingSetupScreen> {
                           decoration: BoxDecoration(
                             color: cardColor,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white.withOpacity(0.08)),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                           ),
                           child: Column(
                             children: [
@@ -418,7 +418,7 @@ class _GradingSetupScreenState extends ConsumerState<GradingSetupScreen> {
                                   OutlinedButton(
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: Colors.white,
-                                      side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                                      side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                     ),
                                     onPressed: _loadDefaultStandardPreset,
@@ -443,7 +443,7 @@ class _GradingSetupScreenState extends ConsumerState<GradingSetupScreen> {
                               decoration: BoxDecoration(
                                 color: cardColor,
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                               ),
                               child: Row(
                                 children: [

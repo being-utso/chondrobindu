@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import '../models/routine_models.dart';
 import '../models/session_metadata.dart';
 import '../services/notification_service.dart';
 import 'timer_subjects_provider.dart';

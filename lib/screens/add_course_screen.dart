@@ -490,13 +490,13 @@ class _AddCourseScreenState extends ConsumerState<AddCourseScreen> {
                     gradient: LinearGradient(
                       colors: [
                         cardColor,
-                        accentColor.withOpacity(0.15),
+                        accentColor.withValues(alpha: 0.15),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: accentColor.withOpacity(0.25)),
+                    border: Border.all(color: accentColor.withValues(alpha: 0.25)),
                   ),
                   child: Row(
                     children: [
@@ -561,7 +561,7 @@ class _AddCourseScreenState extends ConsumerState<AddCourseScreen> {
                       side: BorderSide(
                         color: _importedSyllabusData != null
                             ? const Color(0xFF10B981)
-                            : accentColor.withOpacity(0.4),
+                            : accentColor.withValues(alpha: 0.4),
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -655,7 +655,7 @@ class _AddCourseScreenState extends ConsumerState<AddCourseScreen> {
                           _buildFieldLabel('COURSE TYPE *'),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
-                            value: _selectedCourseType,
+                            initialValue: _selectedCourseType,
                             dropdownColor: cardColor,
                             style: const TextStyle(color: Colors.white, fontSize: 14),
                             decoration: _buildInputDecoration(

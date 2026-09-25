@@ -50,7 +50,7 @@ class _AppPreloaderState extends State<AppPreloader>
               progress: _controller.value,
               strokeWidth: widget.strokeWidth,
               activeColor: widget.color ?? const Color(0xFFF2B78A),
-              trackColor: widget.trackColor ?? const Color(0xFF4A3830).withOpacity(0.35),
+              trackColor: widget.trackColor ?? const Color(0xFF4A3830).withValues(alpha: 0.35),
             ),
           );
         },

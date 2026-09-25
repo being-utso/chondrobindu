@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../screens/add_course_screen.dart' show Teacher, WeightageDistribution, CourseModel;
-export '../screens/add_course_screen.dart' show Teacher, WeightageDistribution, CourseModel, CourseDashboardScreen, CourseSyllabusScreen, CourseAttendanceScreen, CourseAttendanceAuditScreen;
+export '../screens/add_course_screen.dart' show Teacher, WeightageDistribution, CourseModel;
+export '../screens/course_syllabus_screen.dart' show CourseDashboardScreen, CourseSyllabusScreen;
+export '../screens/course_attendance_screen.dart' show CourseAttendanceScreen, CourseAttendanceAuditScreen;
 export '../services/course_service.dart';
 
 enum CourseType {

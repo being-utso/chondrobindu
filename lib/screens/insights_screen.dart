@@ -21,9 +21,6 @@ import 'term_performance_screen.dart';
 import 'package:showcaseview/showcaseview.dart';
 import '../services/tour_service.dart';
 import '../widgets/tour_coach_mark.dart';
-import '../models/course_model.dart';
-import '../models/study_session_model.dart';
-import '../models/user_profile.dart';
 import '../providers/firestore_providers.dart';
 import 'package:chondrobindu/utils/safe_haptics.dart';
 
@@ -132,10 +129,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               surface: Color(0xFF241C1A),
               onSurface: Color(0xFFF5EBE6),
             ),
-            dialogBackgroundColor: const Color(0xFF1E1816),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(foregroundColor: const Color(0xFFF2B78A)),
-            ),
+            ), dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF1E1816)),
           ),
           child: child!,
         );
@@ -275,9 +271,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: accentColor.withOpacity(0.12),
+                          color: accentColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: accentColor.withOpacity(0.25)),
+                          border: Border.all(color: accentColor.withValues(alpha: 0.25)),
                         ),
                         child: const Icon(Icons.insights_rounded, color: accentColor, size: 22),
                       ),
@@ -426,7 +422,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Row(
         children: tabs.map((tab) {
@@ -443,10 +439,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: isSelected ? accentColor.withOpacity(0.2) : Colors.transparent,
+                  color: isSelected ? accentColor.withValues(alpha: 0.2) : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
                   border: isSelected
-                      ? Border.all(color: accentColor.withOpacity(0.5))
+                      ? Border.all(color: accentColor.withValues(alpha: 0.5))
                       : null,
                 ),
                 child: Center(
@@ -494,7 +490,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -523,7 +519,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.08),
+                      color: Colors.white.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(
@@ -566,7 +562,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               ),
               selectedTextStyle: const TextStyle(color: Color(0xFF110D0C), fontWeight: FontWeight.bold),
               todayDecoration: BoxDecoration(
-                color: const Color(0xFFF2B78A).withOpacity(0.2),
+                color: const Color(0xFFF2B78A).withValues(alpha: 0.2),
                 shape: BoxShape.circle,
                 border: Border.all(color: const Color(0xFFF2B78A)),
               ),
@@ -630,7 +626,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -743,7 +739,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -818,7 +814,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                           backDrawRodData: BackgroundBarChartRodData(
                             show: true,
                             toY: _getMaxY(weeklyTrend),
-                            color: Colors.white.withOpacity(0.04),
+                            color: Colors.white.withValues(alpha: 0.04),
                           ),
                         ),
                       ],
@@ -856,7 +852,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -964,7 +960,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1016,7 +1012,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.08),
+                      color: Colors.white.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(
@@ -1060,7 +1056,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFF110D0C),
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: Colors.white.withOpacity(0.06)),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                               ),
                               child: Text(
                                 dayLabel,
@@ -1072,7 +1068,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Expanded(child: Divider(color: Colors.white.withOpacity(0.06), thickness: 1)),
+                            Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.06), thickness: 1)),
                           ],
                         ),
                       ),
@@ -1083,14 +1079,14 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF170F0D),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.white.withOpacity(0.04)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
                       ),
                       child: Row(
                         children: [
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF34D399).withOpacity(0.12),
+                              color: const Color(0xFF34D399).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF34D399), size: 18),
@@ -1117,9 +1113,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withOpacity(0.15),
+                              color: const Color(0xFF10B981).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFF10B981).withOpacity(0.25)),
+                              border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.25)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1393,7 +1389,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1420,7 +1416,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: TextStyle(color: iconColor.withOpacity(0.9), fontSize: 11),
+            style: TextStyle(color: iconColor.withValues(alpha: 0.9), fontSize: 11),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -1470,7 +1466,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1510,7 +1506,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     decoration: BoxDecoration(
                       color: const Color(0xFF170F0D),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white.withOpacity(0.04)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1543,7 +1539,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     decoration: BoxDecoration(
                       color: const Color(0xFF170F0D),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white.withOpacity(0.04)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1605,16 +1601,16 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFEA580C).withOpacity(0.12),
+        color: const Color(0xFFEA580C).withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF97316).withOpacity(0.35)),
+        border: Border.all(color: const Color(0xFFF97316).withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFFF97316).withOpacity(0.18),
+              color: const Color(0xFFF97316).withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(Icons.favorite_rounded, color: Color(0xFFFB923C), size: 22),
@@ -1673,9 +1669,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF2B78A).withOpacity(0.15),
+                    color: const Color(0xFFF2B78A).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFF2B78A).withOpacity(0.3), width: 0.8),
+                    border: Border.all(color: const Color(0xFFF2B78A).withValues(alpha: 0.3), width: 0.8),
                   ),
                   child: const Icon(Icons.school_rounded, color: Color(0xFFF2B78A), size: 18),
                 ),
@@ -1753,7 +1749,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF06D6A0).withOpacity(0.12),
+                        color: const Color(0xFF06D6A0).withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.insights_rounded, color: Color(0xFF06D6A0), size: 16),
@@ -2103,7 +2099,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2366,7 +2362,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2857,7 +2853,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     decoration: BoxDecoration(
                       color: const Color(0xFF170F0D),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: courseColor.withOpacity(0.25)),
+                      border: Border.all(color: courseColor.withValues(alpha: 0.25)),
                     ),
                     child: IntrinsicHeight(
                       child: Row(
@@ -2936,14 +2932,14 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: courseColor.withOpacity(0.08),
+                                        color: courseColor.withValues(alpha: 0.08),
                                         borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: courseColor.withOpacity(0.2)),
+                                        border: Border.all(color: courseColor.withValues(alpha: 0.2)),
                                       ),
                                       child: Text(
                                         'Topics: ${item.topics}',
                                         style: TextStyle(
-                                          color: courseColor.withOpacity(0.95),
+                                          color: courseColor.withValues(alpha: 0.95),
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -2976,9 +2972,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.02),
+                    color: Colors.white.withValues(alpha: 0.02),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.white.withOpacity(0.06)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -3009,9 +3005,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF2B78A).withOpacity(0.15),
+                            color: const Color(0xFFF2B78A).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFF2B78A).withOpacity(0.35)),
+                            border: Border.all(color: const Color(0xFFF2B78A).withValues(alpha: 0.35)),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
@@ -3068,7 +3064,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       color: const Color(0xFF1E1512),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.white.withOpacity(0.08)),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
       ),
       padding: EdgeInsets.zero,
       onSelected: (value) {
@@ -3116,7 +3112,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         backgroundColor: const Color(0xFF1E1512),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Colors.white.withOpacity(0.08)),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
         title: const Row(
           children: [
@@ -3280,7 +3276,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         decoration: BoxDecoration(
                           color: const Color(0xFF110D0C),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.white.withOpacity(0.08)),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
@@ -3345,7 +3341,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+                            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
                           ),
                         ),
                       ),
@@ -3382,7 +3378,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
                         ),
                       ),
                     ),
@@ -3403,7 +3399,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                             decoration: BoxDecoration(
                               color: const Color(0xFF110D0C),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white.withOpacity(0.08)),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3445,7 +3441,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFF110D0C),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: isEndTimeValid ? const Color(0xFFF2B78A).withOpacity(0.4) : Colors.redAccent),
+                                border: Border.all(color: isEndTimeValid ? const Color(0xFFF2B78A).withValues(alpha: 0.4) : Colors.redAccent),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3671,7 +3667,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         decoration: BoxDecoration(
                           color: const Color(0xFF110D0C),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.white.withOpacity(0.08)),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
@@ -3722,7 +3718,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+                            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
                           ),
                         ),
                       ),
@@ -3746,7 +3742,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
                         ),
                       ),
                     ),
@@ -3767,7 +3763,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                             decoration: BoxDecoration(
                               color: const Color(0xFF110D0C),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white.withOpacity(0.05)),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3815,7 +3811,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFF110D0C),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: isEndTimeValid ? const Color(0xFFF2B78A).withOpacity(0.4) : Colors.redAccent),
+                                border: Border.all(color: isEndTimeValid ? const Color(0xFFF2B78A).withValues(alpha: 0.4) : Colors.redAccent),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3977,7 +3973,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4049,7 +4045,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         backDrawRodData: BackgroundBarChartRodData(
                           show: true,
                           toY: maxMins * 1.15,
-                          color: Colors.white.withOpacity(0.04),
+                          color: Colors.white.withValues(alpha: 0.04),
                         ),
                       ),
                     ],
@@ -4078,7 +4074,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4088,7 +4084,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFA855F7).withOpacity(0.15),
+                  color: const Color(0xFFA855F7).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.trending_up_rounded, color: Color(0xFFA855F7), size: 20),
@@ -4202,7 +4198,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4241,7 +4237,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF170F0D),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white.withOpacity(0.04)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
                 ),
                 child: IntrinsicHeight(
                   child: Row(
@@ -4409,39 +4405,44 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       child: Row(
         children: [
           // Category Tabs
-          Row(
-            children: categories.map((cat) {
-              final active = _desktopCategoryTab == cat;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: InkWell(
-                  onTap: () {
-                    SafeHaptics.selectionClick();
-                    setState(() => _desktopCategoryTab = cat);
-                  },
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: active ? const Color(0xFFF2B78A).withValues(alpha: 0.15) : Colors.transparent,
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: categories.map((cat) {
+                  final active = _desktopCategoryTab == cat;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: InkWell(
+                      onTap: () {
+                        SafeHaptics.selectionClick();
+                        setState(() => _desktopCategoryTab = cat);
+                      },
                       borderRadius: BorderRadius.circular(8),
-                      border: active ? Border.all(color: const Color(0xFFF2B78A), width: 0.8) : null,
-                    ),
-                    child: Text(
-                      cat,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: active ? const Color(0xFFF2B78A) : const Color(0xFF9E8C82),
-                        fontSize: 13,
-                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: active ? const Color(0xFFF2B78A).withValues(alpha: 0.15) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          border: active ? Border.all(color: const Color(0xFFF2B78A), width: 0.8) : null,
+                        ),
+                        child: Text(
+                          cat,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: active ? const Color(0xFFF2B78A) : const Color(0xFF9E8C82),
+                            fontSize: 13,
+                            fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              );
-            }).toList(),
+                  );
+                }).toList(),
+              ),
+            ),
           ),
 
-          const Spacer(),
+          const SizedBox(width: 12),
 
           // Period Segmented Buttons
           Container(
@@ -4615,15 +4616,19 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                title,
-                style: GoogleFonts.jetBrainsMono(
-                  color: const Color(0xFF9E8C82),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.0,
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: const Color(0xFF9E8C82),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.0,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               Icon(icon, color: iconColor, size: 20),
             ],
           ),
@@ -4769,7 +4774,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
     final totalTopics = hasLiveCourses
         ? displayCourses!.fold<int>(0, (total, c) => total + (c.totalTopicsCount > 0 ? c.totalTopicsCount : 1))
-        : 100;
+        : 0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -4791,78 +4796,82 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              // Circular Donut representation
-              SizedBox(
-                width: 120,
-                height: 120,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const CircularProgressIndicator(
-                      value: 1.0,
-                      strokeWidth: 14,
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E2623)),
-                    ),
-                    const CircularProgressIndicator(
-                      value: 0.42,
-                      strokeWidth: 14,
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF2B78A)),
-                    ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '18.5h',
-                          style: GoogleFonts.jetBrainsMono(
-                            color: const Color(0xFFEDE8E3),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          'Total',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: const Color(0xFF9E8C82),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+          if (!hasLiveCourses)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24.0),
+              child: Center(
+                child: Text(
+                  'No enrolled courses to distribute.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: const Color(0xFF9E8C82),
+                    fontSize: 13,
+                  ),
                 ),
               ),
-              const SizedBox(width: 24),
-              // Subject Legend
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: hasLiveCourses
-                      ? displayCourses!.asMap().entries.map((e) {
-                          final idx = e.key;
-                          final c = e.value;
-                          final color = palette[idx % palette.length];
-                          final count = c.totalTopicsCount > 0 ? c.totalTopicsCount : 10;
-                          final pct = ((count / totalTopics) * 100).round();
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
-                            child: _subjectLegendRow(c.code, '$pct%', color),
-                          );
-                        }).toList()
-                      : [
-                          _subjectLegendRow('EEE 2105', '42%', const Color(0xFFF2B78A)),
-                          const SizedBox(height: 8),
-                          _subjectLegendRow('EEE 2101', '28%', const Color(0xFF34D399)),
-                          const SizedBox(height: 8),
-                          _subjectLegendRow('MATH 2103', '18%', const Color(0xFF60A5FA)),
-                          const SizedBox(height: 8),
-                          _subjectLegendRow('HUM 2107', '12%', const Color(0xFFA78BFA)),
+            )
+          else
+            Row(
+              children: [
+                // Circular Donut representation
+                SizedBox(
+                  width: 120,
+                  height: 120,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      const CircularProgressIndicator(
+                        value: 1.0,
+                        strokeWidth: 14,
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E2623)),
+                      ),
+                      CircularProgressIndicator(
+                        value: (totalTopics > 0 ? (displayCourses!.first.totalTopicsCount / totalTopics) : 0.0).clamp(0.0, 1.0),
+                        strokeWidth: 14,
+                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFF2B78A)),
+                      ),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '$totalTopics',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: const Color(0xFFEDE8E3),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            'Topics',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: const Color(0xFF9E8C82),
+                              fontSize: 11,
+                            ),
+                          ),
                         ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 24),
+                // Subject Legend
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: displayCourses!.asMap().entries.map((e) {
+                      final idx = e.key;
+                      final c = e.value;
+                      final color = palette[idx % palette.length];
+                      final count = c.totalTopicsCount > 0 ? c.totalTopicsCount : 1;
+                      final pct = totalTopics > 0 ? ((count / totalTopics) * 100).round() : 0;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: _subjectLegendRow(c.code, '$pct%', color),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );

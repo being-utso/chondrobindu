@@ -754,9 +754,9 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.15),
+                  color: accentColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: accentColor.withOpacity(0.3), width: 0.8),
+                  border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 0.8),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -898,7 +898,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF1C1412),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4), width: 0.8),
+                border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4), width: 0.8),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -981,7 +981,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: accentColor.withOpacity(0.15),
+                            color: accentColor.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -1062,7 +1062,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF140F0E),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: badgeColor.withOpacity(0.35), width: 0.8),
+                border: Border.all(color: badgeColor.withValues(alpha: 0.35), width: 0.8),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1184,7 +1184,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: accentColor.withOpacity(0.15),
+                        color: accentColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(

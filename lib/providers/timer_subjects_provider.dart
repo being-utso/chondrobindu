@@ -55,8 +55,8 @@ final timerSubjectsProvider = StateNotifierProvider<TimerSubjectsNotifier, List<
 });
 
 class TimerSubjectsNotifier extends StateNotifier<List<String>> {
-  final FirebaseFirestore _firestore;
-  final FirebaseAuth _auth;
+  final FirebaseFirestore? _customFirestore;
+  final FirebaseAuth? _customAuth;
   final Ref? _ref;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userSubscription;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _coursesSubscription;
@@ -66,6 +66,24 @@ class TimerSubjectsNotifier extends StateNotifier<List<String>> {
   List<String> _universityCourses = [];
   List<String> _customSubjects = [];
 
+  FirebaseFirestore? get _firestore {
+    if (_customFirestore != null) return _customFirestore;
+    try {
+      return FirebaseFirestore.instance;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  FirebaseAuth? get _auth {
+    if (_customAuth != null) return _customAuth;
+    try {
+      return FirebaseAuth.instance;
+    } catch (_) {
+      return null;
+    }
+  }
+
   TimerSubjectsNotifier({
     Ref? ref,
     bool isUniversityStudent = false,
@@ -74,8 +92,8 @@ class TimerSubjectsNotifier extends StateNotifier<List<String>> {
     FirebaseAuth? auth,
   })  : _ref = ref,
         _isUniversityStudent = isUniversityStudent,
-        _firestore = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance,
+        _customFirestore = firestore,
+        _customAuth = auth,
         _syllabusSubjects = initialSyllabusSubjects,
         super([]) {
     _initListeners();
@@ -129,14 +147,21 @@ class TimerSubjectsNotifier extends StateNotifier<List<String>> {
   }
 
   void _initListeners() {
-    final uid = _auth.currentUser?.uid;
+    final firestore = _firestore;
+    final auth = _auth;
+    if (firestore == null || auth == null) {
+      _recomputeState();
+      return;
+    }
+
+    final uid = auth.currentUser?.uid;
     if (uid == null || uid.isEmpty) {
       _recomputeState();
       return;
     }
 
     // 1. Listen to user profile document for custom timer subjects
-    _userSubscription = _firestore.collection('users').doc(uid).snapshots().listen((doc) async {
+    _userSubscription = firestore.collection('users').doc(uid).snapshots().listen((doc) async {
       if (!doc.exists) return;
       final data = doc.data();
 
@@ -156,7 +181,7 @@ class TimerSubjectsNotifier extends StateNotifier<List<String>> {
     });
 
     // 2. Listen to active university courses subcollection
-    _coursesSubscription = _firestore
+    _coursesSubscription = firestore
         .collection('users')
         .doc(uid)
         .collection('courses')
@@ -193,16 +218,20 @@ class TimerSubjectsNotifier extends StateNotifier<List<String>> {
     _customSubjects.add(trimmed);
     _recomputeState();
 
-    final uid = _auth.currentUser?.uid;
-    if (uid != null && uid.isNotEmpty) {
-      try {
-        await _firestore.collection('users').doc(uid).set({
-          'custom_timer_subjects': FieldValue.arrayUnion([trimmed]),
-          'timer_subjects': FieldValue.arrayUnion([trimmed]),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      } catch (e) {
-        debugPrint('Error adding custom timer subject to Firestore: $e');
+    final firestore = _firestore;
+    final auth = _auth;
+    if (firestore != null && auth != null) {
+      final uid = auth.currentUser?.uid;
+      if (uid != null && uid.isNotEmpty) {
+        try {
+          await firestore.collection('users').doc(uid).set({
+            'custom_timer_subjects': FieldValue.arrayUnion([trimmed]),
+            'timer_subjects': FieldValue.arrayUnion([trimmed]),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        } catch (e) {
+          debugPrint('Error adding custom timer subject to Firestore: $e');
+        }
       }
     }
   }
@@ -215,16 +244,20 @@ class TimerSubjectsNotifier extends StateNotifier<List<String>> {
     _customSubjects.remove(trimmed);
     _recomputeState();
 
-    final uid = _auth.currentUser?.uid;
-    if (uid != null && uid.isNotEmpty) {
-      try {
-        await _firestore.collection('users').doc(uid).set({
-          'custom_timer_subjects': FieldValue.arrayRemove([trimmed]),
-          'timer_subjects': FieldValue.arrayRemove([trimmed]),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      } catch (e) {
-        debugPrint('Error removing timer subject from Firestore: $e');
+    final firestore = _firestore;
+    final auth = _auth;
+    if (firestore != null && auth != null) {
+      final uid = auth.currentUser?.uid;
+      if (uid != null && uid.isNotEmpty) {
+        try {
+          await firestore.collection('users').doc(uid).set({
+            'custom_timer_subjects': FieldValue.arrayRemove([trimmed]),
+            'timer_subjects': FieldValue.arrayRemove([trimmed]),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        } catch (e) {
+          debugPrint('Error removing timer subject from Firestore: $e');
+        }
       }
     }
   }

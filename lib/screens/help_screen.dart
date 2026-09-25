@@ -317,10 +317,10 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.15),
+                    color: accentColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.support_agent_rounded, color: accentColor, size: 24),
+                  child: const Icon(Icons.support_agent_rounded, color: accentColor, size: 24),
                 ),
                 const SizedBox(width: 12),
                 Column(
@@ -353,7 +353,7 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
               decoration: BoxDecoration(
                 color: cardColor,
                 borderRadius: BorderRadius.circular(20.0),
-                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
               child: Form(
                 key: _formKey,
@@ -382,11 +382,11 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -413,7 +413,7 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                     ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
-                      value: _contactMethod,
+                      initialValue: _contactMethod,
                       dropdownColor: cardColor,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: InputDecoration(
@@ -423,11 +423,11 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -466,7 +466,7 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                         Text(
                           'Auto-filled',
                           style: TextStyle(
-                            color: accentColor.withOpacity(0.8),
+                            color: accentColor.withValues(alpha: 0.8),
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                           ),
@@ -488,11 +488,11 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -522,7 +522,7 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                     ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
-                      value: _reason,
+                      initialValue: _reason,
                       dropdownColor: cardColor,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: InputDecoration(
@@ -532,11 +532,11 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -577,11 +577,11 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                         contentPadding: const EdgeInsets.all(16),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -605,8 +605,8 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: accentColor,
                           foregroundColor: const Color(0xFF140F0E),
-                          disabledBackgroundColor: accentColor.withOpacity(0.5),
-                          disabledForegroundColor: const Color(0xFF140F0E).withOpacity(0.5),
+                          disabledBackgroundColor: accentColor.withValues(alpha: 0.5),
+                          disabledForegroundColor: const Color(0xFF140F0E).withValues(alpha: 0.5),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -650,7 +650,7 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFA78BFA).withOpacity(0.15),
+                    color: const Color(0xFFA78BFA).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.auto_awesome_rounded, color: Color(0xFFA78BFA), size: 22),
@@ -728,14 +728,14 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF241C1A),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFF2B78A).withOpacity(0.25)),
+                border: Border.all(color: const Color(0xFFF2B78A).withValues(alpha: 0.25)),
               ),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF2B78A).withOpacity(0.15),
+                      color: const Color(0xFFF2B78A).withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.code_rounded, color: Color(0xFFF2B78A), size: 22),
@@ -769,7 +769,7 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                                   color: const Color(0xFFF2B78A),
                                   fontWeight: FontWeight.w700,
                                   decoration: TextDecoration.underline,
-                                  decorationColor: const Color(0xFFF2B78A).withOpacity(0.6),
+                                  decorationColor: const Color(0xFFF2B78A).withValues(alpha: 0.6),
                                 ),
                                 recognizer: _devRecognizer,
                               ),
@@ -795,10 +795,10 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF241C1A),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.25)),
+                border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.25)),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFF59E0B).withOpacity(0.04),
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.04),
                     blurRadius: 16,
                     spreadRadius: 1,
                   ),
@@ -812,7 +812,7 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B).withOpacity(0.15),
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.favorite_rounded, color: Color(0xFFF59E0B), size: 18),
@@ -878,8 +878,8 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: const Color(0xFFF2B78A).withOpacity(0.4)),
-                          backgroundColor: const Color(0xFFF2B78A).withOpacity(0.08),
+                          side: BorderSide(color: const Color(0xFFF2B78A).withValues(alpha: 0.4)),
+                          backgroundColor: const Color(0xFFF2B78A).withValues(alpha: 0.08),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
@@ -898,8 +898,8 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.blueGrey.withOpacity(0.4)),
-                          backgroundColor: Colors.blueGrey.withOpacity(0.08),
+                          side: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.4)),
+                          backgroundColor: Colors.blueGrey.withValues(alpha: 0.08),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
@@ -924,8 +924,8 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF241C1A),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: const [
+        title: const Row(
+          children: [
             Icon(Icons.volunteer_activism_rounded, color: Color(0xFFEC4899), size: 22),
             SizedBox(width: 10),
             Text(
@@ -986,7 +986,7 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF170F0D),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1037,19 +1037,19 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => _launchUrl(url),
-        splashColor: color.withOpacity(0.15),
+        splashColor: color.withValues(alpha: 0.15),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: color, size: 20),

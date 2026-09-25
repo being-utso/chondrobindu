@@ -346,7 +346,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
             children: [
               Icon(
                 depth == 0 ? Icons.folder_open_rounded : Icons.library_books_rounded,
-                color: accentColor.withOpacity(0.85),
+                color: accentColor.withValues(alpha: 0.85),
                 size: 16,
               ),
               const SizedBox(width: 8),
@@ -367,7 +367,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
                   margin: const EdgeInsets.only(left: 6),
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                   decoration: BoxDecoration(
-                    color: emeraldColor.withOpacity(0.15),
+                    color: emeraldColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -407,7 +407,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
           subtitle: node.isCompleted
               ? Text(
                   'Already completed in syllabus',
-                  style: GoogleFonts.plusJakartaSans(color: emeraldColor.withOpacity(0.8), fontSize: 10.5),
+                  style: GoogleFonts.plusJakartaSans(color: emeraldColor.withValues(alpha: 0.8), fontSize: 10.5),
                 )
               : null,
           onChanged: (val) {
@@ -599,7 +599,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
                 decoration: BoxDecoration(
                   color: fieldFill,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _syncToMainSyllabus ? emeraldColor.withOpacity(0.4) : borderColor),
+                  border: Border.all(color: _syncToMainSyllabus ? emeraldColor.withValues(alpha: 0.4) : borderColor),
                 ),
                 child: SwitchListTile(
                   value: _syncToMainSyllabus,

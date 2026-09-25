@@ -131,22 +131,22 @@ class AssessmentCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.2) : Colors.transparent,
+            color: isSelected ? color.withValues(alpha: 0.2) : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? color : color.withOpacity(0.35),
+              color: isSelected ? color : color.withValues(alpha: 0.35),
               width: isSelected ? 1.2 : 0.8,
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 13, color: isSelected ? color : color.withOpacity(0.85)),
+              Icon(icon, size: 13, color: isSelected ? color : color.withValues(alpha: 0.85)),
               const SizedBox(width: 4),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? color : color.withOpacity(0.9),
+                  color: isSelected ? color : color.withValues(alpha: 0.9),
                   fontSize: 11,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                 ),
@@ -181,12 +181,12 @@ class AssessmentCard extends StatelessWidget {
           color: cardColor ?? const Color(0xFF241C1A),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: accentColor ?? amberAccent.withOpacity(0.65),
+            color: accentColor ?? amberAccent.withValues(alpha: 0.65),
             width: 1.3,
           ),
           boxShadow: [
             BoxShadow(
-              color: (accentColor ?? amberAccent).withOpacity(0.08),
+              color: (accentColor ?? amberAccent).withValues(alpha: 0.08),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -209,9 +209,9 @@ class AssessmentCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: amberAccent.withOpacity(0.18),
+                          color: amberAccent.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: amberAccent.withOpacity(0.5)),
+                          border: Border.all(color: amberAccent.withValues(alpha: 0.5)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -236,7 +236,7 @@ class AssessmentCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: AppColors.primaryContainer,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: amberAccent.withOpacity(0.25)),
+                          border: Border.all(color: amberAccent.withValues(alpha: 0.25)),
                         ),
                         child: Text(
                           (courseTitle != null && courseTitle!.trim().isNotEmpty)
@@ -251,9 +251,9 @@ class AssessmentCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
                         decoration: BoxDecoration(
-                          color: amberAccent.withOpacity(0.08),
+                          color: amberAccent.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: amberAccent.withOpacity(0.2)),
+                          border: Border.all(color: amberAccent.withValues(alpha: 0.2)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -425,7 +425,7 @@ class AssessmentCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.background,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: amberAccent.withOpacity(0.3)),
+                  border: Border.all(color: amberAccent.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,

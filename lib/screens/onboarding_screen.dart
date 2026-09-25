@@ -660,7 +660,7 @@ Future<void> _completeOnboarding() async {
                             _buildSectionHeader('LEVEL *'),
                             const SizedBox(height: 8),
                             DropdownButtonFormField<String>(
-                              value: _selectedLevel,
+                              initialValue: _selectedLevel,
                               dropdownColor: cardColor,
                               style: const TextStyle(color: Colors.white, fontSize: 14),
                               decoration: _buildInputDecoration(
@@ -687,7 +687,7 @@ Future<void> _completeOnboarding() async {
                             _buildSectionHeader('TERM *'),
                             const SizedBox(height: 8),
                             DropdownButtonFormField<String>(
-                              value: _selectedTerm,
+                              initialValue: _selectedTerm,
                               dropdownColor: cardColor,
                               style: const TextStyle(color: Colors.white, fontSize: 14),
                               decoration: _buildInputDecoration(
@@ -742,7 +742,7 @@ Future<void> _completeOnboarding() async {
                             _buildSectionHeader('HSC BATCH *'),
                             const SizedBox(height: 8),
                             DropdownButtonFormField<String>(
-                              value: _selectedBatch,
+                              initialValue: _selectedBatch,
                               dropdownColor: cardColor,
                               style: const TextStyle(color: Colors.white, fontSize: 14),
                               decoration: _buildInputDecoration(
@@ -771,7 +771,7 @@ Future<void> _completeOnboarding() async {
                             _buildSectionHeader('HSC GROUP / DIVISION *'),
                             const SizedBox(height: 8),
                             DropdownButtonFormField<String>(
-                              value: _selectedGroup,
+                              initialValue: _selectedGroup,
                               dropdownColor: cardColor,
                               style: const TextStyle(color: Colors.white, fontSize: 14),
                               decoration: _buildInputDecoration(
@@ -814,7 +814,7 @@ Future<void> _completeOnboarding() async {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: accentColor.withOpacity(0.15),
+                            color: accentColor.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Text(
@@ -846,7 +846,7 @@ Future<void> _completeOnboarding() async {
                               duration: const Duration(milliseconds: 200),
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: isSelected ? accentColor.withOpacity(0.12) : cardColor,
+                                color: isSelected ? accentColor.withValues(alpha: 0.12) : cardColor,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
                                   color: isSelected ? accentColor : borderColor,
@@ -908,7 +908,7 @@ Future<void> _completeOnboarding() async {
                     _buildSectionHeader('SECONDARY TARGET (OPTIONAL)'),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
-                      value: _secondaryTargetOptions.contains(_secondaryTarget) ? _secondaryTarget : 'None',
+                      initialValue: _secondaryTargetOptions.contains(_secondaryTarget) ? _secondaryTarget : 'None',
                       dropdownColor: cardColor,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: _buildInputDecoration(
@@ -968,9 +968,9 @@ Future<void> _completeOnboarding() async {
                             return Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: accentColor.withOpacity(0.12),
+                                color: accentColor.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: accentColor.withOpacity(0.25)),
+                                border: Border.all(color: accentColor.withValues(alpha: 0.25)),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -1006,7 +1006,7 @@ Future<void> _completeOnboarding() async {
                       backgroundColor: accentColor,
                       foregroundColor: const Color(0xFF110D0C),
                       elevation: 4,
-                      shadowColor: accentColor.withOpacity(0.4),
+                      shadowColor: accentColor.withValues(alpha: 0.4),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
                     child: _isSubmitting

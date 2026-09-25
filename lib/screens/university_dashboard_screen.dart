@@ -302,7 +302,7 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                   decoration: BoxDecoration(
                                     color: cardColor,
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                                   ),
                                   child: const Icon(
                                     Icons.school_outlined,
@@ -384,7 +384,7 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                   OutlinedButton.icon(
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: accentColor,
-                                      side: BorderSide(color: accentColor.withOpacity(0.4)),
+                                      side: BorderSide(color: accentColor.withValues(alpha: 0.4)),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                       minimumSize: Size.zero,
@@ -456,10 +456,10 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                             decoration: BoxDecoration(
                               color: cardColor,
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white.withOpacity(0.08)),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.15),
+                                  color: Colors.black.withValues(alpha: 0.15),
                                   blurRadius: 8,
                                   offset: const Offset(0, 3),
                                 ),
@@ -487,9 +487,9 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                       Container(
                                         padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
-                                          color: accentColor.withOpacity(0.12),
+                                          color: accentColor.withValues(alpha: 0.12),
                                           borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(color: accentColor.withOpacity(0.25)),
+                                          border: Border.all(color: accentColor.withValues(alpha: 0.25)),
                                         ),
                                         child: const Icon(
                                           Icons.class_rounded,
@@ -606,7 +606,7 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                             decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(0.06),
+                                              color: Colors.white.withValues(alpha: 0.06),
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                             child: Text(
@@ -782,7 +782,7 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                 const Text('Level', style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
-                                  value: level,
+                                  initialValue: level,
                                   dropdownColor: cardColor,
                                   style: const TextStyle(color: Colors.white, fontSize: 13.5),
                                   decoration: InputDecoration(
@@ -808,7 +808,7 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                 const Text('Term', style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
-                                  value: term,
+                                  initialValue: term,
                                   dropdownColor: cardColor,
                                   style: const TextStyle(color: Colors.white, fontSize: 13.5),
                                   decoration: InputDecoration(
@@ -837,7 +837,7 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                         child: OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: accentColor,
-                            side: BorderSide(color: accentColor.withOpacity(0.4)),
+                            side: BorderSide(color: accentColor.withValues(alpha: 0.4)),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),

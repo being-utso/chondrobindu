@@ -690,7 +690,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   children: [
                     Expanded(
                       child: Divider(
-                        color: Colors.white.withOpacity(0.08),
+                        color: Colors.white.withValues(alpha: 0.08),
                         thickness: 1,
                       ),
                     ),
@@ -707,7 +707,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     ),
                     Expanded(
                       child: Divider(
-                        color: Colors.white.withOpacity(0.08),
+                        color: Colors.white.withValues(alpha: 0.08),
                         thickness: 1,
                       ),
                     ),
@@ -1041,7 +1041,7 @@ class _PhoneAuthBottomSheetState extends ConsumerState<_PhoneAuthBottomSheet> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.15),
+                    color: accentColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.phone_iphone_rounded, color: accentColor, size: 22),
@@ -1077,9 +1077,9 @@ class _PhoneAuthBottomSheetState extends ConsumerState<_PhoneAuthBottomSheet> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444).withOpacity(0.12),
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.3)),
+                  border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [

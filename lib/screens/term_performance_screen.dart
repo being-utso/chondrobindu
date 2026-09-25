@@ -9,7 +9,6 @@ import '../models/assessment_model.dart';
 import '../services/assessment_calculator.dart';
 import '../widgets/grading_scale_settings_dialog.dart';
 import '../services/course_service.dart';
-import 'course_assessment_screen.dart';
 import 'grading_setup_screen.dart';
 import '../widgets/app_preloader.dart';
 import 'package:chondrobindu/utils/safe_haptics.dart';
@@ -1657,9 +1656,9 @@ class _CourseSimulationCardState extends State<CourseSimulationCard> {
                     });
                     _notifySimulationChanged();
                   },
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
+                    children: [
                       Icon(Icons.refresh_rounded, size: 12, color: Color(0xFFF2B78A)),
                       SizedBox(width: 4),
                       Text(
@@ -1733,8 +1732,8 @@ class _CourseSimulationCardState extends State<CourseSimulationCard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: const [
+                  const Row(
+                    children: [
                       Icon(Icons.tune_rounded, size: 14, color: AppColors.primary),
                       SizedBox(width: 6),
                       Text(
@@ -1886,8 +1885,8 @@ class _CourseSimulationCardState extends State<CourseSimulationCard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: const [
+                  const Row(
+                    children: [
                       Text(
                         'Score Needed in Final Exam',
                         style: TextStyle(

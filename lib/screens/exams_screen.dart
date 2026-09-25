@@ -25,8 +25,6 @@ import 'package:collection/collection.dart';
 import '../widgets/app_logo.dart';
 import '../models/routine_models.dart';
 import '../models/syllabus_node.dart';
-import 'admission_archive_screen.dart';
-import 'course_assessment_screen.dart';
 import 'journal_screen.dart';
 import 'attendance_matrix_screen.dart';
 import 'routine_screen.dart';
@@ -230,12 +228,12 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(
+                  const Expanded(
                     child: Row(
                       children: [
-                        const AppLogo(size: 32),
-                        const SizedBox(width: 10),
-                        const Expanded(
+                        AppLogo(size: 32),
+                        SizedBox(width: 10),
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -398,20 +396,20 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isPinned
-              ? [const Color(0xFF78350F).withOpacity(0.4), const Color(0xFF1C1412)]
-              : [cardColor, const Color(0xFF1E3A8A).withOpacity(0.4)],
+              ? [const Color(0xFF78350F).withValues(alpha: 0.4), const Color(0xFF1C1412)]
+              : [cardColor, const Color(0xFF1E3A8A).withValues(alpha: 0.4)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isPinned ? const Color(0xFFFBBF24).withOpacity(0.5) : accentColor.withOpacity(0.3)),
+        border: Border.all(color: isPinned ? const Color(0xFFFBBF24).withValues(alpha: 0.5) : accentColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: (isPinned ? const Color(0xFFFBBF24) : accentColor).withOpacity(0.18),
+              color: (isPinned ? const Color(0xFFFBBF24) : accentColor).withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(
@@ -444,7 +442,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFBBF24).withOpacity(0.2),
+                          color: const Color(0xFFFBBF24).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(color: const Color(0xFFFBBF24), width: 0.8),
                         ),
@@ -476,7 +474,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 Text(
                   days <= 0 ? '0' : '$days',
                   style: const TextStyle(
-                    color: const Color(0xFF110D0C),
+                    color: Color(0xFF110D0C),
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
                   ),
@@ -484,7 +482,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 Text(
                   days == 1 ? 'DAY LEFT' : 'DAYS LEFT',
                   style: const TextStyle(
-                    color: const Color(0xFF110D0C),
+                    color: Color(0xFF110D0C),
                     fontSize: 8.5,
                     fontWeight: FontWeight.bold,
                   ),
@@ -515,7 +513,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -546,13 +544,13 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: isCurrentMonth ? accentColor.withOpacity(0.15) : const Color(0xFF170F0D),
+                        color: isCurrentMonth ? accentColor.withValues(alpha: 0.15) : const Color(0xFF170F0D),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: accentColor.withOpacity(0.3)),
+                        border: Border.all(color: accentColor.withValues(alpha: 0.3)),
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: const [
+                        children: [
                           Icon(Icons.today_rounded, size: 14, color: Color(0xFFF2B78A)),
                           SizedBox(width: 4),
                           Text(
@@ -647,12 +645,12 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? accentColor
-                        : (hasExam ? accentColor.withOpacity(0.15) : const Color(0xFF170F0D)),
+                        : (hasExam ? accentColor.withValues(alpha: 0.15) : const Color(0xFF170F0D)),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: isSelected
                           ? accentColor
-                          : (isToday ? const Color(0xFFF59E0B) : (hasExam ? accentColor.withOpacity(0.4) : Colors.transparent)),
+                          : (isToday ? const Color(0xFFF59E0B) : (hasExam ? accentColor.withValues(alpha: 0.4) : Colors.transparent)),
                       width: isToday && !isSelected ? 1.5 : 1.0,
                     ),
                   ),
@@ -701,7 +699,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -738,13 +736,13 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: isAbsent
-                        ? Colors.white.withOpacity(0.03)
+                        ? Colors.white.withValues(alpha: 0.03)
                         : const Color(0xFF170F0D),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: isAbsent
                           ? Colors.blueGrey.shade700
-                          : (isCompleted ? const Color(0xFF10B981).withOpacity(0.3) : Colors.white.withOpacity(0.06)),
+                          : (isCompleted ? const Color(0xFF10B981).withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.06)),
                     ),
                   ),
                   child: Row(
@@ -774,7 +772,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.blueGrey.withOpacity(0.2),
+                            color: Colors.blueGrey.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
@@ -786,7 +784,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF10B981).withOpacity(0.2),
+                            color: const Color(0xFF10B981).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
@@ -827,12 +825,12 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isAbsent ? cardColor.withOpacity(0.6) : cardColor,
+        color: isAbsent ? cardColor.withValues(alpha: 0.6) : cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: (isPinnedExamTab || isPinnedHomeTab)
-              ? const Color(0xFFFBBF24).withOpacity(0.5)
-              : (isAbsent ? Colors.blueGrey.shade700 : Colors.white.withOpacity(0.06)),
+              ? const Color(0xFFFBBF24).withValues(alpha: 0.5)
+              : (isAbsent ? Colors.blueGrey.shade700 : Colors.white.withValues(alpha: 0.06)),
           width: (isPinnedExamTab || isPinnedHomeTab) ? 1.5 : 1.0,
         ),
       ),
@@ -849,7 +847,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: isAbsent ? Colors.blueGrey.withOpacity(0.15) : accentColor.withOpacity(0.12),
+                    color: isAbsent ? Colors.blueGrey.withValues(alpha: 0.15) : accentColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -883,7 +881,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               margin: const EdgeInsets.only(right: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFBBF24).withOpacity(0.18),
+                                color: const Color(0xFFFBBF24).withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Text(
@@ -896,7 +894,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               margin: const EdgeInsets.only(right: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF2B78A).withOpacity(0.18),
+                                color: const Color(0xFFF2B78A).withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Text(
@@ -908,7 +906,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: Colors.blueGrey.withOpacity(0.2),
+                                color: Colors.blueGrey.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Text(
@@ -920,7 +918,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF59E0B).withOpacity(0.18),
+                                color: const Color(0xFFF59E0B).withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -1029,7 +1027,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       child: Row(
                         children: [
                           Icon(Icons.tune_rounded, color: Colors.blueGrey, size: 18),
-                          const SizedBox(width: 10),
+                          SizedBox(width: 10),
                           Text(
                             'Exam Options & Score',
                             style: TextStyle(color: Colors.white, fontSize: 13),
@@ -1224,19 +1222,19 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         labelText: 'Exam Name',
                         labelStyle: TextStyle(color: Colors.blueGrey),
                         filled: true,
-                        fillColor: const Color(0xFF170F0D),
+                        fillColor: Color(0xFF170F0D),
                       ),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: dynamicSubjects.contains(selectedSubject) ? selectedSubject : 'Other',
+                      initialValue: dynamicSubjects.contains(selectedSubject) ? selectedSubject : 'Other',
                       dropdownColor: const Color(0xFF1C1412),
                       style: const TextStyle(color: Colors.white, fontSize: 13),
                       decoration: const InputDecoration(
                         labelText: 'Subject',
                         labelStyle: TextStyle(color: Colors.blueGrey),
                         filled: true,
-                        fillColor: const Color(0xFF170F0D),
+                        fillColor: Color(0xFF170F0D),
                       ),
                       items: dynamicSubjects.map((subj) {
                         return DropdownMenuItem(value: subj, child: Text(subj));
@@ -1257,7 +1255,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                           hintText: 'Enter subject name',
                           labelStyle: TextStyle(color: Colors.blueGrey),
                           filled: true,
-                          fillColor: const Color(0xFF170F0D),
+                          fillColor: Color(0xFF170F0D),
                         ),
                       ),
                     ],
@@ -1270,7 +1268,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         labelText: 'Total Marks',
                         labelStyle: TextStyle(color: Colors.blueGrey),
                         filled: true,
-                        fillColor: const Color(0xFF170F0D),
+                        fillColor: Color(0xFF170F0D),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -1347,7 +1345,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                             hintText: 'e.g. 3 for 3 recurring tests',
                             labelStyle: TextStyle(color: Colors.blueGrey),
                             filled: true,
-                            fillColor: const Color(0xFF170F0D),
+                            fillColor: Color(0xFF170F0D),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -1770,7 +1768,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   DropdownButtonFormField<String>(
-                    value: (upcomingList.any((e) => e.id == selectedExamOption) || selectedExamOption == 'Other')
+                    initialValue: (upcomingList.any((e) => e.id == selectedExamOption) || selectedExamOption == 'Other')
                         ? selectedExamOption
                         : 'Other',
                     dropdownColor: const Color(0xFF1C1412),
@@ -1779,7 +1777,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       labelText: 'Select Scheduled Exam',
                       labelStyle: TextStyle(color: Colors.blueGrey),
                       filled: true,
-                      fillColor: const Color(0xFF170F0D),
+                      fillColor: Color(0xFF170F0D),
                     ),
                     items: [
                       ...upcomingList.map((e) => DropdownMenuItem(
@@ -1832,7 +1830,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         hintText: 'e.g. Model Test 01 / Final Mock',
                         labelStyle: TextStyle(color: Colors.blueGrey),
                         filled: true,
-                        fillColor: const Color(0xFF170F0D),
+                        fillColor: Color(0xFF170F0D),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -1871,14 +1869,14 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   ],
 
                   DropdownButtonFormField<String>(
-                    value: dynamicSubjects.contains(selectedSubject) ? selectedSubject : 'Other',
+                    initialValue: dynamicSubjects.contains(selectedSubject) ? selectedSubject : 'Other',
                     dropdownColor: const Color(0xFF1C1412),
                     style: const TextStyle(color: Colors.white, fontSize: 13),
                     decoration: const InputDecoration(
                       labelText: 'Subject',
                       labelStyle: TextStyle(color: Colors.blueGrey),
                       filled: true,
-                      fillColor: const Color(0xFF170F0D),
+                      fillColor: Color(0xFF170F0D),
                     ),
                     items: dynamicSubjects.map((subj) {
                       return DropdownMenuItem(value: subj, child: Text(subj));
@@ -1899,7 +1897,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         labelText: 'Custom Subject Name',
                         labelStyle: TextStyle(color: Colors.blueGrey),
                         filled: true,
-                        fillColor: const Color(0xFF170F0D),
+                        fillColor: Color(0xFF170F0D),
                       ),
                     ),
                   ],
@@ -1917,7 +1915,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                             hintText: 'e.g. 85',
                             labelStyle: TextStyle(color: Colors.blueGrey),
                             filled: true,
-                            fillColor: const Color(0xFF170F0D),
+                            fillColor: Color(0xFF170F0D),
                           ),
                         ),
                       ),
@@ -1931,7 +1929,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                             labelText: 'Total Marks',
                             labelStyle: TextStyle(color: Colors.blueGrey),
                             filled: true,
-                            fillColor: const Color(0xFF170F0D),
+                            fillColor: Color(0xFF170F0D),
                           ),
                         ),
                       ),
@@ -1947,7 +1945,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       hintText: 'e.g. 45',
                       labelStyle: TextStyle(color: Colors.blueGrey),
                       filled: true,
-                      fillColor: const Color(0xFF170F0D),
+                      fillColor: Color(0xFF170F0D),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1993,9 +1991,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF2B78A).withOpacity(0.15),
+                            color: const Color(0xFFF2B78A).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFF2B78A).withOpacity(0.3)),
+                            border: Border.all(color: const Color(0xFFF2B78A).withValues(alpha: 0.3)),
                           ),
                           child: const Row(
                             children: [
@@ -2024,8 +2022,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: journalInputs[i].type == 'mistake'
-                              ? const Color(0xFFEF4444).withOpacity(0.4)
-                              : const Color(0xFF10B981).withOpacity(0.4),
+                              ? const Color(0xFFEF4444).withValues(alpha: 0.4)
+                              : const Color(0xFF10B981).withValues(alpha: 0.4),
                         ),
                       ),
                       child: Column(
@@ -2251,19 +2249,19 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       labelText: 'Exam Name',
                       labelStyle: TextStyle(color: Colors.blueGrey),
                       filled: true,
-                      fillColor: const Color(0xFF170F0D),
+                      fillColor: Color(0xFF170F0D),
                     ),
                   ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
-                    value: dynamicSubjects.contains(selectedSubject) ? selectedSubject : 'Other',
+                    initialValue: dynamicSubjects.contains(selectedSubject) ? selectedSubject : 'Other',
                     dropdownColor: const Color(0xFF1C1412),
                     style: const TextStyle(color: Colors.white, fontSize: 13),
                     decoration: const InputDecoration(
                       labelText: 'Subject',
                       labelStyle: TextStyle(color: Colors.blueGrey),
                       filled: true,
-                      fillColor: const Color(0xFF170F0D),
+                      fillColor: Color(0xFF170F0D),
                     ),
                     items: dynamicSubjects.map((subj) {
                       return DropdownMenuItem(value: subj, child: Text(subj));
@@ -2283,7 +2281,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         labelText: 'Custom Subject Name',
                         labelStyle: TextStyle(color: Colors.blueGrey),
                         filled: true,
-                        fillColor: const Color(0xFF170F0D),
+                        fillColor: Color(0xFF170F0D),
                       ),
                     ),
                   ],
@@ -2331,7 +2329,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                             labelText: 'Marks Obtained',
                             labelStyle: TextStyle(color: Colors.blueGrey),
                             filled: true,
-                            fillColor: const Color(0xFF170F0D),
+                            fillColor: Color(0xFF170F0D),
                           ),
                         ),
                       ),
@@ -2345,7 +2343,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                             labelText: 'Total Marks',
                             labelStyle: TextStyle(color: Colors.blueGrey),
                             filled: true,
-                            fillColor: const Color(0xFF170F0D),
+                            fillColor: Color(0xFF170F0D),
                           ),
                         ),
                       ),
@@ -2361,7 +2359,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       hintText: 'e.g. 45',
                       labelStyle: TextStyle(color: Colors.blueGrey),
                       filled: true,
-                      fillColor: const Color(0xFF170F0D),
+                      fillColor: Color(0xFF170F0D),
                     ),
                   ),
                 ],
@@ -2444,10 +2442,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: isAbsent ? cardColor.withOpacity(0.6) : cardColor,
+            color: isAbsent ? cardColor.withValues(alpha: 0.6) : cardColor,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isAbsent ? Colors.blueGrey.shade700 : Colors.white.withOpacity(0.06),
+              color: isAbsent ? Colors.blueGrey.shade700 : Colors.white.withValues(alpha: 0.06),
             ),
           ),
           child: Row(
@@ -2475,7 +2473,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.blueGrey.withOpacity(0.2),
+                              color: Colors.blueGrey.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
@@ -2573,7 +2571,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -2797,7 +2795,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF2B78A).withOpacity(0.15),
+                      color: const Color(0xFFF2B78A).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.assignment_turned_in_rounded, color: Color(0xFFF2B78A), size: 20),
@@ -2822,7 +2820,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withOpacity(0.15),
+                      color: const Color(0xFF10B981).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.event_note_rounded, color: Color(0xFF10B981), size: 20),
@@ -3510,7 +3508,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                               color: isSel ? const Color(0xFFF2B78A) : const Color(0xFF170F0D),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: isSel ? const Color(0xFFF2B78A) : Colors.white.withOpacity(0.1),
+                                color: isSel ? const Color(0xFFF2B78A) : Colors.white.withValues(alpha: 0.1),
                               ),
                             ),
                             child: Text(
@@ -3553,7 +3551,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF170F0D),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                                 ),
                                 child: Row(
                                   children: [
@@ -3597,7 +3595,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF170F0D),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                                 ),
                                 child: Row(
                                   children: [
@@ -3841,10 +3839,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.25) : Colors.white.withOpacity(0.06),
+          color: isSelected ? color.withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? color : Colors.white.withOpacity(0.12),
+            color: isSelected ? color : Colors.white.withValues(alpha: 0.12),
             width: isSelected ? 1.2 : 1.0,
           ),
         ),
@@ -3984,10 +3982,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B).withOpacity(0.15),
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                              color: const Color(0xFFF59E0B).withOpacity(0.35), width: 0.6),
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.35), width: 0.6),
                         ),
                         child: Text(
                           routine.recurrence == 'biweekly_a'
@@ -4133,9 +4131,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF59E0B).withOpacity(0.12),
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
                 ),
                 child: const Row(
                   children: [
@@ -4203,9 +4201,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF2B78A).withOpacity(0.12),
+                          color: const Color(0xFFF2B78A).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFF2B78A).withOpacity(0.4)),
+                          border: Border.all(color: const Color(0xFFF2B78A).withValues(alpha: 0.4)),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
@@ -4256,7 +4254,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           Container(
             padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
-              color: const Color(0xFFF59E0B).withOpacity(0.12),
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.sync_disabled_rounded, color: Color(0xFFF59E0B), size: 16),
@@ -4322,7 +4320,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFF2E201B),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFF2B78A).withOpacity(0.5)),
+                border: Border.all(color: const Color(0xFFF2B78A).withValues(alpha: 0.5)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -4701,12 +4699,12 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isPostponed
-                ? const Color(0xFFF59E0B).withOpacity(0.35)
+                ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
                 : (isCompleted
-                    ? const Color(0xFF10B981).withOpacity(0.4)
+                    ? const Color(0xFF10B981).withValues(alpha: 0.4)
                     : (isMissed
-                        ? const Color(0xFFEF4444).withOpacity(0.4)
-                        : const Color(0xFFF2B78A).withOpacity(0.3))),
+                        ? const Color(0xFFEF4444).withValues(alpha: 0.4)
+                        : const Color(0xFFF2B78A).withValues(alpha: 0.3))),
           ),
         ),
         child: Column(
@@ -4720,7 +4718,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF2B78A).withOpacity(0.15),
+                        color: const Color(0xFFF2B78A).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -4739,9 +4737,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withOpacity(0.15),
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)),
+                      border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -4759,9 +4757,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withOpacity(0.15),
+                      color: const Color(0xFF10B981).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                      border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
@@ -4779,9 +4777,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444).withOpacity(0.15),
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.4)),
+                      border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.4)),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
@@ -4810,7 +4808,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF170F0D),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -5126,7 +5124,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   const Text('SELECT COURSE', style: TextStyle(color: Color(0xFFF2B78A), fontSize: 11, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
-                    value: selectedCourseId,
+                    initialValue: selectedCourseId,
                     dropdownColor: const Color(0xFF1C1412),
                     style: const TextStyle(color: Colors.white, fontSize: 13.5),
                     decoration: InputDecoration(
@@ -5474,9 +5472,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               'Record Lecture Topic',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                             ),
                             Text(
                               effectiveCourseName.isNotEmpty ? effectiveCourseName : effectiveCourseId,
@@ -5921,7 +5919,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF2B78A).withOpacity(0.15),
+                        color: const Color(0xFFF2B78A).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.tune_rounded, color: Color(0xFFF2B78A), size: 20),
@@ -5954,7 +5952,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF2B78A).withOpacity(0.12),
+                      color: const Color(0xFFF2B78A).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.schedule_send_rounded, color: Color(0xFFF2B78A), size: 20),
@@ -5978,7 +5976,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                     leading: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withOpacity(0.12),
+                        color: const Color(0xFF10B981).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF10B981), size: 20),
@@ -6049,7 +6047,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withOpacity(0.12),
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.event_busy_rounded, color: Color(0xFFF59E0B), size: 20),
@@ -6247,7 +6245,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444).withOpacity(0.12),
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 20),
@@ -6772,7 +6770,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B).withOpacity(0.15),
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.beach_access_rounded, color: Color(0xFFF59E0B), size: 20),
@@ -7249,7 +7247,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         decoration: BoxDecoration(
                           color: const Color(0xFF170F0D),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: badgeColor.withOpacity(0.2)),
+                          border: Border.all(color: badgeColor.withValues(alpha: 0.2)),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -7264,7 +7262,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: badgeColor.withOpacity(0.18),
+                                        color: badgeColor.withValues(alpha: 0.18),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
@@ -7344,9 +7342,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     if (uid == null) {
-      return Scaffold(
+      return const Scaffold(
         backgroundColor: backgroundColor,
-        body: const Center(child: Text('Please sign in to view planner', style: TextStyle(color: Colors.white))),
+        body: Center(child: Text('Please sign in to view planner', style: TextStyle(color: Colors.white))),
       );
     }
 
@@ -7817,7 +7815,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                             child: Text(
                                               '${day.day}',
                                               style: TextStyle(
-                                                color: isHol ? Colors.redAccent.withOpacity(0.4) : Colors.white24,
+                                                color: isHol ? Colors.redAccent.withValues(alpha: 0.4) : Colors.white24,
                                                 fontSize: 12.5,
                                               ),
                                             ),
@@ -7881,9 +7879,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                 decoration: BoxDecoration(
-                                                  color: const Color(0xFF8B5CF6).withOpacity(0.18),
+                                                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.18),
                                                   borderRadius: BorderRadius.circular(8),
-                                                  border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.4)),
+                                                  border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.4)),
                                                 ),
                                                 child: const Text('Exam Period', style: TextStyle(color: Color(0xFFA78BFA), fontSize: 11, fontWeight: FontWeight.bold)),
                                               )
@@ -7891,9 +7889,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                 decoration: BoxDecoration(
-                                                  color: Colors.redAccent.withOpacity(0.18),
+                                                  color: Colors.redAccent.withValues(alpha: 0.18),
                                                   borderRadius: BorderRadius.circular(8),
-                                                  border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
+                                                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
                                                 ),
                                                 child: const Text('Holiday', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold)),
                                               ),
@@ -7917,16 +7915,16 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                           margin: const EdgeInsets.only(bottom: 14),
                                           padding: const EdgeInsets.all(16),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFF8B5CF6).withOpacity(0.12),
+                                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.12),
                                             borderRadius: BorderRadius.circular(16),
-                                            border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.35)),
+                                            border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.35)),
                                           ),
                                           child: Row(
                                             children: [
                                               Container(
                                                 padding: const EdgeInsets.all(10),
                                                 decoration: BoxDecoration(
-                                                  color: const Color(0xFF8B5CF6).withOpacity(0.2),
+                                                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
                                                   shape: BoxShape.circle,
                                                 ),
                                                 child: const Icon(Icons.assignment_late_rounded, color: Color(0xFFA78BFA), size: 24),
@@ -7958,16 +7956,16 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                           margin: const EdgeInsets.only(bottom: 14),
                                           padding: const EdgeInsets.all(16),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFEF4444).withOpacity(0.12),
+                                            color: const Color(0xFFEF4444).withValues(alpha: 0.12),
                                             borderRadius: BorderRadius.circular(16),
-                                            border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.3)),
+                                            border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
                                           ),
                                           child: Row(
                                             children: [
                                               Container(
                                                 padding: const EdgeInsets.all(10),
                                                 decoration: BoxDecoration(
-                                                  color: const Color(0xFFEF4444).withOpacity(0.2),
+                                                  color: const Color(0xFFEF4444).withValues(alpha: 0.2),
                                                   shape: BoxShape.circle,
                                                 ),
                                                 child: const Icon(Icons.beach_access_rounded, color: Colors.redAccent, size: 24),
@@ -8030,7 +8028,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                         decoration: BoxDecoration(
                                           color: cardColor,
                                           borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.2)),
+                                          border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.2)),
                                         ),
                                         child: Center(
                                           child: Text(
@@ -8092,9 +8090,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                       margin: const EdgeInsets.only(bottom: 12),
                                       padding: const EdgeInsets.all(16),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFF59E0B).withOpacity(0.1),
+                                        color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                                        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
                                       ),
                                       child: Row(
                                         children: [
@@ -8173,7 +8171,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                         decoration: BoxDecoration(
                                           color: cardColor,
                                           borderRadius: BorderRadius.circular(14),
-                                          border: Border.all(color: Colors.white.withOpacity(0.06)),
+                                          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                                         ),
                                         child: Center(
                                           child: Text(
@@ -8637,7 +8635,7 @@ class _CreateAssessmentDialogState extends State<CreateAssessmentDialog> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: accentColor.withOpacity(0.15),
+                        color: accentColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.add_task_rounded, color: accentColor, size: 20),

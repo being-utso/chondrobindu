@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../providers/firestore_providers.dart';
 import '../providers/nav_provider.dart';
+import '../providers/timer_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../utils/safe_haptics.dart';
 import '../widgets/academic_onboarding_modal.dart';
@@ -251,8 +252,8 @@ class HomeScreen extends ConsumerWidget {
       streak = (profile?.streakDays as int?) ?? 0;
     } catch (_) {}
 
-    final streakText = streak > 0 ? '$streak ${streak == 1 ? 'day' : 'days'}' : '28 days';
-    final streakSubtitle = streak > 0 ? 'Active momentum' : '▲ +3 this week';
+    final streakText = '$streak ${streak == 1 ? 'day' : 'days'}';
+    final streakSubtitle = streak > 0 ? 'Active momentum' : 'Start your streak today';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -343,8 +344,8 @@ class HomeScreen extends ConsumerWidget {
       sessions = (profile?.completedSessionsCount as int?) ?? 0;
     } catch (_) {}
 
-    final hrs = totalMins > 0 ? (totalMins / 60.0).toStringAsFixed(1) : '124.5';
-    final sessionsText = sessions > 0 ? 'in $sessions ${sessions == 1 ? 'session' : 'sessions'}' : 'in 326 sessions';
+    final hrs = (totalMins / 60.0).toStringAsFixed(1);
+    final sessionsText = 'in $sessions ${sessions == 1 ? 'session' : 'sessions'}';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -582,38 +583,27 @@ class HomeScreen extends ConsumerWidget {
 
           const SizedBox(height: 16),
 
-          if (slots.isEmpty) ...[
+          if (slots.isEmpty)
             Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
-              child: _agendaItem(
-                time: '10:00 AM',
-                title: 'Signals & Systems',
-                subtitle: 'LT-1, Room 302',
-                type: 'Lecture',
-                teacherBadge: 'MSR',
-                isOngoing: true,
+              padding: const EdgeInsets.symmetric(vertical: 24.0),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.event_available_outlined, color: Color(0xFF9E8C82), size: 28),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No classes scheduled for today.',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: const Color(0xFF9E8C82),
+                        fontSize: 13.5,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
-              child: _agendaItem(
-                time: '12:00 PM',
-                title: 'Circuit Lab',
-                subtitle: 'Lab-2, EEE Building',
-                type: 'Lab',
-                teacherBadge: 'ARH',
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
-              child: _agendaItem(
-                time: '02:00 PM',
-                title: 'Control Systems',
-                subtitle: 'LT-4, Room 401',
-                type: 'Lecture',
-              ),
-            ),
-          ] else ...[
+            )
+          else ...[
             ...slots.take(4).map((slot) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
@@ -728,7 +718,7 @@ class HomeScreen extends ConsumerWidget {
         ? (activeCourse.courseCode.isNotEmpty
             ? '${activeCourse.courseCode} • ${activeCourse.courseName}'
             : activeCourse.courseName)
-        : 'Signals & Systems • Chapter 3: Time Shifting and Scaling';
+        : 'Select or create a course to begin';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -794,6 +784,9 @@ class HomeScreen extends ConsumerWidget {
             ),
             onPressed: () {
               SafeHaptics.mediumImpact();
+              if (activeCourse != null) {
+                ref.read(timerProvider.notifier).changeSubject(activeCourse.title);
+              }
               ref.read(navigationIndexProvider.notifier).state = 2; // Jump to Timer
             },
             icon: const Icon(Icons.play_arrow_rounded, size: 20),
@@ -846,13 +839,20 @@ class HomeScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
-          if (courses.isEmpty) ...[
-            _courseProgressRow('EEE 2105', 'Signals & Systems', 0.68, '68%', 'MSR'),
-            const SizedBox(height: 10),
-            _courseProgressRow('EEE 2101', 'Electronic Circuits I', 0.82, '82%', 'ARH'),
-            const SizedBox(height: 10),
-            _courseProgressRow('MATH 2103', 'Complex Variables', 0.45, '45%', null),
-          ] else ...[
+          if (courses.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              child: Center(
+                child: Text(
+                  'No active courses enrolled yet.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: const Color(0xFF9E8C82),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            )
+          else ...[
             ...courses.take(4).map((c) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10.0),

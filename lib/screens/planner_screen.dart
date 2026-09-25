@@ -8,8 +8,6 @@ import '../providers/firestore_providers.dart';
 import '../utils/safe_haptics.dart';
 import 'exams_screen.dart' as mobile;
 
-export 'exams_screen.dart';
-
 /// Screen 04: Planner & Routine Matrix
 /// Responsive desktop timetable grid (width >= 800) with mobile fallback to ExamsScreen.
 class PlannerScreen extends ConsumerStatefulWidget {
@@ -24,103 +22,6 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   String _rightPanelTab = 'Assessments';
 
   final List<String> _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-  static final List<RoutineSlot> _fallbackRoutineSlots = [
-    const RoutineSlot(
-      id: 'slot_1',
-      courseId: 'c1',
-      courseCode: 'EEE 2105',
-      courseTitle: 'Signals & Systems',
-      dayOfWeek: 1, // Mon
-      startTime: '10:00 AM',
-      endTime: '11:30 AM',
-      room: 'LT-1, Room 302',
-      teacherBadge: 'MSR',
-      slotType: CourseType.theory,
-    ),
-    const RoutineSlot(
-      id: 'slot_2',
-      courseId: 'c2',
-      courseCode: 'EEE 2106',
-      courseTitle: 'Signals Lab',
-      dayOfWeek: 1, // Mon
-      startTime: '12:00 PM',
-      endTime: '03:00 PM',
-      room: 'Lab-2, EEE',
-      teacherBadge: 'MSR',
-      slotType: CourseType.sessional,
-    ),
-    const RoutineSlot(
-      id: 'slot_3',
-      courseId: 'c3',
-      courseCode: 'EEE 2101',
-      courseTitle: 'Electronic Circuits I',
-      dayOfWeek: 2, // Tue
-      startTime: '09:00 AM',
-      endTime: '10:30 AM',
-      room: 'LT-2, Room 204',
-      teacherBadge: 'ARH',
-      slotType: CourseType.theory,
-    ),
-    const RoutineSlot(
-      id: 'slot_4',
-      courseId: 'c4',
-      courseCode: 'MATH 2103',
-      courseTitle: 'Complex Variables',
-      dayOfWeek: 2, // Tue
-      startTime: '11:00 AM',
-      endTime: '12:30 PM',
-      room: 'LT-1, Room 301',
-      slotType: CourseType.theory,
-    ),
-    const RoutineSlot(
-      id: 'slot_5',
-      courseId: 'c1',
-      courseCode: 'EEE 2105',
-      courseTitle: 'Signals & Systems',
-      dayOfWeek: 3, // Wed
-      startTime: '10:00 AM',
-      endTime: '11:30 AM',
-      room: 'LT-1, Room 302',
-      teacherBadge: 'MSR',
-      slotType: CourseType.theory,
-    ),
-    const RoutineSlot(
-      id: 'slot_6',
-      courseId: 'c5',
-      courseCode: 'CSE 2110',
-      courseTitle: 'Data Structures Lab',
-      dayOfWeek: 3, // Wed
-      startTime: '02:00 PM',
-      endTime: '05:00 PM',
-      room: 'Software Lab 3',
-      teacherBadge: 'NA',
-      slotType: CourseType.sessional,
-    ),
-    const RoutineSlot(
-      id: 'slot_7',
-      courseId: 'c3',
-      courseCode: 'EEE 2101',
-      courseTitle: 'Electronic Circuits I',
-      dayOfWeek: 4, // Thu
-      startTime: '10:00 AM',
-      endTime: '11:30 AM',
-      room: 'LT-2, Room 204',
-      teacherBadge: 'ARH',
-      slotType: CourseType.theory,
-    ),
-    const RoutineSlot(
-      id: 'slot_8',
-      courseId: 'c6',
-      courseCode: 'HUM 2107',
-      courseTitle: 'Engineering Economics',
-      dayOfWeek: 4, // Thu
-      startTime: '12:00 PM',
-      endTime: '01:30 PM',
-      room: 'LT-4, Room 401',
-      slotType: CourseType.theory,
-    ),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -268,9 +169,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   // --- SECTION B: 7-Column Timetable Grid ---
   Widget _buildWeeklyTimetableGrid() {
     final routineAsync = ref.watch(weeklyRoutineStreamProvider);
-    final List<RoutineSlot> allSlots = (routineAsync.value != null && routineAsync.value!.isNotEmpty)
-        ? routineAsync.value!
-        : _fallbackRoutineSlots;
+    final List<RoutineSlot> allSlots = routineAsync.value ?? [];
 
     final todayIndex = DateTime.now().weekday - 1; // 0..6
     final todayDayName = (todayIndex >= 0 && todayIndex < _days.length) ? _days[todayIndex] : 'Thu';
@@ -322,36 +221,56 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           ),
 
           // Time Slots Grid
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: List.generate(_days.length, (index) {
-                final dayNum = index + 1; // 1 = Monday ... 7 = Sunday
-                final daySlots = allSlots.where((s) => s.dayOfWeek == dayNum).toList()
-                  ..sort((a, b) => a.startTime.compareTo(b.startTime));
-                return Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+          allSlots.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 48.0),
+                  child: Center(
                     child: Column(
-                      children: daySlots.isNotEmpty
-                          ? daySlots.map((slot) => _buildLectureSlotCard(slot)).toList()
-                          : [
-                              Container(
-                                height: 120,
-                                alignment: Alignment.center,
-                                child: Text(
-                                  '—',
-                                  style: GoogleFonts.jetBrainsMono(color: const Color(0xFF382A24)),
-                                ),
-                              ),
-                            ],
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.calendar_today_outlined, color: Color(0xFF9E8C82), size: 36),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No scheduled classes',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFF9E8C82),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                );
-              }),
-            ),
-          ),
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: List.generate(_days.length, (index) {
+                      final dayNum = index + 1; // 1 = Monday ... 7 = Sunday
+                      final daySlots = allSlots.where((s) => s.dayOfWeek == dayNum).toList()
+                        ..sort((a, b) => a.startTime.compareTo(b.startTime));
+                      return Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Column(
+                            children: daySlots.isNotEmpty
+                                ? daySlots.map((slot) => _buildLectureSlotCard(slot)).toList()
+                                : [
+                                    Container(
+                                      height: 120,
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        '—',
+                                        style: GoogleFonts.jetBrainsMono(color: const Color(0xFF382A24)),
+                                      ),
+                                    ),
+                                  ],
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
         ],
       ),
     );
@@ -540,31 +459,17 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     }
 
     return [
-      _assessmentCard(
-        title: 'CT 1',
-        course: 'Signals & Systems',
-        date: 'Oct 5',
-        marks: '15 marks',
-        daysLeft: '12 days left',
-        color: const Color(0xFFF2B78A),
-      ),
-      const SizedBox(height: 10),
-      _assessmentCard(
-        title: 'Lab Report 1',
-        course: 'Circuit Lab',
-        date: 'Oct 8',
-        marks: '15 marks',
-        daysLeft: '15 days left',
-        color: const Color(0xFF34D399),
-      ),
-      const SizedBox(height: 10),
-      _assessmentCard(
-        title: 'Midterm Exam',
-        course: 'Control Systems',
-        date: 'Oct 15',
-        marks: '25 marks',
-        daysLeft: '21 days left',
-        color: const Color(0xFFF2B78A),
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 28.0),
+        child: Center(
+          child: Text(
+            'No upcoming assessments.',
+            style: GoogleFonts.plusJakartaSans(
+              color: const Color(0xFF9E8C82),
+              fontSize: 13,
+            ),
+          ),
+        ),
       ),
     ];
   }
@@ -591,13 +496,18 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     }
 
     return [
-      _attendanceRow('EEE 2105', 'Signals & Systems', '88%', '22 / 25', const Color(0xFF34D399)),
-      const SizedBox(height: 12),
-      _attendanceRow('EEE 2101', 'Electronic Circuits I', '92%', '23 / 25', const Color(0xFF34D399)),
-      const SizedBox(height: 12),
-      _attendanceRow('MATH 2103', 'Complex Variables', '75%', '18 / 24', const Color(0xFFF2B78A)),
-      const SizedBox(height: 12),
-      _attendanceRow('HUM 2107', 'Engineering Economics', '80%', '16 / 20', const Color(0xFF34D399)),
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 28.0),
+        child: Center(
+          child: Text(
+            'No courses enrolled yet.',
+            style: GoogleFonts.plusJakartaSans(
+              color: const Color(0xFF9E8C82),
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ),
     ];
   }
 

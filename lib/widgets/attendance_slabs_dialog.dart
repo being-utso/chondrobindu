@@ -82,7 +82,7 @@ class _AttendanceSlabsDialogState extends State<AttendanceSlabsDialog> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: accentColor.withOpacity(0.15),
+                          color: accentColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.bar_chart_rounded, color: accentColor, size: 20),
@@ -118,7 +118,7 @@ class _AttendanceSlabsDialogState extends State<AttendanceSlabsDialog> {
                 decoration: BoxDecoration(
                   color: cardColor,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: emeraldColor.withOpacity(0.3), width: 0.8),
+                  border: Border.all(color: emeraldColor.withValues(alpha: 0.3), width: 0.8),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -171,7 +171,7 @@ class _AttendanceSlabsDialogState extends State<AttendanceSlabsDialog> {
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isCurrent ? accentColor.withOpacity(0.12) : cardColor,
+                    color: isCurrent ? accentColor.withValues(alpha: 0.12) : cardColor,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isCurrent ? accentColor : borderColor,

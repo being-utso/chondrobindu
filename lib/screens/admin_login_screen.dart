@@ -142,7 +142,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
               border: Border.all(color: const Color(0xFF382A24)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -158,9 +158,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.12),
+                      color: accentColor.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
-                      border: Border.all(color: accentColor.withOpacity(0.3)),
+                      border: Border.all(color: accentColor.withValues(alpha: 0.3)),
                     ),
                     child: const Icon(
                       Icons.admin_panel_settings_rounded,

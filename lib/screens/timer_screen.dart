@@ -29,7 +29,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   // Desktop Suite State
   final TextEditingController _desktopScratchpadController = TextEditingController();
-  final Set<String> _selectedDesktopTopics = {'3.1', '3.2', '3.3'};
+  final Set<String> _selectedDesktopTopics = {};
   bool _desktopSoundEnabled = true;
 
   // Onboarding Tour Keys
@@ -289,13 +289,16 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
             children: [
               const Icon(Icons.school_outlined, color: Color(0xFFF2B78A), size: 18),
               const SizedBox(width: 8),
-              Text(
-                'TARGET COURSE',
-                style: GoogleFonts.jetBrainsMono(
-                  color: const Color(0xFF9E8C82),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.0,
+              Expanded(
+                child: Text(
+                  'TARGET COURSE',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: const Color(0xFF9E8C82),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.0,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -341,13 +344,16 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
             children: [
               const Icon(Icons.checklist_rounded, color: Color(0xFF34D399), size: 18),
               const SizedBox(width: 8),
-              Text(
-                'SELECT ATOMIC TOPICS',
-                style: GoogleFonts.jetBrainsMono(
-                  color: const Color(0xFF9E8C82),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.0,
+              Expanded(
+                child: Text(
+                  'SELECT ATOMIC TOPICS',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: const Color(0xFF9E8C82),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.0,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -372,11 +378,16 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
               }
             }
             return [
-              _desktopTopicCheckbox('3.1', 'Definition and classification of signals'),
-              _desktopTopicCheckbox('3.2', 'Elementary continuous-time signals'),
-              _desktopTopicCheckbox('3.3', 'Time shifting and scaling'),
-              _desktopTopicCheckbox('3.4', 'Signal addition and multiplication'),
-              _desktopTopicCheckbox('3.5', 'Even and odd signals'),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Text(
+                  'No topics found for this subject. Add topics to your course syllabus.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: const Color(0xFF9E8C82),
+                    fontSize: 12.5,
+                  ),
+                ),
+              ),
             ];
           })(),
 
@@ -386,13 +397,16 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
             children: [
               const Icon(Icons.edit_note_rounded, color: Color(0xFFF2B78A), size: 18),
               const SizedBox(width: 8),
-              Text(
-                'SCRATCHPAD / FOCUS NOTES',
-                style: GoogleFonts.jetBrainsMono(
-                  color: const Color(0xFF9E8C82),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.0,
+              Expanded(
+                child: Text(
+                  'SCRATCHPAD / FOCUS NOTES',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: const Color(0xFF9E8C82),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.0,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -722,7 +736,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           const SizedBox(height: 10),
           _summaryRow('Short Break', '5 min'),
           const SizedBox(height: 10),
-          _summaryRow('Cycle Ratio', '5:1 Focus-to-Rest'),
+          _summaryRow('Cycle Ratio', '5:1 Focus/Rest'),
 
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 18.0),
@@ -742,20 +756,27 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '2 / 5 cycles',
-                style: GoogleFonts.jetBrainsMono(
-                  color: const Color(0xFFEDE8E3),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+              Flexible(
+                child: Text(
+                  '2 / 5 cycles',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: const Color(0xFFEDE8E3),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Text(
-                '2h 10m focused',
-                style: GoogleFonts.jetBrainsMono(
-                  color: const Color(0xFF34D399),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  '2h 10m focused',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: const Color(0xFF34D399),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -807,16 +828,23 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-        Text(
-          value,
-          style: GoogleFonts.jetBrainsMono(
-            color: const Color(0xFFEDE8E3),
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            style: GoogleFonts.jetBrainsMono(
+              color: const Color(0xFFEDE8E3),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -865,9 +893,9 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                       decoration: BoxDecoration(
-                        color: themeColor.withOpacity(0.12),
+                        color: themeColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: themeColor.withOpacity(0.25)),
+                        border: Border.all(color: themeColor.withValues(alpha: 0.25)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -914,7 +942,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                                 fontFeatures: const [FontFeature.tabularFigures()],
                                 shadows: [
                                   Shadow(
-                                    color: themeColor.withOpacity(isRunning ? _glowAnimation.value : 0.1),
+                                    color: themeColor.withValues(alpha: isRunning ? _glowAnimation.value : 0.1),
                                     offset: const Offset(0, 4),
                                     blurRadius: isRunning ? (16 + (_pulseController.value * 14)) : 10,
                                   ),
@@ -945,7 +973,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                       style: TextStyle(
                         color: isBreak
                             ? const Color(0xFF7B968B)
-                            : (timerState.isOvertime ? const Color(0xFFF2B78A) : Colors.white.withOpacity(0.45)),
+                            : (timerState.isOvertime ? const Color(0xFFF2B78A) : Colors.white.withValues(alpha: 0.45)),
                         fontSize: 12,
                         fontWeight: (isBreak || timerState.isOvertime) ? FontWeight.w600 : FontWeight.w500,
                         letterSpacing: 0.5,
@@ -963,7 +991,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                 child: Center(
                   child: IconButton(
                     iconSize: 42,
-                    color: Colors.white.withOpacity(0.35),
+                    color: Colors.white.withValues(alpha: 0.35),
                     tooltip: isRunning ? 'Pause' : 'Resume',
                     onPressed: () {
                       SafeHaptics.lightImpact();
@@ -1071,9 +1099,9 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: (isBreak ? breakColor : (timerState.isOvertime ? accentColor : currentColor)).withOpacity(0.15),
+                      color: (isBreak ? breakColor : (timerState.isOvertime ? accentColor : currentColor)).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: (isBreak ? breakColor : (timerState.isOvertime ? accentColor : currentColor)).withOpacity(0.3)),
+                      border: Border.all(color: (isBreak ? breakColor : (timerState.isOvertime ? accentColor : currentColor)).withValues(alpha: 0.3)),
                     ),
                     child: Text(
                       isBreak
@@ -1113,7 +1141,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                   decoration: BoxDecoration(
                     color: cardColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.06)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                   ),
                   child: Row(
                     children: [
@@ -1137,11 +1165,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             decoration: BoxDecoration(
                               color: !isStopwatch
-                                  ? accentColor.withOpacity(0.2)
+                                  ? accentColor.withValues(alpha: 0.2)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(8),
                               border: !isStopwatch
-                                  ? Border.all(color: accentColor.withOpacity(0.4))
+                                  ? Border.all(color: accentColor.withValues(alpha: 0.4))
                                   : null,
                             ),
                             child: Center(
@@ -1190,11 +1218,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             decoration: BoxDecoration(
                               color: isStopwatch
-                                  ? const Color(0xFFA78BFA).withOpacity(0.2)
+                                  ? const Color(0xFFA78BFA).withValues(alpha: 0.2)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(8),
                               border: isStopwatch
-                                  ? Border.all(color: const Color(0xFFA78BFA).withOpacity(0.4))
+                                  ? Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.4))
                                   : null,
                             ),
                             child: Center(
@@ -1236,7 +1264,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                   decoration: BoxDecoration(
                     color: cardColor,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: accentColor.withOpacity(0.25)),
+                    border: Border.all(color: accentColor.withValues(alpha: 0.25)),
                   ),
                   child: Row(
                     children: [
@@ -1305,7 +1333,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                   decoration: BoxDecoration(
                     color: cardColor,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: breakColor.withOpacity(0.3)),
+                    border: Border.all(color: breakColor.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
@@ -1320,7 +1348,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: breakColor.withOpacity(0.15),
+                          color: breakColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Text(
@@ -1357,7 +1385,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                           decoration: BoxDecoration(
                             color: cardColor,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withOpacity(0.08)),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                           ),
                           child: const Center(
                             child: Icon(
@@ -1400,11 +1428,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                                   boxShadow: [
                                     BoxShadow(
                                       color: isBreak
-                                          ? const Color(0xFF064E3B).withOpacity(0.40)
+                                          ? const Color(0xFF064E3B).withValues(alpha: 0.40)
                                           : (isStopwatch
                                               ? const Color(0xFFA855F7)
                                               : (timerState.isOvertime ? const Color(0xFFF2B78A) : currentColor))
-                                              .withOpacity(isRunning ? _glowAnimation.value : 0.08),
+                                              .withValues(alpha: isRunning ? _glowAnimation.value : 0.08),
                                       blurRadius: isRunning ? (24 + (_pulseController.value * 14)) : 12,
                                       spreadRadius: isRunning ? (1 + (_pulseController.value * 3)) : 0,
                                     ),
@@ -1433,7 +1461,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                                             : const Color(0xFF261D1A)),
                                     dialFillColor: isBreak ? const Color(0xFF0F1412) : const Color(0xFF1A1513),
                                     borderColor: isBreak ? const Color(0xFF1A2420) : const Color(0xFF2D2420),
-                                    glowColor: isBreak ? const Color(0xFF064E3B).withOpacity(0.40) : null,
+                                    glowColor: isBreak ? const Color(0xFF064E3B).withValues(alpha: 0.40) : null,
                                     strokeWidth: 9.0,
                                   ),
                                 ),
@@ -1501,7 +1529,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                           decoration: BoxDecoration(
                             color: cardColor,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withOpacity(0.08)),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                           ),
                           child: const Center(
                             child: Icon(
@@ -1529,12 +1557,12 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                   color: const Color(0xFF1A1513),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: const Color(0xFF059669).withOpacity(0.3),
+                    color: const Color(0xFF059669).withValues(alpha: 0.3),
                     width: 1.0,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF059669).withOpacity(0.06),
+                      color: const Color(0xFF059669).withValues(alpha: 0.06),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -1572,7 +1600,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                       child: ChoiceChip(
                         label: Text('${mins}m'),
                         selected: isSelected,
-                        selectedColor: accentColor.withOpacity(0.2),
+                        selectedColor: accentColor.withValues(alpha: 0.2),
                         backgroundColor: cardColor,
                         side: BorderSide(
                           color: isSelected ? accentColor : const Color(0xFF4A3830),
@@ -1627,7 +1655,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                             borderRadius: BorderRadius.circular(14),
                           ),
                           elevation: 3,
-                          shadowColor: (isStopwatch ? const Color(0xFFA855F7) : accentColor).withOpacity(0.3),
+                          shadowColor: (isStopwatch ? const Color(0xFFA855F7) : accentColor).withValues(alpha: 0.3),
                         ),
                       ),
                     ),
@@ -1707,7 +1735,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                             backgroundColor: const Color(0xFFF2B78A),
                             foregroundColor: const Color(0xFF140F0E),
                             elevation: 3,
-                            shadowColor: const Color(0xFFF2B78A).withOpacity(0.35),
+                            shadowColor: const Color(0xFFF2B78A).withValues(alpha: 0.35),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(24),
                             ),
@@ -1791,7 +1819,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                             borderRadius: BorderRadius.circular(14),
                           ),
                           elevation: 3,
-                          shadowColor: (isStopwatch ? const Color(0xFFA855F7) : currentColor).withOpacity(0.3),
+                          shadowColor: (isStopwatch ? const Color(0xFFA855F7) : currentColor).withValues(alpha: 0.3),
                         ),
                       ),
                     ),
@@ -1835,7 +1863,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                           foregroundColor: const Color(0xFF34D399),
                           backgroundColor: const Color(0xFF1A1513),
                           side: BorderSide(
-                            color: const Color(0xFF059669).withOpacity(0.5),
+                            color: const Color(0xFF059669).withValues(alpha: 0.5),
                             width: 1.2,
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
@@ -1885,7 +1913,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                           foregroundColor: const Color(0xFFFF5964),
                           backgroundColor: const Color(0xFF1A1513),
                           side: BorderSide(
-                            color: const Color(0xFFFF5964).withOpacity(0.4),
+                            color: const Color(0xFFFF5964).withValues(alpha: 0.4),
                             width: 1.2,
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
@@ -2088,7 +2116,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
       await showDialog<void>(
         context: context,
         barrierDismissible: true,
-        barrierColor: Colors.black.withOpacity(0.65),
+        barrierColor: Colors.black.withValues(alpha: 0.65),
         builder: (dialogCtx) => StudySessionLogDialog(
           metadata: metadata,
           subjectOrCourseName: resolvedSubject,
@@ -2176,8 +2204,8 @@ class TimerDialPainter extends CustomPainter {
       final tickPaint = Paint()
         ..style = PaintingStyle.fill
         ..color = isReached
-            ? primaryColor.withOpacity(0.85)
-            : const Color(0xFF523F37).withOpacity(0.55);
+            ? primaryColor.withValues(alpha: 0.85)
+            : const Color(0xFF523F37).withValues(alpha: 0.55);
 
       final dotRadius = (i == 0) ? 2.8 : 2.0;
       canvas.drawCircle(Offset(tickX, tickY), dotRadius, tickPaint);
@@ -2191,7 +2219,7 @@ class TimerDialPainter extends CustomPainter {
 
       final List<Color> gradientColors = isStopwatch
           ? [primaryColor, secondaryColor]
-          : [primaryColor.withOpacity(0.9), primaryColor];
+          : [primaryColor.withValues(alpha: 0.9), primaryColor];
 
       final gradient = SweepGradient(
         startAngle: 0.0,
@@ -2222,7 +2250,7 @@ class TimerDialPainter extends CustomPainter {
 
       final effectiveGlow = glowColor ?? (isStopwatch ? secondaryColor : primaryColor);
       final tipGlowPaint = Paint()
-        ..color = effectiveGlow.withOpacity(0.55)
+        ..color = effectiveGlow.withValues(alpha: 0.55)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
       canvas.drawCircle(tipCenter, strokeWidth * 0.9, tipGlowPaint);
 

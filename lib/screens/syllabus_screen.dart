@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/syllabus_provider.dart';
-import '../providers/user_provider.dart';
 import '../services/syllabus_factory.dart';
 import '../providers/user_profile_provider.dart';
 import 'university_dashboard_screen.dart';
@@ -716,7 +715,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                           backgroundColor: const Color(0xFF241C1A),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(color: const Color(0xFFF2B78A).withOpacity(0.3)),
+                            side: BorderSide(color: const Color(0xFFF2B78A).withValues(alpha: 0.3)),
                           ),
                           onPressed: () {
                             setModalState(() {
@@ -758,10 +757,10 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 10),
                                 decoration: BoxDecoration(
-                                  color: isAddAction ? const Color(0xFF10B981).withOpacity(0.2) : Colors.transparent,
+                                  color: isAddAction ? const Color(0xFF10B981).withValues(alpha: 0.2) : Colors.transparent,
                                   borderRadius: BorderRadius.circular(8),
                                   border: isAddAction
-                                      ? Border.all(color: const Color(0xFF10B981).withOpacity(0.5))
+                                      ? Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.5))
                                       : null,
                                 ),
                                 child: Center(
@@ -799,10 +798,10 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 10),
                                 decoration: BoxDecoration(
-                                  color: !isAddAction ? const Color(0xFFEF4444).withOpacity(0.2) : Colors.transparent,
+                                  color: !isAddAction ? const Color(0xFFEF4444).withValues(alpha: 0.2) : Colors.transparent,
                                   borderRadius: BorderRadius.circular(8),
                                   border: !isAddAction
-                                      ? Border.all(color: const Color(0xFFEF4444).withOpacity(0.5))
+                                      ? Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5))
                                       : null,
                                 ),
                                 child: Center(
@@ -915,7 +914,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: (isAddAction ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withOpacity(0.1),
+                        color: (isAddAction ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -1474,7 +1473,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                               backgroundColor: cardColor,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                                side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
                               ),
                               onPressed: () => _showSubjectBottomSheet(),
                             ),
@@ -1486,7 +1485,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                               backgroundColor: cardColor,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                                side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
                               ),
                               onPressed: () => _showManageGlobalSectionsModal(),
                             ),
@@ -1506,10 +1505,10 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                                 size: 16,
                                 color: Color(0xFFF2B78A),
                               ),
-                              backgroundColor: const Color(0xFFF2B78A).withOpacity(0.12),
+                              backgroundColor: const Color(0xFFF2B78A).withValues(alpha: 0.12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(color: const Color(0xFFF2B78A).withOpacity(0.35)),
+                                side: BorderSide(color: const Color(0xFFF2B78A).withValues(alpha: 0.35)),
                               ),
                               onPressed: () {
                                 SafeHaptics.lightImpact();
@@ -1549,7 +1548,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 side: BorderSide(
-                                  color: isEditMode ? accentColor : Colors.white.withOpacity(0.08),
+                                  color: isEditMode ? accentColor : Colors.white.withValues(alpha: 0.08),
                                 ),
                               ),
                               showCheckmark: false,
@@ -1613,7 +1612,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
         color: cardColor,
         borderRadius: BorderRadius.circular(16.0),
         border: Border.all(
-          color: isExpanded ? accentColor.withOpacity(0.4) : Colors.white.withOpacity(0.06),
+          color: isExpanded ? accentColor.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.06),
           width: isExpanded ? 1.2 : 1.0,
         ),
       ),
@@ -1633,7 +1632,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.15),
+                color: accentColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(iconData, color: accentColor, size: 22),
@@ -1705,7 +1704,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
           ),
 
           if (isExpanded) ...[
-            Divider(height: 1, color: Colors.white.withOpacity(0.08)),
+            Divider(height: 1, color: Colors.white.withValues(alpha: 0.08)),
             Padding(
               padding: const EdgeInsets.all(14.0),
               child: Column(
@@ -1760,7 +1759,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
         color: const Color(0xFF241C1A),
         borderRadius: BorderRadius.circular(12.0),
         border: Border.all(
-          color: isChapterExpanded ? accentColor.withOpacity(0.3) : const Color(0xFF382A24),
+          color: isChapterExpanded ? accentColor.withValues(alpha: 0.3) : const Color(0xFF382A24),
         ),
       ),
       child: Column(
@@ -1832,7 +1831,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
             ),
           ),
           if (isChapterExpanded) ...[
-            Divider(height: 1, color: Colors.white.withOpacity(0.05)),
+            Divider(height: 1, color: Colors.white.withValues(alpha: 0.05)),
             Padding(
               padding: const EdgeInsets.fromLTRB(8.0, 4.0, 8.0, 8.0),
               child: Column(
@@ -1861,11 +1860,11 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                           margin: const EdgeInsets.symmetric(vertical: 2),
                           decoration: BoxDecoration(
                             color: isSelectedInBatch
-                                ? const Color(0xFFEF4444).withOpacity(0.12)
+                                ? const Color(0xFFEF4444).withValues(alpha: 0.12)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(8),
                             border: isSelectedInBatch
-                                ? Border.all(color: const Color(0xFFEF4444).withOpacity(0.4))
+                                ? Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.4))
                                 : null,
                           ),
                           child: Row(

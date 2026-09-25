@@ -10,22 +10,13 @@ import '../core/constants/quotes_data.dart';
 import '../models/exam_model.dart';
 import '../providers/analytics_provider.dart';
 import '../providers/nav_provider.dart';
-import '../providers/performance_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/exam_service.dart';
 import '../services/syllabus_factory.dart';
-import 'course_syllabus_screen.dart' show CourseSyllabusScreen;
-import 'exams_screen.dart';
-import 'performance_screen.dart';
 import 'profile_screen.dart';
-import 'syllabus_screen.dart';
-import 'timer_screen.dart';
 import '../providers/notes_provider.dart';
-import '../widgets/app_logo.dart';
 import '../widgets/app_preloader.dart';
 import 'journal_screen.dart';
-import '../core/constants/group_constants.dart';
-import '../models/note_model.dart';
 import '../models/assessment_model.dart';
 import '../models/routine_models.dart';
 import 'attendance_matrix_screen.dart';
@@ -35,7 +26,6 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_typography.dart';
 import '../widgets/common/pressable_card.dart';
-import '../widgets/common/app_badge.dart';
 import '../widgets/common/luxury_glass_card.dart';
 import 'package:chondrobindu/utils/safe_haptics.dart';
 
@@ -52,7 +42,7 @@ class HomeDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
-  bool _hasCheckedOnboarding = false;
+  final bool _hasCheckedOnboarding = false;
   final TextEditingController _scratchpadController = TextEditingController();
   Timer? _scratchpadDebounceTimer;
   bool _isSavingScratchpad = false;
@@ -108,8 +98,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
             child: AlertDialog(
               backgroundColor: cardColor,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: Row(
-                children: const [
+              title: const Row(
+                children: [
                   Icon(Icons.waving_hand_rounded, color: Color(0xFFFBBF24), size: 24),
                   SizedBox(width: 10),
                   Expanded(
@@ -165,7 +155,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        value: targetOptions.contains(target) ? target : targetOptions.first,
+                        initialValue: targetOptions.contains(target) ? target : targetOptions.first,
                         dropdownColor: const Color(0xFF170F0D),
                         style: const TextStyle(color: Colors.white, fontSize: 14),
                         decoration: InputDecoration(
@@ -272,8 +262,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           return AlertDialog(
             backgroundColor: cardColor,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Row(
-              children: const [
+            title: const Row(
+              children: [
                 Icon(Icons.calendar_month_rounded, color: accentColor, size: 24),
                 SizedBox(width: 10),
                 Expanded(
@@ -491,7 +481,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               },
               child: CircleAvatar(
                 radius: 19,
-                backgroundColor: accentColor.withOpacity(0.2),
+                backgroundColor: accentColor.withValues(alpha: 0.2),
                 backgroundImage: hasProfileImage ? NetworkImage(effectiveImageUrl) : null,
                 child: !hasProfileImage
                     ? const Icon(
@@ -709,16 +699,16 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.15),
+                      color: accentColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: accentColor.withOpacity(0.3)),
+                      border: Border.all(color: accentColor.withValues(alpha: 0.3)),
                     ),
                     child: Icon(Icons.psychology_rounded, color: accentColor, size: 20),
                   ),
                   const SizedBox(width: 10),
-                  Column(
+                  const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
                         'Brain Dump',
                         style: TextStyle(
@@ -743,16 +733,16 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                       strokeWidth: 1.5,
                       color: accentColor,
                     ),
-                    SizedBox(width: 6),
-                    Text(
+                    const SizedBox(width: 6),
+                    const Text(
                       'Saving...',
                       style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w500),
                     ),
                   ],
                 )
               else if (_scratchpadController.text.trim().isNotEmpty)
-                Row(
-                  children: const [
+                const Row(
+                  children: [
                     Icon(Icons.cloud_done_rounded, color: Color(0xFF34D399), size: 14),
                     SizedBox(width: 4),
                     Text(
@@ -798,15 +788,15 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.06)),
+                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.06)),
+                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: accentColor.withOpacity(0.4)),
+                borderSide: BorderSide(color: accentColor.withValues(alpha: 0.4)),
               ),
             ),
           ),
@@ -931,7 +921,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -939,7 +929,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFFFBBF24).withOpacity(0.15),
+              color: const Color(0xFFFBBF24).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(Icons.format_quote_rounded, color: Color(0xFFFBBF24), size: 20),
@@ -1031,7 +1021,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: accentColor.withOpacity(0.15),
+                          color: accentColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(Icons.assignment_turned_in_rounded, color: accentColor, size: 20),
@@ -1060,9 +1050,9 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: accentColor.withOpacity(0.15),
+                        color: accentColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: accentColor.withOpacity(0.35)),
+                        border: Border.all(color: accentColor.withValues(alpha: 0.35)),
                       ),
                       child: Text(
                         '${upcoming.length} active',
@@ -1139,9 +1129,9 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           decoration: BoxDecoration(
-                            color: badgeColor.withOpacity(0.15),
+                            color: badgeColor.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: badgeColor.withOpacity(0.3)),
+                            border: Border.all(color: badgeColor.withValues(alpha: 0.3)),
                           ),
                           child: Text(
                             daysText,
@@ -1395,7 +1385,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: BorderRadius.circular(16.0),
-          border: Border.all(color: Colors.white.withOpacity(0.06)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
         ),
         child: Column(
           children: [
@@ -1404,7 +1394,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.12),
+                    color: accentColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(Icons.event_available_rounded, color: accentColor, size: 20),
@@ -1429,7 +1419,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
             const SizedBox(height: 14),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: accentColor.withOpacity(0.15),
+                backgroundColor: accentColor.withValues(alpha: 0.15),
                 foregroundColor: accentColor,
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1453,7 +1443,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: accentColor.withOpacity(0.3)),
+        border: Border.all(color: accentColor.withValues(alpha: 0.3)),
         gradient: LinearGradient(
           colors: [
             cardColor,
@@ -1464,7 +1454,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: accentColor.withOpacity(0.08),
+            color: accentColor.withValues(alpha: 0.08),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -1481,7 +1471,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.2),
+                      color: accentColor.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(Icons.timer_outlined, color: accentColor, size: 20),
@@ -1512,7 +1502,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.2),
+                  color: accentColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1755,16 +1745,16 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFEA580C).withOpacity(0.12),
+        color: const Color(0xFFEA580C).withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF97316).withOpacity(0.35)),
+        border: Border.all(color: const Color(0xFFF97316).withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFFF97316).withOpacity(0.18),
+              color: const Color(0xFFF97316).withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(Icons.favorite_rounded, color: Color(0xFFFB923C), size: 22),
@@ -1835,7 +1825,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
 
     int daysRemaining = 0;
     if (hasTarget) {
-      final targetDate = DateTime(eventDate!.year, eventDate.month, eventDate.day);
+      final targetDate = DateTime(eventDate.year, eventDate.month, eventDate.day);
       daysRemaining = targetDate.difference(todayStart).inDays;
       if (daysRemaining < 0) daysRemaining = 0;
     }
@@ -1856,12 +1846,12 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: const Color(0xFFF2B78A).withOpacity(0.35),
+            color: const Color(0xFFF2B78A).withValues(alpha: 0.35),
             width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFF2B78A).withOpacity(0.08),
+              color: const Color(0xFFF2B78A).withValues(alpha: 0.08),
               blurRadius: 16,
               spreadRadius: 2,
               offset: const Offset(0, 4),
@@ -1874,9 +1864,9 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF2B78A).withOpacity(0.15),
+                      color: const Color(0xFFF2B78A).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFF2B78A).withOpacity(0.3)),
+                      border: Border.all(color: const Color(0xFFF2B78A).withValues(alpha: 0.3)),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -1947,7 +1937,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF2B78A).withOpacity(0.12),
+                      color: const Color(0xFFF2B78A).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(Icons.stars_rounded, color: Color(0xFFF2B78A), size: 24),

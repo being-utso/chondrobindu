@@ -9,14 +9,21 @@ import '../utils/safe_haptics.dart';
 /// Global Top Navigation Shell pinned across desktop views (width >= 800px).
 /// Implements Dark Espresso aesthetic (#140F0E, #1E1816, #2E2623, #F2B78A).
 class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
-  const DesktopNavBar({super.key});
+  final int? selectedIndex;
+  final ValueChanged<int>? onDestinationSelected;
+
+  const DesktopNavBar({
+    super.key,
+    this.selectedIndex,
+    this.onDestinationSelected,
+  });
 
   @override
   Size get preferredSize => const Size.fromHeight(64.0);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedIndex = ref.watch(navigationIndexProvider);
+    final activeIndex = selectedIndex ?? ref.watch(navigationIndexProvider);
     final liveProfileAsync = ref.watch(liveUserProfileProvider);
     final fallbackProfile = ref.watch(userProfileProvider);
     final profile = liveProfileAsync.value ?? fallbackProfile;
@@ -48,6 +55,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.hardEdge,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -55,9 +63,10 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                     icon: Icons.home_outlined,
                     selectedIcon: Icons.home_rounded,
                     label: 'Home',
-                    isSelected: selectedIndex == 0,
+                    isSelected: activeIndex == 0,
                     onTap: () {
                       SafeHaptics.selectionClick();
+                      onDestinationSelected?.call(0);
                       ref.read(navigationIndexProvider.notifier).state = 0;
                     },
                   ),
@@ -65,9 +74,10 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                     icon: Icons.school_outlined,
                     selectedIcon: Icons.school_rounded,
                     label: 'Courses',
-                    isSelected: selectedIndex == 1,
+                    isSelected: activeIndex == 1,
                     onTap: () {
                       SafeHaptics.selectionClick();
+                      onDestinationSelected?.call(1);
                       ref.read(navigationIndexProvider.notifier).state = 1;
                     },
                   ),
@@ -75,9 +85,10 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                     icon: Icons.timer_outlined,
                     selectedIcon: Icons.timer_rounded,
                     label: 'Timer',
-                    isSelected: selectedIndex == 2,
+                    isSelected: activeIndex == 2,
                     onTap: () {
                       SafeHaptics.selectionClick();
+                      onDestinationSelected?.call(2);
                       ref.read(navigationIndexProvider.notifier).state = 2;
                     },
                   ),
@@ -85,9 +96,10 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                     icon: Icons.calendar_month_outlined,
                     selectedIcon: Icons.calendar_month_rounded,
                     label: 'Planner',
-                    isSelected: selectedIndex == 3,
+                    isSelected: activeIndex == 3,
                     onTap: () {
                       SafeHaptics.selectionClick();
+                      onDestinationSelected?.call(3);
                       ref.read(navigationIndexProvider.notifier).state = 3;
                     },
                   ),
@@ -95,9 +107,10 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                     icon: Icons.insights_outlined,
                     selectedIcon: Icons.insights_rounded,
                     label: 'Insights',
-                    isSelected: selectedIndex == 4,
+                    isSelected: activeIndex == 4,
                     onTap: () {
                       SafeHaptics.selectionClick();
+                      onDestinationSelected?.call(4);
                       ref.read(navigationIndexProvider.notifier).state = 4;
                     },
                   ),
@@ -191,7 +204,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
         // Quick Command / Search Bar Pill
         Container(
           height: 36,
-          width: 210,
+          width: 140,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
             color: const Color(0xFF1E1816),
@@ -366,7 +379,7 @@ class _NavTabItemState extends State<_NavTabItem> {
         behavior: HitTestBehavior.opaque,
         child: Container(
           height: 64,
-          padding: const EdgeInsets.symmetric(horizontal: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 5),
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
@@ -381,14 +394,14 @@ class _NavTabItemState extends State<_NavTabItem> {
               Icon(
                 active ? widget.selectedIcon : widget.icon,
                 color: textColor,
-                size: 19,
+                size: 18,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 5),
               Text(
                 widget.label,
                 style: GoogleFonts.plusJakartaSans(
                   color: textColor,
-                  fontSize: 13.5,
+                  fontSize: 12.5,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                   letterSpacing: 0.1,
                 ),

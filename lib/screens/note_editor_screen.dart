@@ -256,8 +256,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         backgroundColor: const Color(0xFFF2B78A),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        content: Row(
-          children: const [
+        content: const Row(
+          children: [
             Icon(Icons.content_copy_rounded, color: Color(0xFF110D0C), size: 18),
             SizedBox(width: 10),
             Expanded(
@@ -339,7 +339,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 2),
         decoration: BoxDecoration(
-          color: isActive ? accentColor.withOpacity(0.2) : Colors.transparent,
+          color: isActive ? accentColor.withValues(alpha: 0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
         child: IconButton(
@@ -361,10 +361,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.25),
+            color: Colors.black.withValues(alpha: 0.25),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),

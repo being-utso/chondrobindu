@@ -34,9 +34,9 @@ class PerformanceScreen extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
+                  const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
                         'Performance Tracker',
                         style: TextStyle(
@@ -55,11 +55,11 @@ class PerformanceScreen extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.12),
+                      color: accentColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: accentColor.withOpacity(0.25)),
+                      border: Border.all(color: accentColor.withValues(alpha: 0.25)),
                     ),
-                    child: Icon(Icons.analytics_rounded, color: accentColor, size: 22),
+                    child: const Icon(Icons.analytics_rounded, color: accentColor, size: 22),
                   ),
                 ],
               ),
@@ -103,7 +103,7 @@ class PerformanceScreen extends ConsumerWidget {
                       label: const Text('Add Exam Date'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: accentColor,
-                        side: BorderSide(color: accentColor.withOpacity(0.4)),
+                        side: BorderSide(color: accentColor.withValues(alpha: 0.4)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -150,14 +150,14 @@ class PerformanceScreen extends ConsumerWidget {
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.06)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.12),
+                color: accentColor.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.event_outlined, color: accentColor, size: 28),
@@ -197,16 +197,16 @@ class PerformanceScreen extends ConsumerWidget {
         gradient: LinearGradient(
           colors: [
             cardColor,
-            const Color(0xFF1E3A8A).withOpacity(0.4),
+            const Color(0xFF1E3A8A).withValues(alpha: 0.4),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: accentColor.withOpacity(0.25), width: 1.5),
+        border: Border.all(color: accentColor.withValues(alpha: 0.25), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: accentColor.withOpacity(0.08),
+            color: accentColor.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -221,9 +221,9 @@ class PerformanceScreen extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.18),
+                  color: accentColor.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: accentColor.withOpacity(0.3)),
+                  border: Border.all(color: accentColor.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
@@ -269,9 +269,9 @@ class PerformanceScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF110D0C).withOpacity(0.7),
+              color: const Color(0xFF110D0C).withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -302,7 +302,7 @@ class PerformanceScreen extends ConsumerWidget {
                 ),
                 Icon(
                   days <= 10 ? Icons.alarm_on_rounded : Icons.hourglass_top_rounded,
-                  color: days <= 10 ? const Color(0xFFF87171) : accentColor.withOpacity(0.8),
+                  color: days <= 10 ? const Color(0xFFF87171) : accentColor.withValues(alpha: 0.8),
                   size: 32,
                 ),
               ],
@@ -330,13 +330,13 @@ class PerformanceScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: const [
+          const Row(
+            children: [
               Icon(Icons.trending_up_rounded, color: Color(0xFF34D399), size: 18),
               SizedBox(width: 8),
               Text(
@@ -361,10 +361,10 @@ class PerformanceScreen extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: (isMarksUp ? emeraldColor : const Color(0xFFF87171)).withOpacity(0.1),
+                    color: (isMarksUp ? emeraldColor : const Color(0xFFF87171)).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: (isMarksUp ? emeraldColor : const Color(0xFFF87171)).withOpacity(0.2),
+                      color: (isMarksUp ? emeraldColor : const Color(0xFFF87171)).withValues(alpha: 0.2),
                     ),
                   ),
                   child: Column(
@@ -402,10 +402,10 @@ class PerformanceScreen extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: (isMeritUp ? emeraldColor : const Color(0xFFF87171)).withOpacity(0.1),
+                    color: (isMeritUp ? emeraldColor : const Color(0xFFF87171)).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: (isMeritUp ? emeraldColor : const Color(0xFFF87171)).withOpacity(0.2),
+                      color: (isMeritUp ? emeraldColor : const Color(0xFFF87171)).withValues(alpha: 0.2),
                     ),
                   ),
                   child: Column(
@@ -459,7 +459,7 @@ class PerformanceScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,9 +467,9 @@ class PerformanceScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
+              const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'Marks Trend',
                     style: TextStyle(
@@ -488,12 +488,12 @@ class PerformanceScreen extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.12),
+                  color: accentColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   'Latest: ${sorted.last.marks.toStringAsFixed(1)}',
-                  style: TextStyle(),
+                  style: const TextStyle(),
                 ),
               ),
             ],
@@ -503,12 +503,12 @@ class PerformanceScreen extends ConsumerWidget {
             height: 180,
             child: LineChart(
               LineChartData(
-                gridData: FlGridData(show: false),
+                gridData: const FlGridData(show: false),
                 borderData: FlBorderData(show: false),
                 titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
@@ -556,8 +556,8 @@ class PerformanceScreen extends ConsumerWidget {
                       show: true,
                       gradient: LinearGradient(
                         colors: [
-                          accentColor.withOpacity(0.35),
-                          accentColor.withOpacity(0.01),
+                          accentColor.withValues(alpha: 0.35),
+                          accentColor.withValues(alpha: 0.01),
                         ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -603,7 +603,7 @@ class PerformanceScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -611,9 +611,9 @@ class PerformanceScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
+              const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'Merit Position Trend',
                     style: TextStyle(
@@ -632,7 +632,7 @@ class PerformanceScreen extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: emeraldColor.withOpacity(0.12),
+                  color: emeraldColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -647,12 +647,12 @@ class PerformanceScreen extends ConsumerWidget {
             height: 180,
             child: LineChart(
               LineChartData(
-                gridData: FlGridData(show: false),
+                gridData: const FlGridData(show: false),
                 borderData: FlBorderData(show: false),
                 titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
@@ -700,8 +700,8 @@ class PerformanceScreen extends ConsumerWidget {
                       show: true,
                       gradient: LinearGradient(
                         colors: [
-                          emeraldColor.withOpacity(0.35),
-                          emeraldColor.withOpacity(0.01),
+                          emeraldColor.withValues(alpha: 0.35),
+                          emeraldColor.withValues(alpha: 0.01),
                         ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -747,7 +747,7 @@ class PerformanceScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -774,7 +774,7 @@ class PerformanceScreen extends ConsumerWidget {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: sortedNewest.length,
-            separatorBuilder: (_, __) => Divider(color: Colors.white.withOpacity(0.06), height: 16),
+            separatorBuilder: (_, __) => Divider(color: Colors.white.withValues(alpha: 0.06), height: 16),
             itemBuilder: (context, index) {
               final rec = sortedNewest[index];
               return Row(
@@ -785,7 +785,7 @@ class PerformanceScreen extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: const Color(0xFF110D0C),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                     ),
                     child: Center(
                       child: Text(
@@ -856,7 +856,7 @@ class PerformanceScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -912,7 +912,7 @@ class PerformanceScreen extends ConsumerWidget {
                   labelText: 'Exam Name',
                   labelStyle: TextStyle(color: Colors.blueGrey.shade400),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   focusedBorder: OutlineInputBorder(
@@ -1074,7 +1074,7 @@ class PerformanceScreen extends ConsumerWidget {
         labelText: label,
         labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 13),
         enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
           borderRadius: BorderRadius.circular(12),
         ),
         focusedBorder: OutlineInputBorder(

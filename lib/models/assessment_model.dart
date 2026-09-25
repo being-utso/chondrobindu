@@ -192,7 +192,7 @@ class Assessment {
     return Assessment(
       id: id ?? this.id,
       courseId: courseId ?? this.courseId,
-      courseCode: courseCode ?? this.courseCode,
+      courseCode: courseCode ?? courseCode,
       userId: userId ?? this.userId,
       name: name ?? this.name,
       type: type ?? this.type,

@@ -6,16 +6,14 @@ import '../core/theme/app_spacing.dart';
 import '../providers/nav_provider.dart';
 import '../providers/profile_provider.dart';
 import 'home_dashboard.dart';
-import 'home_screen.dart';
-import 'courses_screen.dart';
 import 'syllabus_screen.dart';
 import 'timer_screen.dart';
 import 'planner_screen.dart';
 import 'insights_screen.dart';
 import 'onboarding_screen.dart';
+import 'main_shell.dart';
 import 'university_dashboard_screen.dart';
 import '../widgets/app_loading_screen.dart';
-import '../widgets/desktop_nav_bar.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:showcaseview/showcaseview.dart';
@@ -46,24 +44,8 @@ class MainNavigationScreen extends ConsumerWidget {
     final selectedIndex = ref.watch(navigationIndexProvider);
     final bool isWide = MediaQuery.of(context).size.width >= 800;
 
-    // Desktop screens
-    final List<Widget> desktopScreens = [
-      const HomeScreen(),
-      const CoursesScreen(),
-      const TimerScreen(),
-      const PlannerScreen(),
-      const InsightsScreen(),
-    ];
-
     if (isWide) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF151211),
-        appBar: const DesktopNavBar(),
-        body: IndexedStack(
-          index: selectedIndex < desktopScreens.length ? selectedIndex : 0,
-          children: desktopScreens,
-        ),
-      );
+      return const MainShell();
     }
 
     final bool isUni = profile.isUniversityStudent;

@@ -708,7 +708,7 @@ class _AttendanceMatrixScreenState extends ConsumerState<AttendanceMatrixScreen>
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                           decoration: BoxDecoration(
-                                            color: semesterStats.percentage >= 75.0 ? emeraldColor.withOpacity(0.16) : const Color(0xFFEF4444).withOpacity(0.16),
+                                            color: semesterStats.percentage >= 75.0 ? emeraldColor.withValues(alpha: 0.16) : const Color(0xFFEF4444).withValues(alpha: 0.16),
                                             borderRadius: BorderRadius.circular(10),
                                           ),
                                           child: Text(
@@ -766,7 +766,7 @@ class _AttendanceMatrixScreenState extends ConsumerState<AttendanceMatrixScreen>
                                                     Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                                       decoration: BoxDecoration(
-                                                        color: accentColor.withOpacity(0.18),
+                                                        color: accentColor.withValues(alpha: 0.18),
                                                         borderRadius: BorderRadius.circular(6),
                                                       ),
                                                       child: Text('TODAY', style: GoogleFonts.plusJakartaSans(color: accentColor, fontSize: 9.5, fontWeight: FontWeight.bold)),
@@ -838,7 +838,7 @@ class _AttendanceMatrixScreenState extends ConsumerState<AttendanceMatrixScreen>
                                                 decoration: BoxDecoration(
                                                   color: cardColor,
                                                   borderRadius: BorderRadius.circular(16),
-                                                  border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4), width: 0.8),
+                                                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4), width: 0.8),
                                                 ),
                                                 child: Column(
                                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -848,7 +848,7 @@ class _AttendanceMatrixScreenState extends ConsumerState<AttendanceMatrixScreen>
                                                         Container(
                                                           padding: const EdgeInsets.all(10),
                                                           decoration: BoxDecoration(
-                                                            color: const Color(0xFFF59E0B).withOpacity(0.15),
+                                                            color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                                                             borderRadius: BorderRadius.circular(12),
                                                           ),
                                                           child: const Icon(Icons.beach_access_rounded, color: Color(0xFFF59E0B), size: 24),
@@ -909,14 +909,14 @@ class _AttendanceMatrixScreenState extends ConsumerState<AttendanceMatrixScreen>
                                                     decoration: BoxDecoration(
                                                       color: cardColor,
                                                       borderRadius: BorderRadius.circular(14),
-                                                      border: Border.all(color: emeraldColor.withOpacity(0.3), width: 0.8),
+                                                      border: Border.all(color: emeraldColor.withValues(alpha: 0.3), width: 0.8),
                                                     ),
                                                     child: Row(
                                                       children: [
                                                         Container(
                                                           padding: const EdgeInsets.all(8),
                                                           decoration: BoxDecoration(
-                                                            color: emeraldColor.withOpacity(0.15),
+                                                            color: emeraldColor.withValues(alpha: 0.15),
                                                             borderRadius: BorderRadius.circular(10),
                                                           ),
                                                           child: const Icon(Icons.star_rounded, color: emeraldColor, size: 20),
@@ -941,7 +941,7 @@ class _AttendanceMatrixScreenState extends ConsumerState<AttendanceMatrixScreen>
                                                         Container(
                                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                           decoration: BoxDecoration(
-                                                            color: emeraldColor.withOpacity(0.18),
+                                                            color: emeraldColor.withValues(alpha: 0.18),
                                                             borderRadius: BorderRadius.circular(8),
                                                           ),
                                                           child: Text('EXTRA ATTENDED', style: GoogleFonts.plusJakartaSans(color: emeraldColor, fontWeight: FontWeight.bold, fontSize: 10)),
@@ -1010,7 +1010,7 @@ class _AttendanceMatrixScreenState extends ConsumerState<AttendanceMatrixScreen>
                                                           border: Border.all(
                                                             color: status == AttendanceStatus.unmarked
                                                                 ? borderColor
-                                                                : statusColor.withOpacity(0.5),
+                                                                : statusColor.withValues(alpha: 0.5),
                                                             width: 0.8,
                                                           ),
                                                         ),
@@ -1022,7 +1022,7 @@ class _AttendanceMatrixScreenState extends ConsumerState<AttendanceMatrixScreen>
                                                               decoration: BoxDecoration(
                                                                 color: status == AttendanceStatus.unmarked
                                                                     ? const Color(0xFF140F0E)
-                                                                    : statusColor.withOpacity(0.15),
+                                                                    : statusColor.withValues(alpha: 0.15),
                                                                 borderRadius: BorderRadius.circular(12),
                                                                 border: Border.all(
                                                                   color: status == AttendanceStatus.unmarked
@@ -1078,7 +1078,7 @@ class _AttendanceMatrixScreenState extends ConsumerState<AttendanceMatrixScreen>
                                                                     Text(
                                                                       'Alternate week slot detected',
                                                                       style: GoogleFonts.plusJakartaSans(
-                                                                        color: const Color(0xFFF59E0B).withOpacity(0.9),
+                                                                        color: const Color(0xFFF59E0B).withValues(alpha: 0.9),
                                                                         fontSize: 11,
                                                                         fontWeight: FontWeight.w600,
                                                                       ),
@@ -1094,12 +1094,12 @@ class _AttendanceMatrixScreenState extends ConsumerState<AttendanceMatrixScreen>
                                                               decoration: BoxDecoration(
                                                                 color: status == AttendanceStatus.unmarked
                                                                     ? const Color(0xFF1E1614)
-                                                                    : statusColor.withOpacity(0.18),
+                                                                    : statusColor.withValues(alpha: 0.18),
                                                                 borderRadius: BorderRadius.circular(10),
                                                                 border: Border.all(
                                                                   color: status == AttendanceStatus.unmarked
                                                                       ? borderColor
-                                                                      : statusColor.withOpacity(0.3),
+                                                                      : statusColor.withValues(alpha: 0.3),
                                                                   width: 0.8,
                                                                 ),
                                                               ),
@@ -1135,14 +1135,14 @@ class _AttendanceMatrixScreenState extends ConsumerState<AttendanceMatrixScreen>
                                                         decoration: BoxDecoration(
                                                           color: cardColor,
                                                           borderRadius: BorderRadius.circular(14),
-                                                          border: Border.all(color: emeraldColor.withOpacity(0.3), width: 0.8),
+                                                          border: Border.all(color: emeraldColor.withValues(alpha: 0.3), width: 0.8),
                                                         ),
                                                         child: Row(
                                                           children: [
                                                             Container(
                                                               padding: const EdgeInsets.all(8),
                                                               decoration: BoxDecoration(
-                                                                color: emeraldColor.withOpacity(0.15),
+                                                                color: emeraldColor.withValues(alpha: 0.15),
                                                                 borderRadius: BorderRadius.circular(10),
                                                               ),
                                                               child: const Icon(Icons.star_rounded, color: emeraldColor, size: 20),
@@ -1167,7 +1167,7 @@ class _AttendanceMatrixScreenState extends ConsumerState<AttendanceMatrixScreen>
                                                             Container(
                                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                               decoration: BoxDecoration(
-                                                                color: emeraldColor.withOpacity(0.18),
+                                                                color: emeraldColor.withValues(alpha: 0.18),
                                                                 borderRadius: BorderRadius.circular(8),
                                                               ),
                                                               child: Text('EXTRA ATTENDED', style: GoogleFonts.plusJakartaSans(color: emeraldColor, fontWeight: FontWeight.bold, fontSize: 10)),

@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../constants/app_config.dart';
@@ -749,7 +748,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                         decoration: BoxDecoration(
                           color: const Color(0xFF241C1A),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFF2B78A).withOpacity(0.5), width: 0.8),
+                          border: Border.all(color: const Color(0xFFF2B78A).withValues(alpha: 0.5), width: 0.8),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -2022,7 +2021,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF2B78A).withOpacity(0.15),
+                          color: const Color(0xFFF2B78A).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(Icons.sync_rounded, color: Color(0xFFF2B78A), size: 24),
@@ -2114,7 +2113,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF2B78A).withOpacity(0.15),
+                              color: const Color(0xFFF2B78A).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(Icons.verified_user_rounded, color: Color(0xFFF2B78A), size: 22),
@@ -2140,7 +2139,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFF2B78A).withOpacity(0.2),
+                                        color: const Color(0xFFF2B78A).withValues(alpha: 0.2),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
@@ -2258,7 +2257,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF241C1A),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.5), width: 1.0),
+                        border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5), width: 1.0),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2266,7 +2265,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEF4444).withOpacity(0.15),
+                              color: const Color(0xFFEF4444).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(Icons.delete_sweep_rounded, color: Color(0xFFEF4444), size: 22),
@@ -2607,7 +2606,7 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
                           color: const Color(0xFF140F0E),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: c.isAlternating ? const Color(0xFFF59E0B).withOpacity(0.5) : const Color(0xFF4A3830),
+                            color: c.isAlternating ? const Color(0xFFF59E0B).withValues(alpha: 0.5) : const Color(0xFF4A3830),
                             width: 0.8,
                           ),
                         ),
@@ -2983,7 +2982,7 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
                                         color: isSel ? accentColor : const Color(0xFF1C1412),
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                          color: isSel ? accentColor : borderColor.withOpacity(0.5),
+                                          color: isSel ? accentColor : borderColor.withValues(alpha: 0.5),
                                           width: 0.8,
                                         ),
                                       ),
@@ -3001,7 +3000,7 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                             decoration: BoxDecoration(
-                                              color: isSel ? const Color(0xFF140F0E).withOpacity(0.18) : const Color(0xFF241C1A),
+                                              color: isSel ? const Color(0xFF140F0E).withValues(alpha: 0.18) : const Color(0xFF241C1A),
                                               borderRadius: BorderRadius.circular(6),
                                             ),
                                             child: Text(
@@ -3116,7 +3115,7 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
                                           color: cardColor,
                                           borderRadius: BorderRadius.circular(16),
                                           border: Border.all(
-                                            color: routine.isAlternating ? const Color(0xFFF59E0B).withOpacity(0.4) : borderColor,
+                                            color: routine.isAlternating ? const Color(0xFFF59E0B).withValues(alpha: 0.4) : borderColor,
                                             width: 0.8,
                                           ),
                                         ),
@@ -3127,8 +3126,8 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
                                               padding: const EdgeInsets.all(10),
                                               decoration: BoxDecoration(
                                                 color: routine.isAlternating
-                                                    ? const Color(0xFFF59E0B).withOpacity(0.12)
-                                                    : accentColor.withOpacity(0.15),
+                                                    ? const Color(0xFFF59E0B).withValues(alpha: 0.12)
+                                                    : accentColor.withValues(alpha: 0.15),
                                                 borderRadius: BorderRadius.circular(12),
                                               ),
                                               child: Icon(
@@ -3156,9 +3155,9 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
                                                         Container(
                                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                           decoration: BoxDecoration(
-                                                            color: const Color(0xFFF59E0B).withOpacity(0.15),
+                                                            color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                                                             borderRadius: BorderRadius.circular(6),
-                                                            border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.35), width: 0.6),
+                                                            border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35), width: 0.6),
                                                           ),
                                                           child: Text(
                                                             routine.recurrence == 'biweekly_a'
@@ -3221,9 +3220,9 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
                                                         Container(
                                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                           decoration: BoxDecoration(
-                                                            color: const Color(0xFFF2B78A).withOpacity(0.12),
+                                                            color: const Color(0xFFF2B78A).withValues(alpha: 0.12),
                                                             borderRadius: BorderRadius.circular(6),
-                                                            border: Border.all(color: const Color(0xFFF2B78A).withOpacity(0.35), width: 0.6),
+                                                            border: Border.all(color: const Color(0xFFF2B78A).withValues(alpha: 0.35), width: 0.6),
                                                           ),
                                                           child: Row(
                                                             mainAxisSize: MainAxisSize.min,

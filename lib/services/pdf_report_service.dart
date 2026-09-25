@@ -68,7 +68,7 @@ class PdfReportService {
                       children: [
                         pw.Text(
                           'Chondrobindu',
-                          style: pw.TextStyle(
+                          style: const pw.TextStyle(
                             color: PdfColors.white,
                             fontSize: 22,
                             fontWeight: pw.FontWeight.bold,
@@ -95,7 +95,7 @@ class PdfReportService {
                         pw.SizedBox(height: 2),
                         pw.Text(
                           formattedDate,
-                          style: pw.TextStyle(color: PdfColors.white, fontSize: 10, fontWeight: pw.FontWeight.bold),
+                          style: const pw.TextStyle(color: PdfColors.white, fontSize: 10, fontWeight: pw.FontWeight.bold),
                         ),
                       ],
                     ),
@@ -248,7 +248,7 @@ class PdfReportService {
     return pw.TableHelper.fromTextArray(
       headers: headers,
       data: data,
-      headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.white),
+      headerStyle: const pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.white),
       headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#110D0C')),
       cellStyle: const pw.TextStyle(fontSize: 8.5),
       cellAlignment: pw.Alignment.centerLeft,
@@ -289,7 +289,7 @@ class PdfReportService {
     return pw.TableHelper.fromTextArray(
       headers: headers,
       data: data,
-      headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.white),
+      headerStyle: const pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.white),
       headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#181211')),
       cellStyle: const pw.TextStyle(fontSize: 8.5),
       cellAlignment: pw.Alignment.centerLeft,
@@ -376,7 +376,7 @@ class PdfReportService {
                       children: [
                         pw.Text(
                           'Chondrobindu',
-                          style: pw.TextStyle(
+                          style: const pw.TextStyle(
                             color: PdfColors.white,
                             fontSize: 22,
                             fontWeight: pw.FontWeight.bold,
@@ -403,7 +403,7 @@ class PdfReportService {
                         pw.SizedBox(height: 2),
                         pw.Text(
                           formattedDate,
-                          style: pw.TextStyle(color: PdfColors.white, fontSize: 10, fontWeight: pw.FontWeight.bold),
+                          style: const pw.TextStyle(color: PdfColors.white, fontSize: 10, fontWeight: pw.FontWeight.bold),
                         ),
                       ],
                     ),
@@ -557,7 +557,7 @@ class PdfReportService {
     return pw.TableHelper.fromTextArray(
       headers: headers,
       data: data,
-      headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.white),
+      headerStyle: const pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.white),
       headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#110D0C')),
       cellStyle: const pw.TextStyle(fontSize: 8.5),
       cellAlignment: pw.Alignment.centerLeft,
@@ -601,7 +601,7 @@ class PdfReportService {
     return pw.TableHelper.fromTextArray(
       headers: headers,
       data: data,
-      headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.white),
+      headerStyle: const pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.white),
       headerDecoration: pw.BoxDecoration(color: PdfColor.fromHex('#181211')),
       cellStyle: const pw.TextStyle(fontSize: 8.5),
       cellAlignment: pw.Alignment.centerLeft,

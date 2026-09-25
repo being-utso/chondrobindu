@@ -18,7 +18,6 @@ import '../providers/user_profile_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/archive_service.dart';
 import '../services/auth_service.dart';
-import '../services/exam_service.dart';
 import '../services/pdf_report_service.dart';
 import '../services/syllabus_factory.dart';
 import '../services/tour_service.dart';
@@ -26,7 +25,6 @@ import 'admission_archive_screen.dart';
 import 'archived_terms_screen.dart';
 import 'auth_screen.dart';
 import 'help_screen.dart';
-import 'university_dashboard_screen.dart';
 import '../widgets/app_loading_screen.dart';
 import '../widgets/app_preloader.dart';
 import '../widgets/compact_loading_dialog.dart';
@@ -438,12 +436,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: accentColor.withOpacity(0.4),
+                            color: accentColor.withValues(alpha: 0.4),
                             width: 2,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: accentColor.withOpacity(0.2),
+                              color: accentColor.withValues(alpha: 0.2),
                               blurRadius: 20,
                               spreadRadius: 2,
                             ),
@@ -453,7 +451,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           radius: 48,
                           backgroundColor: cardColor,
                           backgroundImage: hasProfileImage
-                              ? NetworkImage(displayPhotoUrl!)
+                              ? NetworkImage(displayPhotoUrl)
                               : null,
                           child: !hasProfileImage
                               ? (_isUploadingImage
@@ -462,7 +460,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               : (_isUploadingImage
                                   ? Container(
                                       decoration: BoxDecoration(
-                                        color: Colors.black.withOpacity(0.5),
+                                        color: Colors.black.withValues(alpha: 0.5),
                                         shape: BoxShape.circle,
                                       ),
                                       child: const Center(
@@ -485,7 +483,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               border: Border.all(color: backgroundColor, width: 2.5),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
+                                  color: Colors.black.withValues(alpha: 0.3),
                                   blurRadius: 6,
                                 ),
                               ],
@@ -612,16 +610,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 decoration: BoxDecoration(
                   color: cardColor,
                   borderRadius: BorderRadius.circular(20.0),
-                  border: Border.all(color: Colors.white.withOpacity(0.08)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Row(
-                          children: const [
+                          children: [
                             Icon(Icons.person_outline_rounded, color: accentColor, size: 20),
                             SizedBox(width: 8),
                             Text(
@@ -699,7 +697,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.06),
+                              color: Colors.white.withValues(alpha: 0.06),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Row(
@@ -746,7 +744,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.06),
+                              color: Colors.white.withValues(alpha: 0.06),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(
@@ -829,7 +827,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 _buildFieldLabel('Level', isRequired: true),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
-                                  value: _selectedLevel,
+                                  initialValue: _selectedLevel,
                                   dropdownColor: cardColor,
                                   style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
                                   decoration: _buildInputDecoration(
@@ -854,7 +852,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 _buildFieldLabel('Term', isRequired: true),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
-                                  value: _selectedTerm,
+                                  initialValue: _selectedTerm,
                                   dropdownColor: cardColor,
                                   style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
                                   decoration: _buildInputDecoration(
@@ -892,7 +890,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 leading: Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: accentColor.withOpacity(0.12),
+                                    color: accentColor.withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: const Icon(Icons.inventory_2_rounded, color: accentColor, size: 20),
@@ -954,7 +952,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 _buildFieldLabel('HSC Batch', isRequired: true),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
-                                  value: _hscBatch,
+                                  initialValue: _hscBatch,
                                   dropdownColor: cardColor,
                                   style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
                                   decoration: _buildInputDecoration(
@@ -979,7 +977,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 _buildFieldLabel('HSC Group / Division', isRequired: true),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
-                                  value: _hscGroup,
+                                  initialValue: _hscGroup,
                                   dropdownColor: cardColor,
                                   style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
                                   decoration: _buildInputDecoration(
@@ -1033,13 +1031,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   decoration: BoxDecoration(
                     color: cardColor,
                     borderRadius: BorderRadius.circular(20.0),
-                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: const [
+                      const Row(
+                        children: [
                           Icon(Icons.track_changes_rounded, color: accentColor, size: 20),
                           SizedBox(width: 8),
                           Text(
@@ -1058,7 +1056,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       _buildFieldLabel('Admission Target Goal', isRequired: true),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        value: _primaryTarget,
+                        initialValue: _primaryTarget,
                         dropdownColor: cardColor,
                         isExpanded: true,
                         style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
@@ -1083,7 +1081,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       _buildFieldLabel('2nd Admission Target Goal', isRequired: false),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        value: _secondaryTargetOptions.contains(_secondaryTarget) ? _secondaryTarget : 'None',
+                        initialValue: _secondaryTargetOptions.contains(_secondaryTarget) ? _secondaryTarget : 'None',
                         dropdownColor: cardColor,
                         isExpanded: true,
                         style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
@@ -1121,7 +1119,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     elevation: 3,
-                    shadowColor: accentColor.withOpacity(0.4),
+                    shadowColor: accentColor.withValues(alpha: 0.4),
                   ),
                   child: _isSavingProfile
                       ? const AppPreloader(
@@ -1129,9 +1127,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           strokeWidth: 2,
                           color: Color(0xFF110D0C),
                         )
-                      : Row(
+                      : const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
+                          children: [
                             Icon(Icons.check_circle_rounded, size: 20),
                             SizedBox(width: 8),
                             Text(
@@ -1156,28 +1154,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       MaterialPageRoute(builder: (context) => const HelpScreen()),
                     );
                   },
-                  splashColor: accentColor.withOpacity(0.15),
+                  splashColor: accentColor.withValues(alpha: 0.15),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                     ),
                     child: Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: accentColor.withOpacity(0.15),
+                            color: accentColor.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Icon(Icons.help_outline_rounded, color: accentColor, size: 20),
+                          child: const Icon(Icons.help_outline_rounded, color: accentColor, size: 20),
                         ),
                         const SizedBox(width: 12),
-                        Expanded(
+                        const Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
+                            children: [
                               Text(
                                 'Help & Support',
                                 style: TextStyle(
@@ -1215,14 +1213,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   decoration: BoxDecoration(
                     color: cardColor,
                     borderRadius: BorderRadius.circular(16.0),
-                    border: Border.all(color: accentColor.withOpacity(0.2)),
+                    border: Border.all(color: accentColor.withValues(alpha: 0.2)),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: accentColor.withOpacity(0.15),
+                          color: accentColor.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.code_rounded, color: accentColor, size: 20),
@@ -1256,7 +1254,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       color: const Color(0xFFF2B78A),
                                       fontWeight: FontWeight.w700,
                                       decoration: TextDecoration.underline,
-                                      decorationColor: const Color(0xFFF2B78A).withOpacity(0.6),
+                                      decorationColor: const Color(0xFFF2B78A).withValues(alpha: 0.6),
                                     ),
                                     recognizer: _developerTapRecognizer
                                       ..onTap = () async {
@@ -1289,7 +1287,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   decoration: BoxDecoration(
                     color: cardColor,
                     borderRadius: BorderRadius.circular(16.0),
-                    border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.25)),
+                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.25)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1299,7 +1297,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF59E0B).withOpacity(0.15),
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(Icons.favorite_rounded, color: Color(0xFFF59E0B), size: 16),
@@ -1348,8 +1346,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                             ),
                             style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: const Color(0xFFF2B78A).withOpacity(0.4)),
-                              backgroundColor: const Color(0xFFF2B78A).withOpacity(0.08),
+                              side: BorderSide(color: const Color(0xFFF2B78A).withValues(alpha: 0.4)),
+                              backgroundColor: const Color(0xFFF2B78A).withValues(alpha: 0.08),
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
@@ -1362,8 +1360,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                             ),
                             style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: Colors.blueGrey.withOpacity(0.4)),
-                              backgroundColor: Colors.blueGrey.withOpacity(0.08),
+                              side: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.4)),
+                              backgroundColor: Colors.blueGrey.withValues(alpha: 0.08),
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
@@ -1384,13 +1382,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(16.0),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF2B78A).withOpacity(0.12),
+                      color: const Color(0xFFF2B78A).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(16.0),
-                      border: Border.all(color: const Color(0xFFF2B78A).withOpacity(0.4)),
+                      border: Border.all(color: const Color(0xFFF2B78A).withValues(alpha: 0.4)),
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFF2B78A), size: 20),
                         SizedBox(width: 10),
                         Text(
@@ -1448,13 +1446,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(16.0),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444).withOpacity(0.08),
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(16.0),
-                      border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.25)),
+                      border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.25)),
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 18),
                         SizedBox(width: 8),
                         Text(
@@ -1480,13 +1478,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(16.0),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFDC2626).withOpacity(0.12),
+                      color: const Color(0xFFDC2626).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(16.0),
-                      border: Border.all(color: const Color(0xFFDC2626).withOpacity(0.4)),
+                      border: Border.all(color: const Color(0xFFDC2626).withValues(alpha: 0.4)),
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         Icon(Icons.delete_forever_rounded, color: Color(0xFFEF4444), size: 20),
                         SizedBox(width: 8),
                         Text(
@@ -1537,8 +1535,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF241C1A),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: const [
+        title: const Row(
+          children: [
             Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 24),
             SizedBox(width: 10),
             Text(
@@ -1776,8 +1774,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           return AlertDialog(
             backgroundColor: const Color(0xFF241C1A),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Row(
-              children: const [
+            title: const Row(
+              children: [
                 Icon(Icons.security_rounded, color: Color(0xFFF2B78A), size: 22),
                 SizedBox(width: 10),
                 Text(
@@ -1848,10 +1846,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                     ),
                   ),
-                  if (errorMessage != null) ...[
-                    const SizedBox(height: 8),
-                    Text(errorMessage!, style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEF4444), fontSize: 12)),
-                  ],
                 ],
               ],
             ),
@@ -1982,8 +1976,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF241C1A),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: const [
+        title: const Row(
+          children: [
             Icon(Icons.volunteer_activism_rounded, color: Color(0xFFEC4899), size: 22),
             SizedBox(width: 10),
             Text(
@@ -2030,7 +2024,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF241C1A),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2168,9 +2162,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withOpacity(0.12),
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
                   ),
                   child: const Row(
                     children: [
@@ -2317,7 +2311,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2330,15 +2324,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.15),
+                      color: accentColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(Icons.explore_rounded, color: accentColor, size: 20),
                   ),
                   const SizedBox(width: 12),
-                  Column(
+                  const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
                         'Feature Tours',
                         style: TextStyle(
@@ -2374,7 +2368,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         behavior: SnackBarBehavior.floating,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
                         ),
                       ),
                     );
@@ -2406,7 +2400,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Container(
                     padding: const EdgeInsets.all(7),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.04),
+                      color: Colors.white.withValues(alpha: 0.04),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(item.icon, color: Colors.blueGrey.shade300, size: 16),
@@ -2451,7 +2445,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
-                              side: BorderSide(color: Colors.white.withOpacity(0.08)),
+                              side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
                             ),
                           ),
                         );
@@ -2461,9 +2455,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: accentColor.withOpacity(0.12),
+                        color: accentColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: accentColor.withOpacity(0.25)),
+                        border: Border.all(color: accentColor.withValues(alpha: 0.25)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,

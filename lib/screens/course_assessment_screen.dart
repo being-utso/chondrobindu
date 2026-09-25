@@ -11,13 +11,8 @@ import '../models/assessment_model.dart';
 import '../services/assessment_calculator.dart';
 import '../services/assessment_service.dart';
 import '../services/attendance_grading_service.dart';
-import '../widgets/attendance_slabs_dialog.dart';
 import '../widgets/attendance_override_dialog.dart';
 import '../widgets/app_preloader.dart';
-import '../widgets/common/luxury_glass_card.dart';
-import '../core/theme/app_theme.dart';
-import '../core/theme/app_colors.dart';
-import '../core/theme/app_typography.dart';
 import 'package:chondrobindu/utils/safe_haptics.dart';
 
 /// Aliases for assessment screens requested by user specifications
@@ -597,10 +592,10 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
     final tile = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: highlight ? const Color(0xFFF2B78A).withOpacity(0.08) : const Color(0xFF241C1A),
+        color: highlight ? const Color(0xFFF2B78A).withValues(alpha: 0.08) : const Color(0xFF241C1A),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: highlight ? const Color(0xFFF2B78A).withOpacity(0.3) : const Color(0xFF382A24),
+          color: highlight ? const Color(0xFFF2B78A).withValues(alpha: 0.3) : const Color(0xFF382A24),
           width: 0.8,
         ),
       ),
@@ -633,7 +628,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
           Text(
             sublabel,
             style: GoogleFonts.plusJakartaSans(
-              color: highlight ? const Color(0xFFF2B78A).withOpacity(0.8) : const Color(0xFF7E726B),
+              color: highlight ? const Color(0xFFF2B78A).withValues(alpha: 0.8) : const Color(0xFF7E726B),
               fontSize: 10,
             ),
             maxLines: 1,
@@ -1413,7 +1408,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                                         Container(
                                           padding: const EdgeInsets.all(7),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFF2B78A).withOpacity(0.12),
+                                            color: const Color(0xFFF2B78A).withValues(alpha: 0.12),
                                             borderRadius: BorderRadius.circular(8),
                                           ),
                                           child: const Icon(Icons.co_present_rounded, color: Color(0xFFF2B78A), size: 18),
@@ -2099,7 +2094,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                     alignment: Alignment.centerRight,
                     padding: const EdgeInsets.only(right: 20),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444).withOpacity(0.2),
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Icon(Icons.delete_forever, color: Color(0xFFEF4444), size: 24),
