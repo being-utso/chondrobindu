@@ -1,0 +1,77 @@
+name: chondrobindu
+description: "Distraction-free study companion for admission candidates in Bangladesh."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  google_fonts: ^6.2.1
+  fl_chart: ^0.68.0
+  table_calendar: ^3.1.0
+  url_launcher: ^6.2.5
+  http: ^1.2.0
+  cupertino_icons: ^1.0.6
+  firebase_core: ^4.13.0
+  firebase_auth: ^6.5.7
+  cloud_firestore: ^6.8.0
+  firebase_storage: ^13.1.0
+  google_sign_in: ^6.2.1
+  workmanager:
+    git:
+      url: https://github.com/fluttercommunity/flutter_workmanager.git
+      ref: main
+      path: workmanager
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.4
+  home_widget: ^0.9.3
+  image_picker: ^1.1.2
+  wakelock_plus: ^1.2.8
+  pdf: ^3.11.1
+  printing: ^5.13.2
+  flutter_quill: ^11.5.1
+  file_picker: ^12.1.1
+  syncfusion_flutter_pdf: ^34.2.5
+  google_generative_ai: ^0.4.7
+  shared_preferences: ^2.2.3
+  showcaseview: ^3.0.0
+
+  intl: any
+  collection: any
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.8
+  image: ^4.2.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
+
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo.png"
+  adaptive_icon_background: "#110D0C"
+  adaptive_icon_foreground: "assets/images/logo_foreground.png"
+
+flutter_native_splash:
+  color: "#110D0C"
+  image: assets/icons/logo_ember.png
+  android_12:
+    color: "#110D0C"
+    image: assets/icons/logo_ember.png
+
+# -------------------------------------------------------------
+# APP EXTERNAL LINKS CONFIGURATION
+# -------------------------------------------------------------
+support_contact_url: "https://forms.gle/YOUR_DEFAULT_SUPPORT_FORM"

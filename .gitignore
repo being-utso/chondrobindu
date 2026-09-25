@@ -1,0 +1,31 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+.vercel
+
+
+# Flutter & Dart artifacts
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Ephemeral native symlinks
+linux/flutter/ephemeral/
+windows/flutter/ephemeral/
+
+# IDE & OS caches
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# Vercel & Node
+.vercel/
+node_modules/

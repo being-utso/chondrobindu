@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "168312495417",
+    "project_id": "chondrobindu",
+    "storage_bucket": "chondrobindu.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:168312495417:android:dd2b3ae44b56a12802dce8",
+        "android_client_info": {
+          "package_name": "com.example.chondrobindu"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "168312495417-mmhdhvjrij09t5hte8vtt1g762560rhp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.chondrobindu",
+            "certificate_hash": "205e9be083644e39e4d576a1791195bd63ac008f"
+          }
+        },
+        {
+          "client_id": "168312495417-n3sblbifjftj94jpp6cdlttogqfgqgug.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_WxVlANxBvjc79FC6L_L2fhpvMTdJKJU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "168312495417-n3sblbifjftj94jpp6cdlttogqfgqgug.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "168312495417-l2invefgot8opon27igqvf9jurv26b04.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.chondrobindu"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

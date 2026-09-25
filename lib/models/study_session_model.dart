@@ -1,0 +1,154 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+/// Completed Study Session Model inside `/users/{uid}/study_sessions/{sessionId}`
+class StudySession {
+  final String id;
+  final String courseId;
+  final String courseCode;
+  final List<String> topicIds;
+  final List<String> topicTitles;
+  final int durationSeconds;
+  final int overtimeSeconds;
+  final DateTime startedAt;
+  final DateTime endedAt;
+  final String? focusNotes;
+  final int focusRating; // 1 to 5 stars
+
+  const StudySession({
+    required this.id,
+    required this.courseId,
+    required this.courseCode,
+    this.topicIds = const [],
+    this.topicTitles = const [],
+    required this.durationSeconds,
+    this.overtimeSeconds = 0,
+    required this.startedAt,
+    required this.endedAt,
+    this.focusNotes,
+    this.focusRating = 5,
+  });
+
+  int get totalSeconds => durationSeconds + overtimeSeconds;
+  double get durationMinutes => durationSeconds / 60.0;
+  double get durationHours => durationSeconds / 3600.0;
+
+  factory StudySession.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    return StudySession.fromMap(data, doc.id);
+  }
+
+  factory StudySession.fromMap(Map<String, dynamic> map, [String? docId]) {
+    final id = docId ?? map['id'] as String? ?? '';
+    final courseId = map['courseId'] as String? ?? map['subjectId'] as String? ?? '';
+    final courseCode = map['courseCode'] as String? ?? map['subjectName'] as String? ?? '';
+
+    final tIds = (map['topicIds'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [];
+    final tTitles = (map['topicTitles'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [];
+
+    final dur = (map['durationSeconds'] as num?)?.toInt() ??
+        (((map['durationInMinutes'] as num?)?.toInt() ?? 0) * 60);
+    final over = (map['overtimeSeconds'] as num?)?.toInt() ?? 0;
+
+    DateTime start = DateTime.now();
+    if (map['startedAt'] != null) {
+      if (map['startedAt'] is Timestamp) {
+        start = (map['startedAt'] as Timestamp).toDate();
+      } else if (map['startedAt'] is String) {
+        start = DateTime.tryParse(map['startedAt'] as String) ?? start;
+      }
+    } else if (map['startTime'] != null) {
+      if (map['startTime'] is Timestamp) {
+        start = (map['startTime'] as Timestamp).toDate();
+      } else if (map['startTime'] is String) {
+        start = DateTime.tryParse(map['startTime'] as String) ?? start;
+      }
+    } else if (map['date'] != null) {
+      if (map['date'] is Timestamp) {
+        start = (map['date'] as Timestamp).toDate();
+      } else if (map['date'] is String) {
+        start = DateTime.tryParse(map['date'] as String) ?? start;
+      }
+    }
+
+    DateTime end = start.add(Duration(seconds: dur + over));
+    if (map['endedAt'] != null) {
+      if (map['endedAt'] is Timestamp) {
+        end = (map['endedAt'] as Timestamp).toDate();
+      } else if (map['endedAt'] is String) {
+        end = DateTime.tryParse(map['endedAt'] as String) ?? end;
+      }
+    } else if (map['endTime'] != null) {
+      if (map['endTime'] is Timestamp) {
+        end = (map['endTime'] as Timestamp).toDate();
+      } else if (map['endTime'] is String) {
+        end = DateTime.tryParse(map['endTime'] as String) ?? end;
+      }
+    }
+
+    final notes = map['focusNotes'] as String? ?? map['notes'] as String?;
+    final rating = (map['focusRating'] as num?)?.toInt() ?? 5;
+
+    return StudySession(
+      id: id,
+      courseId: courseId,
+      courseCode: courseCode,
+      topicIds: tIds,
+      topicTitles: tTitles,
+      durationSeconds: dur,
+      overtimeSeconds: over,
+      startedAt: start,
+      endedAt: end,
+      focusNotes: notes,
+      focusRating: rating,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'courseId': courseId,
+      'courseCode': courseCode,
+      'topicIds': topicIds,
+      'topicTitles': topicTitles,
+      'durationSeconds': durationSeconds,
+      'overtimeSeconds': overtimeSeconds,
+      'startedAt': Timestamp.fromDate(startedAt),
+      'endedAt': Timestamp.fromDate(endedAt),
+      'focusNotes': focusNotes,
+      'focusRating': focusRating,
+      // Compatibility fields with legacy StudySessionLog
+      'subjectId': courseId,
+      'subjectName': courseCode,
+      'durationInMinutes': (durationSeconds / 60).round(),
+      'date': Timestamp.fromDate(startedAt),
+    };
+  }
+
+  StudySession copyWith({
+    String? id,
+    String? courseId,
+    String? courseCode,
+    List<String>? topicIds,
+    List<String>? topicTitles,
+    int? durationSeconds,
+    int? overtimeSeconds,
+    DateTime? startedAt,
+    DateTime? endedAt,
+    String? focusNotes,
+    int? focusRating,
+  }) {
+    return StudySession(
+      id: id ?? this.id,
+      courseId: courseId ?? this.courseId,
+      courseCode: courseCode ?? this.courseCode,
+      topicIds: topicIds ?? this.topicIds,
+      topicTitles: topicTitles ?? this.topicTitles,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      overtimeSeconds: overtimeSeconds ?? this.overtimeSeconds,
+      startedAt: startedAt ?? this.startedAt,
+      endedAt: endedAt ?? this.endedAt,
+      focusNotes: focusNotes ?? this.focusNotes,
+      focusRating: focusRating ?? this.focusRating,
+    );
+  }
+}
