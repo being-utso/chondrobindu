@@ -634,7 +634,9 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
           // Syllabus Tab Content
           if (_activeSubTab == 'Syllabus') ...[
             _buildSyllabusTabHeader(course),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            _buildSyllabusActionBar(course),
+            const SizedBox(height: 16),
             _buildGranularTopicTree(course),
           ] else ...[
             Center(
@@ -649,6 +651,50 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildSyllabusActionBar(Course course) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          'Chapters & Topics',
+          style: GoogleFonts.plusJakartaSans(
+            color: const Color(0xFFEDE8E3),
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        Row(
+          children: [
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFEDE8E3),
+                side: const BorderSide(color: Color(0xFF2E2623)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => _showAddChapterDialog(context, course),
+              icon: const Icon(Icons.create_new_folder_outlined, size: 16, color: Color(0xFFF2B78A)),
+              label: Text('+ Add Chapter', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
+            const SizedBox(width: 10),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF2B78A),
+                foregroundColor: const Color(0xFF151211),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => _showAddTopicDialog(context, course),
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: Text('+ Add Topic', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -693,11 +739,15 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
 
   // --- SECTION B1: Syllabus Tab Header ---
   Widget _buildSyllabusTabHeader(Course course) {
-    final double progress = course.progressFraction;
-    final pctText = '${(progress * 100).toInt()}%';
-    final int total = course.totalTopicsCount > 0 ? course.totalTopicsCount : 42;
-    final int completed = course.completedTopicsCount;
+    final topicsAsync = ref.watch(syllabusTopicsStreamProvider(course.id));
+    final liveTopics = topicsAsync.valueOrNull ?? [];
+    final int total = liveTopics.isNotEmpty ? liveTopics.length : course.totalTopicsCount;
+    final int completed = liveTopics.isNotEmpty
+        ? liveTopics.where((t) => (_topicCheckState[t.id] ?? t.isCompleted)).length
+        : course.completedTopicsCount;
     final int remaining = math.max(0, total - completed);
+    final double progress = total > 0 ? (completed / total) : 0.0;
+    final pctText = '${(progress * 100).toInt()}%';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -883,6 +933,22 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
               style: GoogleFonts.plusJakartaSans(
                 color: const Color(0xFF9E8C82),
                 fontSize: 13.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF2B78A),
+                foregroundColor: const Color(0xFF151211),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => _showAddTopicDialog(context, course),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: Text(
+                'Add First Topic',
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
               ),
             ),
           ],
@@ -1180,6 +1246,230 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _showAddChapterDialog(BuildContext context, Course course) {
+    SafeHaptics.selectionClick();
+    final chapterCtrl = TextEditingController();
+    final topicCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1816),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFF2E2623)),
+        ),
+        title: Text(
+          'Add New Chapter',
+          style: GoogleFonts.plusJakartaSans(
+            color: const Color(0xFFEDE8E3),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: chapterCtrl,
+              style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+              decoration: InputDecoration(
+                labelText: 'Chapter Title (e.g. Chapter 1: Introduction)',
+                labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: topicCtrl,
+              style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+              decoration: InputDecoration(
+                labelText: 'Initial Topic Title (optional)',
+                labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF2B78A),
+              foregroundColor: const Color(0xFF151211),
+            ),
+            onPressed: () async {
+              final chapter = chapterCtrl.text.trim();
+              if (chapter.isEmpty) return;
+              final topicTitle = topicCtrl.text.trim();
+
+              final newTopic = SyllabusTopic(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                chapterTitle: chapter,
+                topicIndex: '1.1',
+                title: topicTitle.isNotEmpty ? topicTitle : 'Overview',
+                isCompleted: false,
+              );
+
+              String uid = '';
+              try {
+                uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+              } catch (_) {}
+              if (uid.isNotEmpty) {
+                await ref.read(courseRepositoryProvider).addTopics(uid, course.id, [newTopic]);
+              }
+              if (ctx.mounted) Navigator.of(ctx).pop();
+            },
+            child: Text('Add Chapter', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddTopicDialog(BuildContext context, Course course, [String? defaultChapter]) {
+    SafeHaptics.selectionClick();
+    final topicsAsync = ref.read(syllabusTopicsStreamProvider(course.id));
+    final liveTopics = topicsAsync.valueOrNull ?? [];
+    final existingChapters = liveTopics.map((t) => t.chapterTitle).toSet().toList();
+
+    String selectedChapter = defaultChapter ?? (existingChapters.isNotEmpty ? existingChapters.first : 'General');
+    final chapterCtrl = TextEditingController(text: selectedChapter);
+    final codeCtrl = TextEditingController(text: '${existingChapters.isNotEmpty ? existingChapters.indexOf(selectedChapter) + 1 : 1}.${liveTopics.length + 1}');
+    final titleCtrl = TextEditingController();
+    bool isCustomChapter = existingChapters.isEmpty;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1816),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFF2E2623)),
+          ),
+          title: Text(
+            'Add Syllabus Topic',
+            style: GoogleFonts.plusJakartaSans(
+              color: const Color(0xFFEDE8E3),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (existingChapters.isNotEmpty && !isCustomChapter) ...[
+                  Text('Chapter', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
+                  const SizedBox(height: 6),
+                  DropdownButton<String>(
+                    value: existingChapters.contains(selectedChapter) ? selectedChapter : existingChapters.first,
+                    dropdownColor: const Color(0xFF241C1A),
+                    style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
+                    isExpanded: true,
+                    underline: Container(height: 1, color: const Color(0xFF2E2623)),
+                    items: [
+                      ...existingChapters.map((ch) => DropdownMenuItem(value: ch, child: Text(ch))),
+                      const DropdownMenuItem(value: '__new__', child: Text('+ New Chapter...')),
+                    ],
+                    onChanged: (val) {
+                      if (val == '__new__') {
+                        setDialogState(() {
+                          isCustomChapter = true;
+                          chapterCtrl.text = '';
+                        });
+                      } else if (val != null) {
+                        setDialogState(() {
+                          selectedChapter = val;
+                          chapterCtrl.text = val;
+                        });
+                      }
+                    },
+                  ),
+                ] else ...[
+                  TextField(
+                    controller: chapterCtrl,
+                    style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: 'Chapter Name',
+                      labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                      focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: codeCtrl,
+                  style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+                  decoration: InputDecoration(
+                    labelText: 'Topic Code (e.g. 1.1 or T-01)',
+                    labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+                    enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                    focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: titleCtrl,
+                  style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+                  decoration: InputDecoration(
+                    labelText: 'Topic Title',
+                    labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+                    enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                    focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82))),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF2B78A),
+                foregroundColor: const Color(0xFF151211),
+              ),
+              onPressed: () async {
+                final chapter = isCustomChapter ? chapterCtrl.text.trim() : selectedChapter;
+                final code = codeCtrl.text.trim();
+                final title = titleCtrl.text.trim();
+                if (chapter.isEmpty || title.isEmpty) return;
+
+                final newTopic = SyllabusTopic(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  chapterTitle: chapter,
+                  topicIndex: code.isNotEmpty ? code : '1.1',
+                  title: title,
+                  isCompleted: false,
+                );
+
+                String uid = '';
+                try {
+                  uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                } catch (_) {}
+                if (uid.isNotEmpty) {
+                  await ref.read(courseRepositoryProvider).addTopics(uid, course.id, [newTopic]);
+                }
+                if (ctx.mounted) Navigator.of(ctx).pop();
+              },
+              child: Text('Add Topic', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
       ),
     );
   }

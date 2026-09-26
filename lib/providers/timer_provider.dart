@@ -100,6 +100,7 @@ class TimerState {
       focusMode == FocusTimerMode.breakPaused;
   bool get isBreakRunning => focusMode == FocusTimerMode.breakRunning;
   bool get isBreakPaused => focusMode == FocusTimerMode.breakPaused;
+  int get targetMinutes => (targetSeconds / 60).round();
 
   /// Formats time:
   /// 1. Overtime: +MM:SS or +H:MM:SS

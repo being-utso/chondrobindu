@@ -4992,6 +4992,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final sortedEntries = subjectSec.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
+    final coursesAsync = ref.watch(coursesStreamProvider);
+    final enrolledCourses = coursesAsync.value ?? [];
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -5012,20 +5015,100 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          if (sortedEntries.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
-              child: Center(
-                child: Text(
-                  'No enrolled courses or sessions to distribute.',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: const Color(0xFF9E8C82),
-                    fontSize: 13,
+          if (sortedEntries.isEmpty) ...[
+            if (enrolledCourses.isNotEmpty) ...[
+              Row(
+                children: [
+                  SizedBox(
+                    width: 120,
+                    height: 120,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        const CircularProgressIndicator(
+                          value: 1.0,
+                          strokeWidth: 14,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E2623)),
+                        ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '0h',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: const Color(0xFFEDE8E3),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              'Focused',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: const Color(0xFF9E8C82),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  // Subject Legend for Enrolled Courses at 0%
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: enrolledCourses.take(4).toList().asMap().entries.map((e) {
+                        final idx = e.key;
+                        final c = e.value;
+                        final color = palette[idx % palette.length];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: _subjectLegendRow(c.code.isNotEmpty ? c.code : c.title, '0%', color),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF241C1A),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF2E2623)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFFF2B78A), size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Complete a focus timer session to see subject breakdown.',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: const Color(0xFF9E8C82),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24.0),
+                child: Center(
+                  child: Text(
+                    'No enrolled courses or sessions to distribute.',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: const Color(0xFF9E8C82),
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ),
-            )
-          else
+          ] else
             Row(
               children: [
                 // Circular Donut representation

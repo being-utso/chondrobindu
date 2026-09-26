@@ -534,7 +534,14 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
             ),
           ),
 
-          const SizedBox(height: 36),
+          const SizedBox(height: 20),
+
+          // Duration Presets Row: [ 15 min ] [ 25 min ] [ 45 min ] [ 60 min ] [ Custom ]
+          if (!isStopwatch) ...[
+            _buildDurationPresetsRow(timerState, timerNotifier),
+            const SizedBox(height: 24),
+          ] else
+            const SizedBox(height: 36),
 
           // 280px Diameter Circular Countdown Dial
           SizedBox(
@@ -711,7 +718,166 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     );
   }
 
+  Widget _buildDurationPresetsRow(TimerState timerState, TimerNotifier timerNotifier) {
+    final presets = [15, 25, 45, 60];
+    final currentTarget = timerState.targetMinutes;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ...presets.map((min) {
+            final isSelected = currentTarget == min;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: InkWell(
+                onTap: () {
+                  SafeHaptics.selectionClick();
+                  timerNotifier.setTargetMinutes(min);
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFFF2B78A).withValues(alpha: 0.15) : const Color(0xFF241C1A),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected ? const Color(0xFFF2B78A) : const Color(0xFF2E2623),
+                      width: isSelected ? 1.2 : 1.0,
+                    ),
+                  ),
+                  child: Text(
+                    '$min min',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: isSelected ? const Color(0xFFF2B78A) : const Color(0xFF9E8C82),
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+          // Custom preset
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: InkWell(
+              onTap: () => _showCustomDurationDialog(context, timerNotifier),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: (!presets.contains(currentTarget))
+                      ? const Color(0xFFF2B78A).withValues(alpha: 0.15)
+                      : const Color(0xFF241C1A),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: (!presets.contains(currentTarget))
+                        ? const Color(0xFFF2B78A)
+                        : const Color(0xFF2E2623),
+                    width: (!presets.contains(currentTarget)) ? 1.2 : 1.0,
+                  ),
+                ),
+                child: Text(
+                  !presets.contains(currentTarget) ? '$currentTarget min' : 'Custom',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: (!presets.contains(currentTarget))
+                        ? const Color(0xFFF2B78A)
+                        : const Color(0xFF9E8C82),
+                    fontSize: 12,
+                    fontWeight: (!presets.contains(currentTarget)) ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCustomDurationDialog(BuildContext context, TimerNotifier timerNotifier) {
+    SafeHaptics.selectionClick();
+    final customCtrl = TextEditingController(text: '30');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1816),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFF2E2623)),
+        ),
+        title: Text(
+          'Custom Focus Duration',
+          style: GoogleFonts.plusJakartaSans(
+            color: const Color(0xFFEDE8E3),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Set target focus time (10 - 180 minutes):',
+              style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: customCtrl,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              style: GoogleFonts.jetBrainsMono(color: const Color(0xFFEDE8E3), fontSize: 16, fontWeight: FontWeight.w600),
+              decoration: InputDecoration(
+                suffixText: 'minutes',
+                suffixStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF2B78A),
+              foregroundColor: const Color(0xFF151211),
+            ),
+            onPressed: () {
+              final mins = int.tryParse(customCtrl.text.trim());
+              if (mins != null && mins > 0) {
+                SafeHaptics.mediumImpact();
+                timerNotifier.setTargetMinutes(mins.clamp(5, 360));
+              }
+              Navigator.of(ctx).pop();
+            },
+            child: Text('Set Target', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDesktopSessionSummary(TimerState timerState) {
+    final todaySessionsAsync = ref.watch(todayStudySessionsStreamProvider);
+    final todaySessions = todaySessionsAsync.value ?? [];
+    final cycleCount = todaySessions.length;
+    final totalSeconds = todaySessions.fold<int>(0, (sum, s) => sum + s.durationSeconds);
+    final totalMinutes = (totalSeconds / 60).round();
+    final hours = totalMinutes ~/ 60;
+    final mins = totalMinutes % 60;
+    final timeStr = hours > 0 ? '${hours}h ${mins}m focused' : '${mins}m focused';
+    const targetCycles = 5;
+    final cycleProgress = (cycleCount / targetCycles).clamp(0.0, 1.0);
+
+    final targetFocusMins = timerState.targetMinutes;
+    final shortBreakMins = (targetFocusMins / 5).round().clamp(1, 15);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -732,9 +898,9 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
             ),
           ),
           const SizedBox(height: 14),
-          _summaryRow('Target Focus', '25 min'),
+          _summaryRow('Target Focus', '$targetFocusMins min'),
           const SizedBox(height: 10),
-          _summaryRow('Short Break', '5 min'),
+          _summaryRow('Short Break', '$shortBreakMins min'),
           const SizedBox(height: 10),
           _summaryRow('Cycle Ratio', '5:1 Focus/Rest'),
 
@@ -758,7 +924,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
             children: [
               Flexible(
                 child: Text(
-                  '2 / 5 cycles',
+                  '$cycleCount / $targetCycles cycles',
                   style: GoogleFonts.jetBrainsMono(
                     color: const Color(0xFFEDE8E3),
                     fontSize: 15,
@@ -770,7 +936,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  '2h 10m focused',
+                  timeStr,
                   style: GoogleFonts.jetBrainsMono(
                     color: const Color(0xFF34D399),
                     fontSize: 12.5,
@@ -784,10 +950,10 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           const SizedBox(height: 10),
           ClipRRect(
             borderRadius: BorderRadius.circular(3),
-            child: const LinearProgressIndicator(
-              value: 0.40,
-              backgroundColor: Color(0xFF241C1A),
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF34D399)),
+            child: LinearProgressIndicator(
+              value: cycleProgress,
+              backgroundColor: const Color(0xFF241C1A),
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF34D399)),
               minHeight: 5,
             ),
           ),

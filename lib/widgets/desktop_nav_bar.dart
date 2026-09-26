@@ -50,6 +50,9 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
         : (profile.fullName.isNotEmpty ? profile.fullName.split(' ').first : 'Student');
     final photoUrl = profile.photoUrl.isNotEmpty ? profile.photoUrl : profile.profileImageUrl;
 
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isCompactDesktop = screenWidth <= 1200;
+
     return Focus(
       autofocus: true,
       onKeyEvent: (node, event) {
@@ -72,13 +75,13 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
             ),
           ),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        padding: EdgeInsets.symmetric(horizontal: isCompactDesktop ? 10.0 : 16.0),
         child: Row(
           children: [
             // Left: Moon Crescent + Bengali Wordmark + Subtitle
             _buildBrand(),
 
-            const SizedBox(width: 16.0),
+            SizedBox(width: isCompactDesktop ? 8.0 : 16.0),
 
             // Center: Navigation Tabs
             Expanded(
@@ -148,7 +151,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
               ),
             ),
 
-            const SizedBox(width: 16.0),
+            SizedBox(width: isCompactDesktop ? 8.0 : 16.0),
 
             // Right: Quick Search, Notification Bell, Profile Chip
             _buildRightActions(context, ref, profile, displayName, photoUrl),
@@ -242,6 +245,10 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
       return a.date!.isAfter(now.subtract(const Duration(hours: 12))) && a.date!.isBefore(in3Days);
     }).toList();
 
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isCompactDesktop = screenWidth <= 1200;
+    final double searchWidth = isCompactDesktop ? 140.0 : 240.0;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -251,7 +258,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
           borderRadius: BorderRadius.circular(18),
           child: Container(
             height: 36,
-            width: 140,
+            width: searchWidth,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               color: const Color(0xFF1E1816),
@@ -298,7 +305,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
           ),
         ),
 
-        const SizedBox(width: 14),
+        SizedBox(width: isCompactDesktop ? 8.0 : 14.0),
 
         // Notification Bell Popup
         PopupMenuButton<void>(

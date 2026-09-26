@@ -62,7 +62,7 @@ class HomeScreen extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Primary Metric Row (3 Horizontal Cards)
-                            _buildPrimaryMetricsRow(profile),
+                            _buildPrimaryMetricsRow(ref, profile),
 
                             const SizedBox(height: 24.0),
 
@@ -90,7 +90,7 @@ class HomeScreen extends ConsumerWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildPrimaryMetricsRow(profile, isMobile: true),
+                      _buildPrimaryMetricsRow(ref, profile, isMobile: true),
                       const SizedBox(height: 20.0),
                       _buildQuickStartBanner(context, ref),
                       const SizedBox(height: 20.0),
@@ -109,40 +109,47 @@ class HomeScreen extends ConsumerWidget {
 
   // --- SECTION A: Header & Greeting ---
   Widget _buildHeader(dynamic profile, String name) {
-    String termStr = 'Level 2 • Term 1';
-    String deptStr = 'EEE';
-    String batchStr = 'Batch 2023';
+    String metadataPrefix = 'Level 2 • Term 1 • EEE • Batch 2023';
 
     try {
       if (profile != null) {
         if (profile.institutionType == InstitutionType.college) {
-          termStr = (profile.collegeClass != null && profile.collegeClass.toString().isNotEmpty)
-              ? profile.collegeClass.toString()
+          final collegeClass = (profile.collegeClass != null && profile.collegeClass.toString().trim().isNotEmpty)
+              ? profile.collegeClass.toString().trim()
               : 'Class 11';
-          deptStr = (profile.academicGroup != null && profile.academicGroup.toString().isNotEmpty)
-              ? profile.academicGroup.toString()
+          final group = (profile.academicGroup != null && profile.academicGroup.toString().trim().isNotEmpty)
+              ? profile.academicGroup.toString().trim()
               : 'Science';
-          batchStr = (profile.batch != null && profile.batch.toString().isNotEmpty)
-              ? 'Batch ${profile.batch}'
-              : 'Batch 2025';
+          final b = (profile.batch != null && profile.batch.toString().trim().isNotEmpty)
+              ? profile.batch.toString().trim()
+              : '2025';
+          metadataPrefix = '$collegeClass • $group • Batch $b';
         } else {
-          if (profile.term != null && (profile.term as String).isNotEmpty) {
-            if (profile.level != null && (profile.level as String).isNotEmpty) {
-              termStr = '${profile.level} • ${profile.term}';
-            } else {
-              termStr = profile.term as String;
-            }
-          }
-          if (profile.department != null && (profile.department as String).isNotEmpty) {
-            deptStr = profile.department as String;
-          } else if (profile.major != null && (profile.major as String).isNotEmpty) {
-            deptStr = profile.major as String;
-          }
-          if (profile.batch != null && (profile.batch as String).isNotEmpty) {
-            batchStr = 'Batch ${profile.batch}';
-          } else if (profile.hscBatch != null && (profile.hscBatch as String).isNotEmpty) {
-            batchStr = 'Batch ${profile.hscBatch}';
-          }
+          final rawLevel = (profile.level != null && (profile.level as String).trim().isNotEmpty)
+              ? (profile.level as String).trim()
+              : '1';
+          final levelStr = rawLevel.toLowerCase().startsWith('level') ? rawLevel : 'Level $rawLevel';
+
+          final rawTerm = (profile.term != null && (profile.term as String).trim().isNotEmpty)
+              ? (profile.term as String).trim()
+              : '1';
+          final termStr = rawTerm.toLowerCase().startsWith('term') ? rawTerm : 'Term $rawTerm';
+
+          final rawDept = (profile.department != null && (profile.department as String).trim().isNotEmpty)
+              ? (profile.department as String).trim()
+              : ((profile.major != null && (profile.major as String).trim().isNotEmpty)
+                  ? (profile.major as String).trim()
+                  : 'EEE');
+          final deptStr = rawDept.toUpperCase();
+
+          final rawBatch = (profile.batch != null && (profile.batch as String).trim().isNotEmpty)
+              ? (profile.batch as String).trim()
+              : ((profile.hscBatch != null && (profile.hscBatch as String).trim().isNotEmpty)
+                  ? (profile.hscBatch as String).trim()
+                  : 'Varsity');
+          final batchStr = rawBatch.toLowerCase().startsWith('batch') ? rawBatch : 'Batch $rawBatch';
+
+          metadataPrefix = '$levelStr • $termStr • $deptStr • $batchStr';
         }
       }
     } catch (_) {}
@@ -173,7 +180,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                '$termStr • $deptStr • $batchStr  |  $todayFormatted',
+                '$metadataPrefix  |  $todayFormatted',
                 style: GoogleFonts.jetBrainsMono(
                   color: const Color(0xFF9E8C82),
                   fontSize: 12,
@@ -222,13 +229,13 @@ class HomeScreen extends ConsumerWidget {
   }
 
   // --- SECTION B: Primary Metric Cards ---
-  Widget _buildPrimaryMetricsRow(dynamic profile, {bool isMobile = false}) {
+  Widget _buildPrimaryMetricsRow(WidgetRef ref, dynamic profile, {bool isMobile = false}) {
     if (isMobile) {
       return Column(
         children: [
           _buildStreakCard(profile),
           const SizedBox(height: 12),
-          _buildFocusTimeCard(profile),
+          _buildFocusTimeCard(ref, profile),
           const SizedBox(height: 12),
           _buildCgpaCard(profile),
         ],
@@ -239,7 +246,7 @@ class HomeScreen extends ConsumerWidget {
       children: [
         Expanded(child: _buildStreakCard(profile)),
         const SizedBox(width: 16),
-        Expanded(child: _buildFocusTimeCard(profile)),
+        Expanded(child: _buildFocusTimeCard(ref, profile)),
         const SizedBox(width: 16),
         Expanded(child: _buildCgpaCard(profile)),
       ],
@@ -336,16 +343,14 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildFocusTimeCard(dynamic profile) {
-    int totalMins = 0;
-    int sessions = 0;
-    try {
-      totalMins = (profile?.totalFocusMinutes as int?) ?? 0;
-      sessions = (profile?.completedSessionsCount as int?) ?? 0;
-    } catch (_) {}
+  Widget _buildFocusTimeCard(WidgetRef ref, dynamic profile) {
+    final sessionsAsync = ref.watch(recentStudySessionsStreamProvider);
+    final sessions = sessionsAsync.value ?? [];
+    final int sessionCount = sessions.length;
+    final int totalMinutes = sessions.fold<int>(0, (sum, s) => sum + (s.durationSeconds ~/ 60));
 
-    final hrs = (totalMins / 60.0).toStringAsFixed(1);
-    final sessionsText = 'in $sessions ${sessions == 1 ? 'session' : 'sessions'}';
+    final hrs = (totalMinutes / 60.0).toStringAsFixed(1);
+    final sessionsText = 'in $sessionCount ${sessionCount == 1 ? 'session' : 'sessions'}';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -466,6 +471,8 @@ class HomeScreen extends ConsumerWidget {
           Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -490,12 +497,20 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-              Text(
-                'Target ${targetGpa.toStringAsFixed(2)}',
-                style: GoogleFonts.jetBrainsMono(
-                  color: const Color(0xFFF2B78A),
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF241C1A),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFF382A24), width: 0.8),
+                ),
+                child: Text(
+                  'Target ${targetGpa.toStringAsFixed(2)}',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: const Color(0xFFF2B78A),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],

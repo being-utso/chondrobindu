@@ -1,9 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/course_model.dart';
 import '../models/syllabus_model.dart';
 import '../models/routine_slot_model.dart';
+import '../models/routine_models.dart';
 import '../models/assessment_model.dart';
 import '../models/study_session_model.dart';
 import '../repositories/user_repository.dart';
@@ -108,6 +110,17 @@ final studySessionsDateStreamProvider = StreamProvider.family<List<StudySession>
   return ref.watch(studySessionRepositoryProvider).watchSessionsForDate(uid, date);
 });
 
+// --- Today's Study Sessions Provider (Normalized to today's date) ---
+final todayStudySessionsStreamProvider = StreamProvider<List<StudySession>>((ref) {
+  if (Firebase.apps.isEmpty) return Stream.value([]);
+  final uidAsync = ref.watch(currentUserIdProvider);
+  final uid = uidAsync.value ?? _getSafeCurrentUid();
+  if (uid.isEmpty) return Stream.value([]);
+  final now = DateTime.now();
+  final todayStart = DateTime(now.year, now.month, now.day);
+  return ref.watch(studySessionRepositoryProvider).watchSessionsForDate(uid, todayStart);
+});
+
 // --- Study Sessions Range Parameter Class ---
 class DateRangeParam {
   final DateTime start;
@@ -132,4 +145,27 @@ final studySessionsRangeStreamProvider = StreamProvider.family<List<StudySession
   final uid = uidAsync.value ?? _getSafeCurrentUid();
   if (uid.isEmpty) return Stream.value([]);
   return ref.watch(studySessionRepositoryProvider).watchSessionsRange(uid, range.start, range.end);
+});
+
+// --- Recent Study Sessions Provider ---
+final recentStudySessionsStreamProvider = StreamProvider<List<StudySession>>((ref) {
+  if (Firebase.apps.isEmpty) return Stream.value([]);
+  final uidAsync = ref.watch(currentUserIdProvider);
+  final uid = uidAsync.value ?? _getSafeCurrentUid();
+  if (uid.isEmpty) return Stream.value([]);
+  return ref.watch(studySessionRepositoryProvider).watchRecentSessions(uid, limit: 100);
+});
+
+// --- Attendance Records Stream Provider ---
+final attendanceRecordsStreamProvider = StreamProvider<List<AttendanceRecord>>((ref) {
+  if (Firebase.apps.isEmpty) return Stream.value([]);
+  final uidAsync = ref.watch(currentUserIdProvider);
+  final uid = uidAsync.value ?? _getSafeCurrentUid();
+  if (uid.isEmpty) return Stream.value([]);
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('attendance_records')
+      .snapshots()
+      .map((snap) => snap.docs.map((doc) => AttendanceRecord.fromMap(doc.data(), defaultId: doc.id)).toList());
 });

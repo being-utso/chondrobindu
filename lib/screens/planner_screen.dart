@@ -1,8 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import '../models/assessment_model.dart';
 import '../models/course_model.dart';
+import '../models/routine_models.dart';
 import '../models/routine_slot_model.dart';
 import '../providers/firestore_providers.dart';
 import '../utils/safe_haptics.dart';
@@ -78,62 +81,90 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFF2E2623), width: 1),
       ),
-      child: Row(
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 10,
         children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left_rounded, color: Color(0xFFEDE8E3), size: 22),
-            onPressed: () => SafeHaptics.selectionClick(),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '22 - 28 Sep 2026',
-            style: GoogleFonts.jetBrainsMono(
-              color: const Color(0xFFEDE8E3),
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.chevron_right_rounded, color: Color(0xFFEDE8E3), size: 22),
-            onPressed: () => SafeHaptics.selectionClick(),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-          const SizedBox(width: 14),
-          OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFFF2B78A),
-              side: const BorderSide(color: Color(0xFF382A24)),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              minimumSize: Size.zero,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () => SafeHaptics.selectionClick(),
-            child: Text(
-              'Today',
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left_rounded, color: Color(0xFFEDE8E3), size: 22),
+                onPressed: () => SafeHaptics.selectionClick(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '22 - 28 Sep 2026',
+                style: GoogleFonts.jetBrainsMono(
+                  color: const Color(0xFFEDE8E3),
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.chevron_right_rounded, color: Color(0xFFEDE8E3), size: 22),
+                onPressed: () => SafeHaptics.selectionClick(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 14),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFF2B78A),
+                  side: const BorderSide(color: Color(0xFF382A24)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  minimumSize: Size.zero,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => SafeHaptics.selectionClick(),
+                child: Text(
+                  'Today',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
           ),
 
-          const Spacer(),
-
-          // View toggles: [ Week ] [ Month ]
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: const Color(0xFF241C1A),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF2E2623), width: 1),
-            ),
-            child: Row(
-              children: [
-                _viewToggleItem('Week', _selectedView == 'Week'),
-                _viewToggleItem('Month', _selectedView == 'Month'),
-              ],
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // View toggles: [ Week ] [ Month ]
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF241C1A),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF2E2623), width: 1),
+                ),
+                child: Row(
+                  children: [
+                    _viewToggleItem('Week', _selectedView == 'Week'),
+                    _viewToggleItem('Month', _selectedView == 'Month'),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF2B78A),
+                  foregroundColor: const Color(0xFF151211),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () => _showAddRoutineSlotDialog(context),
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: Text(
+                  '+ Add Class Slot',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -397,14 +428,38 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           const SizedBox(height: 20),
 
           if (_rightPanelTab == 'Assessments') ...[
-            Text(
-              'UPCOMING ASSESSMENTS',
-              style: GoogleFonts.jetBrainsMono(
-                color: const Color(0xFF9E8C82),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.0,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'UPCOMING ASSESSMENTS',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: const Color(0xFF9E8C82),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.0,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFF2B78A),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: () => _showAddAssessmentDialog(context),
+                  icon: const Icon(Icons.add_rounded, size: 14),
+                  label: Text(
+                    '+ Schedule',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 14),
             ..._buildAssessmentsList(),
@@ -477,18 +532,37 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   List<Widget> _buildAttendanceList() {
     final coursesAsync = ref.watch(coursesStreamProvider);
     final liveCourses = coursesAsync.value;
+    final attendanceAsync = ref.watch(attendanceRecordsStreamProvider);
+    final records = attendanceAsync.value ?? [];
 
     if (liveCourses != null && liveCourses.isNotEmpty) {
       return liveCourses.map((c) {
-        final pct = (c.progressPercentage).clamp(60.0, 100.0).toInt();
-        final pctColor = pct >= 80 ? const Color(0xFF34D399) : const Color(0xFFF2B78A);
+        final courseRecords = records.where((r) => r.courseId == c.id || (r.courseCode != null && r.courseCode == c.code)).toList();
+        final totalClasses = courseRecords.where((r) => r.status != AttendanceStatus.canceled && r.status != AttendanceStatus.unmarked).length;
+        final attendedClasses = courseRecords.where((r) => r.status == AttendanceStatus.attended || r.status == AttendanceStatus.extra).length;
+
+        final String pctStr;
+        final String classesStr;
+        final Color pctColor;
+
+        if (totalClasses > 0) {
+          final pct = ((attendedClasses / totalClasses) * 100).toInt();
+          pctStr = '$pct%';
+          classesStr = '$attendedClasses / $totalClasses classes';
+          pctColor = pct >= 80 ? const Color(0xFF34D399) : const Color(0xFFF2B78A);
+        } else {
+          pctStr = '--';
+          classesStr = '0 / 0 classes';
+          pctColor = const Color(0xFF9E8C82);
+        }
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: _attendanceRow(
             c.code,
             c.title,
-            '$pct%',
-            '${c.completedTopicsCount} / ${c.totalTopicsCount > 0 ? c.totalTopicsCount : 20}',
+            pctStr,
+            classesStr,
             pctColor,
           ),
         );
@@ -522,14 +596,22 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF2B78A).withValues(alpha: 0.15) : Colors.transparent,
+          color: isSelected ? const Color(0xFFF2B78A) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          border: isSelected ? Border.all(color: const Color(0xFFF2B78A), width: 0.8) : null,
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFF2B78A).withValues(alpha: 0.2),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           label,
           style: GoogleFonts.plusJakartaSans(
-            color: isSelected ? const Color(0xFFF2B78A) : const Color(0xFF9E8C82),
+            color: isSelected ? const Color(0xFF151211) : const Color(0xFF9E8C82),
             fontSize: 12.5,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
           ),
@@ -665,6 +747,397 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  void _showAddRoutineSlotDialog(BuildContext context) {
+    SafeHaptics.selectionClick();
+    final coursesAsync = ref.read(coursesStreamProvider);
+    final courses = coursesAsync.value ?? [];
+
+    Course? selectedCourse = courses.isNotEmpty ? courses.first : null;
+    int selectedDay = 1; // Monday
+    final startCtrl = TextEditingController(text: '08:00 AM');
+    final endCtrl = TextEditingController(text: '09:30 AM');
+    final roomCtrl = TextEditingController();
+    final teacherCtrl = TextEditingController();
+    CourseType selectedType = CourseType.theory;
+
+    final daysList = [
+      {'name': 'Monday', 'day': 1},
+      {'name': 'Tuesday', 'day': 2},
+      {'name': 'Wednesday', 'day': 3},
+      {'name': 'Thursday', 'day': 4},
+      {'name': 'Friday', 'day': 5},
+      {'name': 'Saturday', 'day': 6},
+      {'name': 'Sunday', 'day': 7},
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1816),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFF2E2623)),
+          ),
+          title: Text(
+            'Add Class Routine Slot',
+            style: GoogleFonts.plusJakartaSans(
+              color: const Color(0xFFEDE8E3),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Course', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
+                  const SizedBox(height: 6),
+                  if (courses.isNotEmpty)
+                    DropdownButton<Course>(
+                      value: selectedCourse,
+                      dropdownColor: const Color(0xFF241C1A),
+                      style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
+                      isExpanded: true,
+                      underline: Container(height: 1, color: const Color(0xFF2E2623)),
+                      items: courses.map((c) => DropdownMenuItem(value: c, child: Text('${c.code}: ${c.title}'))).toList(),
+                      onChanged: (val) {
+                        if (val != null) setDialogState(() => selectedCourse = val);
+                      },
+                    )
+                  else
+                    Text(
+                      'No enrolled courses. Please add a course first.',
+                      style: GoogleFonts.plusJakartaSans(color: const Color(0xFFF2B78A), fontSize: 13),
+                    ),
+                  const SizedBox(height: 14),
+                  Text('Day of Week', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
+                  const SizedBox(height: 6),
+                  DropdownButton<int>(
+                    value: selectedDay,
+                    dropdownColor: const Color(0xFF241C1A),
+                    style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
+                    isExpanded: true,
+                    underline: Container(height: 1, color: const Color(0xFF2E2623)),
+                    items: daysList.map((d) => DropdownMenuItem(value: d['day'] as int, child: Text(d['name'] as String))).toList(),
+                    onChanged: (val) {
+                      if (val != null) setDialogState(() => selectedDay = val);
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: startCtrl,
+                          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+                          decoration: InputDecoration(
+                            labelText: 'Start Time (e.g. 08:00 AM)',
+                            labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
+                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: endCtrl,
+                          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+                          decoration: InputDecoration(
+                            labelText: 'End Time (e.g. 09:30 AM)',
+                            labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
+                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: roomCtrl,
+                          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+                          decoration: InputDecoration(
+                            labelText: 'Room / Venue (e.g. LT-1)',
+                            labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
+                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: teacherCtrl,
+                          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+                          decoration: InputDecoration(
+                            labelText: 'Teacher Initials (e.g. MSR)',
+                            labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
+                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text('Class Type', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
+                  const SizedBox(height: 6),
+                  DropdownButton<CourseType>(
+                    value: selectedType,
+                    dropdownColor: const Color(0xFF241C1A),
+                    style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
+                    isExpanded: true,
+                    underline: Container(height: 1, color: const Color(0xFF2E2623)),
+                    items: const [
+                      DropdownMenuItem(value: CourseType.theory, child: Text('Theory')),
+                      DropdownMenuItem(value: CourseType.sessional, child: Text('Sessional / Lab')),
+                      DropdownMenuItem(value: CourseType.practical, child: Text('Practical')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setDialogState(() => selectedType = val);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82))),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF2B78A),
+                foregroundColor: const Color(0xFF151211),
+              ),
+              onPressed: () async {
+                if (selectedCourse == null) return;
+                final start = startCtrl.text.trim();
+                final end = endCtrl.text.trim();
+                if (start.isEmpty || end.isEmpty) return;
+
+                final newSlot = RoutineSlot(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  courseId: selectedCourse!.id,
+                  courseCode: selectedCourse!.code,
+                  courseTitle: selectedCourse!.title,
+                  dayOfWeek: selectedDay,
+                  startTime: start,
+                  endTime: end,
+                  room: roomCtrl.text.trim(),
+                  teacherBadge: teacherCtrl.text.trim().isNotEmpty ? teacherCtrl.text.trim() : null,
+                  slotType: selectedType,
+                );
+
+                String uid = '';
+                try {
+                  uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                } catch (_) {}
+                if (uid.isNotEmpty) {
+                  await ref.read(routineRepositoryProvider).addRoutineSlot(uid, newSlot);
+                }
+                if (ctx.mounted) Navigator.of(ctx).pop();
+              },
+              child: Text('Add Slot', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddAssessmentDialog(BuildContext context) {
+    SafeHaptics.selectionClick();
+    final coursesAsync = ref.read(coursesStreamProvider);
+    final courses = coursesAsync.value ?? [];
+
+    Course? selectedCourse = courses.isNotEmpty ? courses.first : null;
+    final nameCtrl = TextEditingController();
+    final marksCtrl = TextEditingController(text: '20');
+    final weightageCtrl = TextEditingController(text: '10');
+    String selectedType = 'quiz';
+    DateTime selectedDate = DateTime.now().add(const Duration(days: 2));
+
+    final typeOptions = [
+      {'val': 'quiz', 'label': 'Quiz'},
+      {'val': 'ct', 'label': 'Class Test (CT)'},
+      {'val': 'midterm', 'label': 'Midterm Exam'},
+      {'val': 'final', 'label': 'Term Final Exam'},
+      {'val': 'assignment', 'label': 'Assignment / Presentation'},
+      {'val': 'other', 'label': 'Other'},
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1816),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFF2E2623)),
+          ),
+          title: Text(
+            'Schedule Assessment',
+            style: GoogleFonts.plusJakartaSans(
+              color: const Color(0xFFEDE8E3),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Course', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
+                  const SizedBox(height: 6),
+                  if (courses.isNotEmpty)
+                    DropdownButton<Course>(
+                      value: selectedCourse,
+                      dropdownColor: const Color(0xFF241C1A),
+                      style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
+                      isExpanded: true,
+                      underline: Container(height: 1, color: const Color(0xFF2E2623)),
+                      items: courses.map((c) => DropdownMenuItem(value: c, child: Text('${c.code}: ${c.title}'))).toList(),
+                      onChanged: (val) {
+                        if (val != null) setDialogState(() => selectedCourse = val);
+                      },
+                    )
+                  else
+                    Text(
+                      'No enrolled courses. Please add a course first.',
+                      style: GoogleFonts.plusJakartaSans(color: const Color(0xFFF2B78A), fontSize: 13),
+                    ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: nameCtrl,
+                    style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: 'Assessment Title (e.g. Quiz 2 / CT 1)',
+                      labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
+                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                      focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text('Type', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
+                  const SizedBox(height: 6),
+                  DropdownButton<String>(
+                    value: selectedType,
+                    dropdownColor: const Color(0xFF241C1A),
+                    style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
+                    isExpanded: true,
+                    underline: Container(height: 1, color: const Color(0xFF2E2623)),
+                    items: typeOptions.map((t) => DropdownMenuItem(value: t['val'], child: Text(t['label']!))).toList(),
+                    onChanged: (val) {
+                      if (val != null) setDialogState(() => selectedType = val);
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFEDE8E3),
+                            side: const BorderSide(color: Color(0xFF2E2623)),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: ctx,
+                              initialDate: selectedDate,
+                              firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                              lastDate: DateTime.now().add(const Duration(days: 365)),
+                            );
+                            if (picked != null) {
+                              setDialogState(() => selectedDate = picked);
+                            }
+                          },
+                          icon: const Icon(Icons.calendar_today_rounded, size: 14, color: Color(0xFFF2B78A)),
+                          label: Text(
+                            DateFormat('MMM d, yyyy').format(selectedDate),
+                            style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: marksCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+                          decoration: InputDecoration(
+                            labelText: 'Total Marks',
+                            labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
+                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82))),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF2B78A),
+                foregroundColor: const Color(0xFF151211),
+              ),
+              onPressed: () async {
+                final name = nameCtrl.text.trim();
+                if (name.isEmpty || selectedCourse == null) return;
+                final totalMarks = double.tryParse(marksCtrl.text.trim()) ?? 20.0;
+                final weightage = double.tryParse(weightageCtrl.text.trim()) ?? 10.0;
+
+                String uid = '';
+                try {
+                  uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                } catch (_) {}
+
+                final assessment = Assessment(
+                  id: generateAssessmentId('assess'),
+                  courseId: selectedCourse!.id,
+                  courseCode: selectedCourse!.code,
+                  userId: uid,
+                  name: name,
+                  type: selectedType,
+                  date: selectedDate,
+                  totalMarks: totalMarks,
+                  weightage: weightage,
+                  status: 'Pending',
+                );
+
+                if (uid.isNotEmpty) {
+                  await ref.read(assessmentRepositoryProvider).createAssessment(uid, assessment);
+                }
+                if (ctx.mounted) Navigator.of(ctx).pop();
+              },
+              child: Text('Schedule', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
       ),
     );
   }
