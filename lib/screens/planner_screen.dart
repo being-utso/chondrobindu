@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -252,78 +253,162 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           ),
 
           // Time Slots Grid
-          allSlots.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 48.0),
-                  child: Center(
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: List.generate(_days.length, (index) {
+                final dayNum = index + 1; // 1 = Monday ... 7 = Sunday
+                final daySlots = allSlots.where((s) => s.dayOfWeek == dayNum).toList()
+                  ..sort((a, b) => a.startTime.compareTo(b.startTime));
+                final courses = ref.watch(coursesStreamProvider).value ?? [];
+
+                return Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.calendar_today_outlined, color: Color(0xFF9E8C82), size: 36),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No scheduled classes',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: const Color(0xFF9E8C82),
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                      children: daySlots.isNotEmpty
+                          ? daySlots.map((slot) => _buildLectureSlotCard(slot, courses)).toList()
+                          : [
+                              Container(
+                                height: 120,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1E1816).withValues(alpha: 0.4),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFF2E2623).withValues(alpha: 0.6),
+                                    width: 1,
+                                  ),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  '—',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: const Color(0xFF5A483E),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
                     ),
                   ),
-                )
-              : Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: List.generate(_days.length, (index) {
-                      final dayNum = index + 1; // 1 = Monday ... 7 = Sunday
-                      final daySlots = allSlots.where((s) => s.dayOfWeek == dayNum).toList()
-                        ..sort((a, b) => a.startTime.compareTo(b.startTime));
-                      return Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Column(
-                            children: daySlots.isNotEmpty
-                                ? daySlots.map((slot) => _buildLectureSlotCard(slot)).toList()
-                                : [
-                                    Container(
-                                      height: 120,
-                                      alignment: Alignment.center,
-                                      child: Text(
-                                        '—',
-                                        style: GoogleFonts.jetBrainsMono(color: const Color(0xFF382A24)),
-                                      ),
-                                    ),
-                                  ],
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
+                );
+              }),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildLectureSlotCard(RoutineSlot slot) {
+  String _cleanCourseCode(RoutineSlot slot, List<Course> courses) {
+    final raw = slot.courseCode.trim();
+    final parsed = RoutineCourseSyncService.parseCourseCode(raw.isNotEmpty ? raw : slot.courseTitle);
+    if (parsed.isNotEmpty) return parsed;
+    return raw;
+  }
+
+  String _cleanCourseTitle(RoutineSlot slot, List<Course> courses) {
+    final code = _cleanCourseCode(slot, courses);
+    for (final c in courses) {
+      if (c.id == slot.courseId || c.code.toLowerCase() == code.toLowerCase()) {
+        if (c.title.isNotEmpty && c.title.toLowerCase() != code.toLowerCase()) {
+          return c.title;
+        }
+      }
+    }
+
+    String raw = slot.courseTitle.trim();
+    for (final delim in [' - ', ' – ', ' — ', ': ', ' • ', '|']) {
+      if (raw.contains(delim)) {
+        final parts = raw.split(delim);
+        final part1 = parts[0].trim();
+        final part2 = parts.sublist(1).join(delim).trim();
+        if (part2.toLowerCase() != part1.toLowerCase() && part2.toLowerCase() != code.toLowerCase()) {
+          return part2;
+        } else {
+          raw = part1;
+        }
+      }
+    }
+
+    if (raw.toUpperCase().startsWith(code.toUpperCase())) {
+      final stripped = raw.substring(code.length).replaceFirst(RegExp(r'^[\s\-–—:•|]+'), '').trim();
+      if (stripped.isNotEmpty) return stripped;
+    }
+
+    final words = raw.split(RegExp(r'\s+'));
+    if (words.length >= 2 &&
+        words.sublist(0, words.length ~/ 2).join(' ').toLowerCase() ==
+            words.sublist(words.length ~/ 2).join(' ').toLowerCase()) {
+      return words.sublist(0, words.length ~/ 2).join(' ');
+    }
+
+    return raw.isNotEmpty ? raw : code;
+  }
+
+  Widget _buildLectureSlotCard(RoutineSlot slot, List<Course> courses) {
     final Color accent = slot.slotType == CourseType.sessional
         ? const Color(0xFF34D399)
         : (slot.courseCode.startsWith('MATH') || slot.courseCode.startsWith('HUM')
             ? const Color(0xFF9E8C82)
             : const Color(0xFFF2B78A));
+    final String cleanCode = _cleanCourseCode(slot, courses);
+    final String cleanTitle = _cleanCourseTitle(slot, courses);
+    final String timeBadge = '${slot.startTime} - ${slot.endTime}';
+    final String roomBadge = slot.room.trim().isNotEmpty
+        ? (slot.room.toLowerCase().startsWith('room') || slot.room.toLowerCase().startsWith('lab')
+            ? slot.room
+            : 'Room ${slot.room}')
+        : '';
+    final String classTypeLabel = slot.slotType == CourseType.sessional ? 'Lab' : 'Theory';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFF241C1A),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFF2E2623), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Line 1 (Badge row): Start time - End time + Room badge
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                timeBadge,
+                style: GoogleFonts.jetBrainsMono(
+                  color: const Color(0xFF9E8C82),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (roomBadge.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1816),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFF382A24), width: 0.8),
+                  ),
+                  child: Text(
+                    roomBadge,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: const Color(0xFFEDE8E3),
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Line 2 (Title): Course Code in bold with color accent pip
           Row(
             children: [
               Container(
@@ -334,58 +419,61 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  slot.startTime,
+                  cleanCode,
                   style: GoogleFonts.jetBrainsMono(
-                    color: const Color(0xFF9E8C82),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFFEDE8E3),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 3),
+
+          // Line 3 (Subtitle): Course Title with single line truncation and ellipsis
           Text(
-            slot.courseCode,
-            style: GoogleFonts.jetBrainsMono(
-              color: const Color(0xFFEDE8E3),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            slot.courseTitle,
+            cleanTitle,
             style: GoogleFonts.plusJakartaSans(
               color: const Color(0xFF9E8C82),
               fontSize: 11,
+              fontWeight: FontWeight.w500,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
+
+          // Line 4 (Footer): Teacher initials and class type tag
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Text(
-                  slot.room,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: const Color(0xFFABA093),
-                    fontSize: 10,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
               if (slot.teacherBadge != null && slot.teacherBadge!.isNotEmpty)
                 Text(
                   '[${slot.teacherBadge}]',
                   style: GoogleFonts.jetBrainsMono(
                     color: const Color(0xFFF2B78A),
-                    fontSize: 9.5,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),
+                )
+              else
+                const SizedBox.shrink(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
                 ),
+                child: Text(
+                  classTypeLabel,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: accent,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
             ],
           ),
         ],
@@ -544,27 +632,27 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         final String pctStr;
         final String classesStr;
         final Color pctColor;
+        final double progressFraction;
 
         if (totalClasses > 0) {
           final pct = ((attendedClasses / totalClasses) * 100).toInt();
+          progressFraction = attendedClasses / totalClasses;
           pctStr = '$pct%';
           classesStr = '$attendedClasses / $totalClasses classes';
           pctColor = pct >= 80 ? const Color(0xFF34D399) : const Color(0xFFF2B78A);
         } else {
+          progressFraction = 0.0;
           pctStr = '--';
           classesStr = '0 / 0 classes';
           pctColor = const Color(0xFF9E8C82);
         }
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _attendanceRow(
-            c.code,
-            c.title,
-            pctStr,
-            classesStr,
-            pctColor,
-          ),
+        return _attendanceCardWithQuickLog(
+          c,
+          pctStr,
+          classesStr,
+          pctColor,
+          progressFraction,
         );
       }).toList();
     }
@@ -691,57 +779,225 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     );
   }
 
-  Widget _attendanceRow(String code, String name, String pct, String counts, Color pctColor) {
+  Future<void> _logQuickAttendance(Course course, AttendanceStatus status) async {
+    SafeHaptics.mediumImpact();
+    String uid = '';
+    try {
+      uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    } catch (_) {}
+    if (uid.isEmpty) return;
+
+    final now = DateTime.now();
+    final dateKey = '${now.year}_${now.month.toString().padLeft(2, '0')}_${now.day.toString().padLeft(2, '0')}';
+    final docId = '${course.id}_quick_$dateKey';
+
+    final record = AttendanceRecord(
+      id: docId,
+      courseId: course.id,
+      courseCode: course.code,
+      courseName: course.title,
+      date: DateTime(now.year, now.month, now.day),
+      status: status,
+      time: DateFormat('hh:mm a').format(now),
+      classType: course.courseType.displayName,
+    );
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('attendance_records')
+          .doc(docId)
+          .set(record.toMap(), SetOptions(merge: true));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF1E1816),
+            behavior: SnackBarBehavior.floating,
+            content: Text('${course.code}: Marked as ${status.displayName}'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error marking attendance: $e');
+    }
+  }
+
+  Widget _attendanceCardWithQuickLog(
+    Course course,
+    String pct,
+    String counts,
+    Color pctColor,
+    double progressFraction,
+  ) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFF241C1A),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF2E2623), width: 0.8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF2E2623), width: 1),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  code,
-                  style: GoogleFonts.jetBrainsMono(
-                    color: const Color(0xFFF2B78A),
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  name,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: const Color(0xFFEDE8E3),
-                    fontSize: 12,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                pct,
-                style: GoogleFonts.jetBrainsMono(
-                  color: pctColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      course.code,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: const Color(0xFFF2B78A),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      course.title,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: const Color(0xFFEDE8E3),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                counts,
-                style: GoogleFonts.jetBrainsMono(
-                  color: const Color(0xFF9E8C82),
-                  fontSize: 10,
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    pct,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: pctColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    counts,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: const Color(0xFF9E8C82),
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: progressFraction.clamp(0.0, 1.0),
+              minHeight: 4,
+              backgroundColor: const Color(0xFF1E1816),
+              valueColor: AlwaysStoppedAnimation<Color>(pctColor),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Quick Log Action Buttons: Present, Absent, Canceled
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => _logQuickAttendance(course, AttendanceStatus.attended),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF34D399).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFF34D399).withValues(alpha: 0.4), width: 0.8),
+                    ),
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF34D399), size: 13),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Present',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFF34D399),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: InkWell(
+                  onTap: () => _logQuickAttendance(course, AttendanceStatus.missed),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.4), width: 0.8),
+                    ),
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.cancel_outlined, color: Color(0xFFEF4444), size: 13),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Absent',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFFEF4444),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: InkWell(
+                  onTap: () => _logQuickAttendance(course, AttendanceStatus.canceled),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF9E8C82).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFF9E8C82).withValues(alpha: 0.3), width: 0.8),
+                    ),
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.remove_circle_outline_rounded, color: Color(0xFF9E8C82), size: 13),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Cancel',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFF9E8C82),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],

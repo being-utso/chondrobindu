@@ -10,6 +10,7 @@ class SyllabusTopic {
   final bool isCompleted;
   final bool isInProgress;
   final DateTime? completedAt;
+  final String? resourceUrl;
 
   const SyllabusTopic({
     required this.id,
@@ -20,6 +21,7 @@ class SyllabusTopic {
     this.isCompleted = false,
     this.isInProgress = false,
     this.completedAt,
+    this.resourceUrl,
   });
 
   String get chapter => chapterTitle;
@@ -48,6 +50,8 @@ class SyllabusTopic {
       }
     }
 
+    final resourceUrl = map['resourceUrl'] as String?;
+
     return SyllabusTopic(
       id: id,
       chapterTitle: chapterTitle,
@@ -57,6 +61,7 @@ class SyllabusTopic {
       isCompleted: isCompleted,
       isInProgress: isInProgress,
       completedAt: completedTime,
+      resourceUrl: resourceUrl,
     );
   }
 
@@ -70,6 +75,7 @@ class SyllabusTopic {
       'isCompleted': isCompleted,
       'isInProgress': isInProgress,
       'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
+      if (resourceUrl != null && resourceUrl!.isNotEmpty) 'resourceUrl': resourceUrl,
     };
   }
 
@@ -82,6 +88,7 @@ class SyllabusTopic {
     bool? isCompleted,
     bool? isInProgress,
     DateTime? completedAt,
+    String? resourceUrl,
   }) {
     return SyllabusTopic(
       id: id ?? this.id,
@@ -92,6 +99,7 @@ class SyllabusTopic {
       isCompleted: isCompleted ?? this.isCompleted,
       isInProgress: isInProgress ?? this.isInProgress,
       completedAt: completedAt ?? this.completedAt,
+      resourceUrl: resourceUrl ?? this.resourceUrl,
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -4433,36 +4434,75 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
                 const SizedBox(height: 24),
 
-                // B. Top KPIs (4 Horizontal Metric Cards)
-                _buildDesktopTopKpis(sessions),
+                if (_desktopCategoryTab == 'Time') ...[
+                  _buildDesktopTopKpis(sessions),
+                  const SizedBox(height: 24),
+                  _buildDesktopDailyTimelineBar(sessions),
+                  const SizedBox(height: 24),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 6,
+                        child: _buildDesktopWeeklyHistogram(sessions),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        flex: 6,
+                        child: _buildDesktopFocusHeatmap(sessions),
+                      ),
+                    ],
+                  ),
+                ] else if (_desktopCategoryTab == 'Subjects') ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 5,
+                        child: _buildDesktopSubjectDistribution(sessions),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        flex: 7,
+                        child: _buildDesktopSubjectDeepDive(sessions),
+                      ),
+                    ],
+                  ),
+                ] else if (_desktopCategoryTab == 'Performance') ...[
+                  _buildExamPerformanceDeltas(ref, const Color(0xFF1E1816), const Color(0xFFF2B78A)),
+                  const SizedBox(height: 24),
+                  _buildDesktopPerformanceLedger(),
+                ] else if (_desktopCategoryTab == 'CGPA Forecaster') ...[
+                  _buildDesktopCgpaForecasterWorkspace(),
+                ] else ...[
+                  // Default 'Overview'
+                  _buildDesktopTopKpis(sessions),
 
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-                // C. Middle Row: Weekly Histogram (flex 6) & Subject Distribution Donut (flex 4)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 6,
-                      child: _buildDesktopWeeklyHistogram(sessions),
-                    ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      flex: 4,
-                      child: _buildDesktopSubjectDistribution(sessions),
-                    ),
-                  ],
-                ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 6,
+                        child: _buildDesktopWeeklyHistogram(sessions),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        flex: 4,
+                        child: _buildDesktopSubjectDistribution(sessions),
+                      ),
+                    ],
+                  ),
 
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-                // D. Daily Timeline Bar
-                _buildDesktopDailyTimelineBar(sessions),
+                  _buildDesktopDailyTimelineBar(sessions),
 
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-                // E. Focus Heatmap
-                _buildDesktopFocusHeatmap(sessions),
+                  _buildDesktopFocusHeatmap(sessions),
+                ],
               ],
             ),
           ),
@@ -5020,35 +5060,45 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               Row(
                 children: [
                   SizedBox(
-                    width: 120,
-                    height: 120,
+                    width: 128,
+                    height: 128,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
                         const CircularProgressIndicator(
                           value: 1.0,
-                          strokeWidth: 14,
+                          strokeWidth: 12,
                           valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E2623)),
                         ),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '0h',
-                              style: GoogleFonts.jetBrainsMono(
-                                color: const Color(0xFFEDE8E3),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
+                        Center(
+                          child: SizedBox(
+                            width: 80,
+                            height: 80,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    '0h',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: const Color(0xFFEDE8E3),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Focused',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: const Color(0xFF9E8C82),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            Text(
-                              'Focused',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: const Color(0xFF9E8C82),
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
@@ -5113,42 +5163,52 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               children: [
                 // Circular Donut representation
                 SizedBox(
-                  width: 120,
-                  height: 120,
+                  width: 128,
+                  height: 128,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
                       const CircularProgressIndicator(
                         value: 1.0,
-                        strokeWidth: 14,
+                        strokeWidth: 12,
                         valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E2623)),
                       ),
                       CircularProgressIndicator(
                         value: totalSec > 0 ? (sortedEntries.first.value / totalSec).clamp(0.0, 1.0) : 0.0,
-                        strokeWidth: 14,
+                        strokeWidth: 12,
                         valueColor: AlwaysStoppedAnimation<Color>(palette[0]),
                       ),
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            totalSec >= 3600
-                                ? '${totalSec ~/ 3600}h'
-                                : '${totalSec ~/ 60}m',
-                            style: GoogleFonts.jetBrainsMono(
-                              color: const Color(0xFFEDE8E3),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
+                      Center(
+                        child: SizedBox(
+                          width: 80,
+                          height: 80,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  totalSec >= 3600
+                                      ? '${totalSec ~/ 3600}h'
+                                      : '${totalSec ~/ 60}m',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: const Color(0xFFEDE8E3),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                Text(
+                                  'Focused',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: const Color(0xFF9E8C82),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            'Focused',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: const Color(0xFF9E8C82),
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -5424,5 +5484,561 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
     );
+  }
+
+  Widget _buildDesktopSubjectDeepDive(List<StudySession> sessions) {
+    final coursesAsync = ref.watch(coursesStreamProvider);
+    final courses = coursesAsync.value ?? [];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1816),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2E2623), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Course Focus Breakdown',
+                style: GoogleFonts.plusJakartaSans(
+                  color: const Color(0xFFEDE8E3),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                '${courses.length} Enrolled Courses',
+                style: GoogleFonts.jetBrainsMono(
+                  color: const Color(0xFF9E8C82),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (courses.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24.0),
+              child: Center(
+                child: Text(
+                  'No enrolled courses found for this term.',
+                  style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+                ),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: courses.length,
+              separatorBuilder: (_, __) => const Divider(color: Color(0xFF2E2623), height: 16),
+              itemBuilder: (context, index) {
+                final course = courses[index];
+                final courseSessions = sessions.where((s) =>
+                    (s.courseCode.isNotEmpty && s.courseCode.toLowerCase() == course.code.toLowerCase()) ||
+                    s.courseId == course.id).toList();
+                final int totalSec = courseSessions.fold<int>(0, (acc, s) => acc + s.durationSeconds);
+                final String timeStr = totalSec > 0
+                    ? (totalSec >= 3600
+                        ? '${totalSec ~/ 3600}h ${(totalSec % 3600) ~/ 60}m'
+                        : '${totalSec ~/ 60}m')
+                    : '0m';
+
+                return Row(
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: _parseCourseColor(course.colorHex) ?? (course.isTheory ? const Color(0xFFF2B78A) : const Color(0xFF34D399)),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            course.code,
+                            style: GoogleFonts.jetBrainsMono(
+                              color: const Color(0xFFEDE8E3),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            course.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: const Color(0xFF9E8C82),
+                              fontSize: 11.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        '${courseSessions.length} sessions',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: const Color(0xFF9E8C82),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      timeStr,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: const Color(0xFFF2B78A),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopPerformanceLedger() {
+    final examsAsync = ref.watch(examsStreamProvider);
+    final allExams = examsAsync.value ?? [];
+    final assessmentsAsync = ref.watch(upcomingAssessmentsStreamProvider);
+    final upcomingAssessments = assessmentsAsync.value ?? [];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1816),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2E2623), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Assessments & Examination Ledger',
+                style: GoogleFonts.plusJakartaSans(
+                  color: const Color(0xFFEDE8E3),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                '${allExams.length} Exams • ${upcomingAssessments.length} Upcoming',
+                style: GoogleFonts.jetBrainsMono(
+                  color: const Color(0xFF9E8C82),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (allExams.isEmpty && upcomingAssessments.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32.0),
+              child: Center(
+                child: Text(
+                  'No exam or continuous assessment logs recorded yet.',
+                  style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+                ),
+              ),
+            )
+          else ...[
+            if (upcomingAssessments.isNotEmpty) ...[
+              Text(
+                'UPCOMING EVALUATIONS',
+                style: GoogleFonts.jetBrainsMono(
+                  color: const Color(0xFFF2B78A),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const SizedBox(height: 10),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: upcomingAssessments.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final a = upcomingAssessments[index];
+                  final dateStr = a.date != null ? DateFormat('MMM dd, yyyy').format(a.date!) : 'Unscheduled';
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF140E0D),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFF2E2623)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF2B78A).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            a.courseCode.isNotEmpty ? a.courseCode : 'ASSESS',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: const Color(0xFFF2B78A),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                a.name,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (a.syllabusSummary != null && a.syllabusSummary!.isNotEmpty)
+                                Text(
+                                  a.syllabusSummary!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: const Color(0xFF9E8C82),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          dateStr,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: const Color(0xFFABA093),
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF382A24),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Weight: ${a.weightage.toStringAsFixed(0)}%',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: const Color(0xFFF2B78A),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (allExams.isNotEmpty) ...[
+              Text(
+                'RECENT COMPLETED EXAMS',
+                style: GoogleFonts.jetBrainsMono(
+                  color: const Color(0xFF34D399),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const SizedBox(height: 10),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: math.min(allExams.length, 6),
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final exam = allExams[index];
+                  final dateStr = DateFormat('MMM dd, yyyy').format(exam.date);
+                  final score = exam.scorePercentage;
+                  final scoreColor = score >= 80
+                      ? const Color(0xFF34D399)
+                      : (score >= 60 ? const Color(0xFFF2B78A) : const Color(0xFFEF4444));
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF140E0D),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFF2E2623)),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          dateStr,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: const Color(0xFFABA093),
+                            fontSize: 11.5,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                exam.examName,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                exam.subject,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: const Color(0xFF9E8C82),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '${exam.marksObtained.toStringAsFixed(1)} / ${exam.totalMarks.toStringAsFixed(0)}',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: const Color(0xFFABA093),
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: scoreColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: scoreColor.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            '${score.toStringAsFixed(1)}%',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: scoreColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopCgpaForecasterWorkspace() {
+    final profileAsync = ref.watch(liveUserProfileProvider);
+    final fallbackProfile = ref.watch(userProfileProvider);
+    final profile = profileAsync.value ?? fallbackProfile;
+    final levelStr = profile.level?.isNotEmpty == true ? profile.level! : '1';
+    final termStr = profile.term?.isNotEmpty == true ? profile.term! : '1';
+    final uniStr = profile.universityName?.isNotEmpty == true ? profile.universityName! : 'BUET';
+    final deptStr = profile.department?.isNotEmpty == true ? profile.department! : 'Engineering';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildCgpaSimulatorCard(
+          context: context,
+          uniName: uniStr,
+          major: deptStr,
+          level: levelStr,
+          term: termStr,
+          cardColor: const Color(0xFF1E1816),
+          accentColor: const Color(0xFFF2B78A),
+        ),
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1816),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF2E2623), width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Target CGPA & Cutoff Planner',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: const Color(0xFFEDE8E3),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Forecast minimum grades needed across remaining credits to achieve your graduation goal.',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: const Color(0xFF9E8C82),
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF2B78A),
+                      foregroundColor: const Color(0xFF151211),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      elevation: 0,
+                    ),
+                    onPressed: () {
+                      SafeHaptics.mediumImpact();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TermPerformanceScreen(
+                            universityName: uniStr,
+                            term: termStr,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.calculate_rounded, size: 16),
+                    label: Text(
+                      'Launch Interactive Simulator',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: _desktopForecasterStatCard(
+                      label: 'TARGET CGPA',
+                      value: profile.targetGpa > 0 ? profile.targetGpa.toStringAsFixed(2) : '3.80',
+                      subtext: 'Graduation Target',
+                      accent: const Color(0xFFF2B78A),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _desktopForecasterStatCard(
+                      label: 'CURRENT LEVEL & TERM',
+                      value: 'Level $levelStr, Term $termStr',
+                      subtext: deptStr,
+                      accent: const Color(0xFF34D399),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _desktopForecasterStatCard(
+                      label: 'SIMULATION SCALE',
+                      value: '4.00 Max',
+                      subtext: 'Standard University Scale',
+                      accent: const Color(0xFF60A5FA),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _desktopForecasterStatCard({
+    required String label,
+    required String value,
+    required String subtext,
+    required Color accent,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF140E0D),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF2E2623)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.jetBrainsMono(
+              color: const Color(0xFF9E8C82),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: GoogleFonts.jetBrainsMono(
+              color: accent,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtext,
+            style: GoogleFonts.plusJakartaSans(
+              color: const Color(0xFF8C7E77),
+              fontSize: 11.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color? _parseCourseColor(String? hex) {
+    if (hex == null || hex.isEmpty) return null;
+    final clean = hex.replaceAll('#', '').trim();
+    if (clean.length == 6) {
+      final val = int.tryParse('FF$clean', radix: 16);
+      if (val != null) return Color(val);
+    } else if (clean.length == 8) {
+      final val = int.tryParse(clean, radix: 16);
+      if (val != null) return Color(val);
+    }
+    return null;
   }
 }

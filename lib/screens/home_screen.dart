@@ -350,8 +350,10 @@ class HomeScreen extends ConsumerWidget {
     final sessions = sessionsAsync.value ?? [];
     final int sessionCount = sessions.length;
     final int totalMinutes = sessions.fold<int>(0, (sum, s) => sum + (s.durationSeconds ~/ 60));
+    final int profileMinutes = (profile.totalFocusMinutes as num?)?.toInt() ?? 0;
+    final int effectiveMinutes = totalMinutes > 0 ? totalMinutes : profileMinutes;
 
-    final hrs = (totalMinutes / 60.0).toStringAsFixed(1);
+    final hrs = (effectiveMinutes / 60.0).toStringAsFixed(1);
     final sessionsText = 'in $sessionCount ${sessionCount == 1 ? 'session' : 'sessions'}';
 
     return Container(

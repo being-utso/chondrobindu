@@ -3,6 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../models/assessment_model.dart';
 import '../models/course_model.dart';
 import '../models/syllabus_model.dart';
 import '../providers/firestore_providers.dart';
@@ -10,6 +13,7 @@ import '../providers/nav_provider.dart';
 import '../providers/timer_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../utils/safe_haptics.dart';
+import 'course_assessment_screen.dart';
 
 /// Screen 02: Courses & Granular Syllabus Workspace
 /// Dedicated 2-column split workspace: Course Directory (~380px) on Left, Active Course Detail Workspace on Right.
@@ -631,23 +635,19 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
 
           const SizedBox(height: 24),
 
-          // Syllabus Tab Content
+          // Horizontal Sub-Tabs: [Syllabus], [Assessments], [Resources], [Progress]
           if (_activeSubTab == 'Syllabus') ...[
             _buildSyllabusTabHeader(course),
             const SizedBox(height: 16),
             _buildSyllabusActionBar(course),
             const SizedBox(height: 16),
             _buildGranularTopicTree(course),
-          ] else ...[
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(48.0),
-                child: Text(
-                  '$_activeSubTab Workspace Loaded',
-                  style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 14),
-                ),
-              ),
-            ),
+          ] else if (_activeSubTab == 'Assessments') ...[
+            _buildCourseAssessmentsWorkspace(course),
+          ] else if (_activeSubTab == 'Resources') ...[
+            _buildCourseResourcesWorkspace(course),
+          ] else if (_activeSubTab == 'Progress') ...[
+            _buildCourseProgressWorkspace(course),
           ],
         ],
       ),
@@ -1478,6 +1478,920 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // ============================================================================
+  // COURSE WORKSPACES: ASSESSMENTS, RESOURCES & PROGRESS
+  // ============================================================================
+
+  Widget _buildCourseAssessmentsWorkspace(Course course) {
+    final allAsync = ref.watch(allAssessmentsStreamProvider);
+    final allAssessments = allAsync.value ?? [];
+    final courseAssessments = allAssessments.where((a) =>
+        a.courseId == course.id ||
+        (a.courseCode.isNotEmpty && a.courseCode.toLowerCase() == course.code.toLowerCase())).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header & Actions
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1816),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF2E2623), width: 1),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${course.code} Assessment Ledger',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: const Color(0xFFEDE8E3),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Class tests, quizzes, assignments & continuous evaluation weightage',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: const Color(0xFF9E8C82),
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFEDE8E3),
+                      side: const BorderSide(color: Color(0xFF2E2623)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () => _showScheduleAssessmentDialog(course),
+                    icon: const Icon(Icons.add_rounded, size: 16, color: Color(0xFFF2B78A)),
+                    label: Text('+ Schedule Assessment', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF2B78A),
+                      foregroundColor: const Color(0xFF151211),
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () {
+                      SafeHaptics.mediumImpact();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CourseAssessmentScreen(
+                            courseId: course.id,
+                            courseCode: course.code,
+                            courseType: course.isTheory ? 'theory' : 'sessional',
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.open_in_new_rounded, size: 15),
+                    label: Text('Full Weightage Ledger', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        if (courseAssessments.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1816),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF2E2623)),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF2B78A).withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.assignment_turned_in_outlined, color: Color(0xFFF2B78A), size: 32),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No assessments scheduled for ${course.code}',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: const Color(0xFFEDE8E3),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Add a Class Test, Quiz, or Assignment to track your continuous evaluation marks and weightage.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF2B78A),
+                    foregroundColor: const Color(0xFF151211),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                  ),
+                  onPressed: () => _showScheduleAssessmentDialog(course),
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: Text('Schedule Assessment', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: courseAssessments.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final a = courseAssessments[index];
+              final dateStr = a.date != null ? DateFormat('EEE, MMM d, yyyy').format(a.date!) : 'Unscheduled';
+              final marksStr = a.obtainedMarks != null
+                  ? '${a.obtainedMarks!.toStringAsFixed(1)} / ${a.totalMarks.toStringAsFixed(0)}'
+                  : 'Pending / ${a.totalMarks.toStringAsFixed(0)}';
+              final isAttended = a.status.toLowerCase() == 'attended' || a.isCompleted;
+
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1816),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF2E2623)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: (isAttended ? const Color(0xFF34D399) : const Color(0xFFF2B78A)).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        isAttended ? Icons.check_circle_outline_rounded : Icons.pending_actions_rounded,
+                        color: isAttended ? const Color(0xFF34D399) : const Color(0xFFF2B78A),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                a.name,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: const Color(0xFFEDE8E3),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2E2623),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  a.type.toUpperCase(),
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: const Color(0xFFF2B78A),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            a.syllabusSummary?.isNotEmpty == true
+                                ? a.syllabusSummary!
+                                : 'Topics: Standard evaluation module',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: const Color(0xFF9E8C82),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          dateStr,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: const Color(0xFFABA093),
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Text(
+                              marksStr,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: isAttended ? const Color(0xFF34D399) : const Color(0xFFEDE8E3),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF382A24),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'Weight: ${a.weightage.toStringAsFixed(0)}%',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: const Color(0xFFF2B78A),
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  Future<void> _showScheduleAssessmentDialog(Course course) async {
+    final nameCtrl = TextEditingController(text: 'CT 1');
+    final totalMarksCtrl = TextEditingController(text: '20');
+    final weightageCtrl = TextEditingController(text: '10');
+    final syllabusCtrl = TextEditingController();
+    String selectedType = 'ct';
+    DateTime selectedDate = DateTime.now().add(const Duration(days: 7));
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1816),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Schedule Assessment for ${course.code}',
+            style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontWeight: FontWeight.w700),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'Assessment Name (e.g. CT 1, Lab Quiz 1)',
+                    labelStyle: TextStyle(color: Color(0xFF9E8C82)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedType,
+                  dropdownColor: const Color(0xFF241C1A),
+                  style: GoogleFonts.plusJakartaSans(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'Assessment Type',
+                    labelStyle: TextStyle(color: Color(0xFF9E8C82)),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'ct', child: Text('Class Test (CT)')),
+                    DropdownMenuItem(value: 'quiz', child: Text('Quiz')),
+                    DropdownMenuItem(value: 'assignment', child: Text('Assignment')),
+                    DropdownMenuItem(value: 'midterm', child: Text('Midterm Exam')),
+                    DropdownMenuItem(value: 'final', child: Text('Term Final')),
+                    DropdownMenuItem(value: 'lab', child: Text('Lab Quiz / Viva')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setDlgState(() => selectedType = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: totalMarksCtrl,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: const InputDecoration(
+                          labelText: 'Total Marks',
+                          labelStyle: TextStyle(color: Color(0xFF9E8C82)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: weightageCtrl,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: const InputDecoration(
+                          labelText: 'Weightage (%)',
+                          labelStyle: TextStyle(color: Color(0xFF9E8C82)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: syllabusCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'Syllabus / Topics Covered',
+                    labelStyle: TextStyle(color: Color(0xFF9E8C82)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: ctx,
+                      initialDate: selectedDate,
+                      firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (picked != null) {
+                      setDlgState(() => selectedDate = picked);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF140E0D),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF2E2623)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Date: ${DateFormat('EEE, MMM d, yyyy').format(selectedDate)}',
+                            style: GoogleFonts.jetBrainsMono(color: const Color(0xFFF2B78A), fontSize: 13)),
+                        const Icon(Icons.calendar_today_rounded, color: Color(0xFFF2B78A), size: 16),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel', style: TextStyle(color: Color(0xFF9E8C82))),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF2B78A),
+                foregroundColor: const Color(0xFF151211),
+              ),
+              onPressed: () async {
+                final name = nameCtrl.text.trim();
+                if (name.isEmpty) return;
+                final total = double.tryParse(totalMarksCtrl.text.trim()) ?? 20.0;
+                final weight = double.tryParse(weightageCtrl.text.trim()) ?? 10.0;
+                final syllabus = syllabusCtrl.text.trim();
+
+                final assessment = Assessment(
+                  courseId: course.id,
+                  courseCode: course.code,
+                  name: name,
+                  type: selectedType,
+                  totalMarks: total,
+                  weightage: weight,
+                  syllabusSummary: syllabus.isNotEmpty ? syllabus : null,
+                  date: selectedDate,
+                  status: 'Pending',
+                );
+
+                String uid = '';
+                try {
+                  uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                } catch (_) {}
+                if (uid.isNotEmpty) {
+                  await ref.read(assessmentRepositoryProvider).createAssessment(uid, assessment);
+                }
+                if (ctx.mounted) Navigator.of(ctx).pop();
+              },
+              child: const Text('Schedule', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCourseResourcesWorkspace(Course course) {
+    final topicsAsync = ref.watch(syllabusTopicsStreamProvider(course.id));
+    final liveTopics = topicsAsync.valueOrNull ?? [];
+    final resourceNodes = liveTopics.where((n) => n.resourceUrl != null && n.resourceUrl!.trim().isNotEmpty).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1816),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF2E2623), width: 1),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${course.code} Learning Materials & Resources',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: const Color(0xFFEDE8E3),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Lecture slides, reference drives, textbooks and topic attachments',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: const Color(0xFF9E8C82),
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ],
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF2B78A),
+                  foregroundColor: const Color(0xFF151211),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => _showAddResourceDialog(course),
+                icon: const Icon(Icons.add_link_rounded, size: 16),
+                label: Text('+ Add Resource Link', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700)),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Default Recommended Resources & Live Topic Links
+        _resourceCard(
+          title: 'Official Course Syllabus & Chapter Outline',
+          subtitle: 'Granular curriculum structure, textbooks, and prerequisite breakdown',
+          url: 'https://buet.ac.bd',
+          icon: Icons.menu_book_rounded,
+          accent: const Color(0xFFF2B78A),
+        ),
+        const SizedBox(height: 10),
+        _resourceCard(
+          title: 'Google Drive Course Folder & Lecture Slides',
+          subtitle: 'Instructor slide decks, problem sets, and past examination solutions',
+          url: 'https://drive.google.com',
+          icon: Icons.folder_shared_rounded,
+          accent: const Color(0xFF34D399),
+        ),
+        const SizedBox(height: 10),
+        _resourceCard(
+          title: 'Standard Reference Textbooks & Handbooks',
+          subtitle: 'Prescribed engineering textbooks with author annotations',
+          url: 'https://archive.org',
+          icon: Icons.library_books_rounded,
+          accent: const Color(0xFF60A5FA),
+        ),
+
+        if (resourceNodes.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          Text(
+            'TOPIC RESOURCE ATTACHMENTS',
+            style: GoogleFonts.jetBrainsMono(
+              color: const Color(0xFFF2B78A),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...resourceNodes.map((n) => Padding(
+                padding: const EdgeInsets.only(bottom: 10.0),
+                child: _resourceCard(
+                  title: n.title,
+                  subtitle: 'Attached to ${n.topicIndex.isNotEmpty ? n.topicIndex : "Topic"}',
+                  url: n.resourceUrl!,
+                  icon: Icons.attachment_rounded,
+                  accent: const Color(0xFFF2B78A),
+                ),
+              )),
+        ],
+      ],
+    );
+  }
+
+  Widget _resourceCard({
+    required String title,
+    required String subtitle,
+    required String url,
+    required IconData icon,
+    required Color accent,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1816),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF2E2623)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: accent, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: const Color(0xFFEDE8E3),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: const Color(0xFF9E8C82),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  url,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: const Color(0xFFF2B78A).withValues(alpha: 0.7),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2E2623),
+              foregroundColor: const Color(0xFFEDE8E3),
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => _launchExternalUrl(url),
+            icon: const Icon(Icons.open_in_new_rounded, size: 14, color: Color(0xFFF2B78A)),
+            label: Text('Open', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _launchExternalUrl(String urlStr) async {
+    final uri = Uri.tryParse(urlStr);
+    if (uri != null) {
+      try {
+        if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+          await launchUrl(uri, mode: LaunchMode.platformDefault);
+        }
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _showAddResourceDialog(Course course) async {
+    final titleCtrl = TextEditingController();
+    final urlCtrl = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1816),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Add Resource Link for ${course.code}',
+            style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontWeight: FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Resource Name (e.g. Lecture Slides, Formula Sheet)',
+                labelStyle: TextStyle(color: Color(0xFF9E8C82)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: urlCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'URL Link (Google Drive, Dropbox, Web)',
+                labelStyle: TextStyle(color: Color(0xFF9E8C82)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF9E8C82))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF2B78A),
+              foregroundColor: const Color(0xFF151211),
+            ),
+            onPressed: () async {
+              final title = titleCtrl.text.trim();
+              final url = urlCtrl.text.trim();
+              if (title.isEmpty || url.isEmpty) return;
+
+              String uid = '';
+              try {
+                uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+              } catch (_) {}
+              if (uid.isNotEmpty) {
+                await ref.read(courseRepositoryProvider).addSyllabusTopicToChapter(
+                      uid,
+                      course.id,
+                      'Resources & References',
+                      title,
+                      resourceUrl: url,
+                    );
+              }
+              if (ctx.mounted) Navigator.of(ctx).pop();
+            },
+            child: const Text('Add Link', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCourseProgressWorkspace(Course course) {
+    final topicsAsync = ref.watch(syllabusTopicsStreamProvider(course.id));
+    final liveTopics = topicsAsync.valueOrNull ?? [];
+    final int total = liveTopics.isNotEmpty ? liveTopics.length : course.totalTopicsCount;
+    final int completed = liveTopics.isNotEmpty
+        ? liveTopics.where((t) => (_topicCheckState[t.id] ?? t.isCompleted)).length
+        : course.completedTopicsCount;
+    final int remaining = math.max(0, total - completed);
+    final double progress = total > 0 ? (completed / total) : 0.0;
+    final pctText = '${(progress * 100).toInt()}%';
+
+    // Group topics by chapter
+    final Map<String, List<SyllabusTopic>> chapterMap = {};
+    for (final t in liveTopics) {
+      final ch = t.chapterTitle.isNotEmpty ? t.chapterTitle : 'General Chapter';
+      chapterMap.putIfAbsent(ch, () => []).add(t);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Overall Course Progress Banner
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1816),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF2E2623), width: 1),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 90,
+                height: 90,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 8,
+                      backgroundColor: const Color(0xFF2E2623),
+                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF34D399)),
+                    ),
+                    Text(
+                      pctText,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: const Color(0xFFEDE8E3),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          '${course.code} Coverage',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFFEDE8E3),
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2E2623),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${course.credits} Credits • ${course.isTheory ? "Theory" : "Sessional"}',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: const Color(0xFFF2B78A),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '$completed completed of $total total curriculum topics ($remaining remaining)',
+                      style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 6,
+                        backgroundColor: const Color(0xFF2E2623),
+                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF34D399)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        Text(
+          'CHAPTER-BY-CHAPTER PROGRESS',
+          style: GoogleFonts.jetBrainsMono(
+            color: const Color(0xFFF2B78A),
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.1,
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        if (chapterMap.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1816),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF2E2623)),
+            ),
+            child: Center(
+              child: Text(
+                'No chapters mapped for this course yet. Use the Syllabus tab to add chapters.',
+                style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+              ),
+            ),
+          )
+        else
+          ...chapterMap.entries.map((entry) {
+            final chTitle = entry.key;
+            final chTopics = entry.value;
+            final chCompleted = chTopics.where((t) => (_topicCheckState[t.id] ?? t.isCompleted)).length;
+            final chTotal = chTopics.length;
+            final double chRatio = chTotal > 0 ? (chCompleted / chTotal) : 0.0;
+            final chPct = '${(chRatio * 100).toInt()}%';
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1816),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF2E2623)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          chTitle,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFFEDE8E3),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '$chCompleted / $chTotal topics ($chPct)',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: chRatio >= 1.0 ? const Color(0xFF34D399) : const Color(0xFFF2B78A),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: chRatio,
+                      minHeight: 5,
+                      backgroundColor: const Color(0xFF2E2623),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        chRatio >= 1.0 ? const Color(0xFF34D399) : const Color(0xFFF2B78A),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+      ],
     );
   }
 }
