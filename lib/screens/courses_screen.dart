@@ -490,168 +490,181 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
 
   // --- SECTION B: Right Column — Active Course Detail Workspace ---
   Widget _buildCourseDetailWorkspace(Course course) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Course Header
-          Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Pinned / Sticky Upper Course Header & Sub-Tabs
+        Container(
+          padding: const EdgeInsets.fromLTRB(32.0, 24.0, 32.0, 0.0),
+          decoration: const BoxDecoration(
+            color: Color(0xFF151211),
+            border: Border(bottom: BorderSide(color: Color(0xFF2E2623), width: 1)),
+          ),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+              // Course Header
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              course.code,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: const Color(0xFFF2B78A),
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E1816),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFF2E2623), width: 1),
+                              ),
+                              child: Text(
+                                '${course.credits} Credits • ${course.courseType.displayName}',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: const Color(0xFF9E8C82),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
                         Text(
-                          course.code,
-                          style: GoogleFonts.jetBrainsMono(
-                            color: const Color(0xFFF2B78A),
-                            fontSize: 18,
+                          course.title,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFFEDE8E3),
+                            fontSize: 24,
                             fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E1816),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFF2E2623), width: 1),
-                          ),
-                          child: Text(
-                            '${course.credits} Credits • ${course.courseType.displayName}',
-                            style: GoogleFonts.jetBrainsMono(
-                              color: const Color(0xFF9E8C82),
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                            ),
+                        const SizedBox(height: 4),
+                        Text(
+                          course.teacherBadge != null && course.teacherBadge!.isNotEmpty
+                              ? 'Instructor Initials: [${course.teacherBadge}]'
+                              : 'Standard Academic Track',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFF9E8C82),
+                            fontSize: 13.5,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      course.title,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: const Color(0xFFEDE8E3),
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.4,
-                      ),
+                  ),
+
+                  // Action Buttons
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF34D399),
+                      foregroundColor: const Color(0xFF151211),
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      course.teacherBadge != null && course.teacherBadge!.isNotEmpty
-                          ? 'Instructor Initials: [${course.teacherBadge}]'
-                          : 'Standard Academic Track',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: const Color(0xFF9E8C82),
-                        fontSize: 13.5,
-                      ),
+                    onPressed: () {
+                      SafeHaptics.mediumImpact();
+                      ref.read(timerProvider.notifier).changeSubject(course.title);
+                      ref.read(navigationIndexProvider.notifier).state = 2; // Jump to Timer
+                    },
+                    icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                    label: Text(
+                      'Start Focus',
+                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 10),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFEDE8E3),
+                      side: const BorderSide(color: Color(0xFF2E2623)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () {
+                      SafeHaptics.selectionClick();
+                      _showEditCourseDialog(context, course);
+                    },
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    label: const Text('Edit'),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF2B78A),
+                      foregroundColor: const Color(0xFF151211),
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () {
+                      SafeHaptics.mediumImpact();
+                      final userProfile = ref.read(userProfileProvider);
+                      final isCollege = userProfile.isOnboarded && userProfile.institutionType == InstitutionType.college;
+                      _showAddCourseDialog(context, isCollege);
+                    },
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: Text(
+                      '+ Add Course',
+                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
               ),
 
-              // Action Buttons
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF34D399),
-                  foregroundColor: const Color(0xFF151211),
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: () {
-                  SafeHaptics.mediumImpact();
-                  ref.read(timerProvider.notifier).changeSubject(course.title);
-                  ref.read(navigationIndexProvider.notifier).state = 2; // Jump to Timer
-                },
-                icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                label: Text(
-                  'Start Focus',
-                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
-                ),
-              ),
-              const SizedBox(width: 10),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFEDE8E3),
-                  side: const BorderSide(color: Color(0xFF2E2623)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: () {
-                  SafeHaptics.selectionClick();
-                  _showEditCourseDialog(context, course);
-                },
-                icon: const Icon(Icons.edit_outlined, size: 16),
-                label: const Text('Edit'),
-              ),
-              const SizedBox(width: 10),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF2B78A),
-                  foregroundColor: const Color(0xFF151211),
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: () {
-                  SafeHaptics.mediumImpact();
-                  final userProfile = ref.read(userProfileProvider);
-                  final isCollege = userProfile.isOnboarded && userProfile.institutionType == InstitutionType.college;
-                  _showAddCourseDialog(context, isCollege);
-                },
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: Text(
-                  '+ Add Course',
-                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
-                ),
+              const SizedBox(height: 20),
+
+              // Horizontal Sub-Tabs: [Syllabus], [Assessments], [Resources], [Progress]
+              Row(
+                children: [
+                  _subTabItem('Syllabus', Icons.menu_book_outlined),
+                  _subTabItem('Assessments', Icons.assignment_outlined),
+                  _subTabItem('Resources', Icons.folder_outlined),
+                  _subTabItem('Progress', Icons.insights_outlined),
+                ],
               ),
             ],
           ),
+        ),
 
-          const SizedBox(height: 24),
-
-          // Horizontal Sub-Tabs: [Syllabus], [Assessments], [Resources], [Progress]
-          Container(
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFF2E2623), width: 1)),
-            ),
-            child: Row(
+        // Scrollable Sub-Tab Workspace
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _subTabItem('Syllabus', Icons.menu_book_outlined),
-                _subTabItem('Assessments', Icons.assignment_outlined),
-                _subTabItem('Resources', Icons.folder_outlined),
-                _subTabItem('Progress', Icons.insights_outlined),
+                if (_activeSubTab == 'Syllabus') ...[
+                  _buildSyllabusTabHeader(course),
+                  const SizedBox(height: 16),
+                  _buildSyllabusActionBar(course),
+                  const SizedBox(height: 16),
+                  _buildGranularTopicTree(course),
+                ] else if (_activeSubTab == 'Assessments') ...[
+                  _buildCourseAssessmentsWorkspace(course),
+                ] else if (_activeSubTab == 'Resources') ...[
+                  _buildCourseResourcesWorkspace(course),
+                ] else if (_activeSubTab == 'Progress') ...[
+                  _buildCourseProgressWorkspace(course),
+                ],
               ],
             ),
           ),
-
-          const SizedBox(height: 24),
-
-          // Horizontal Sub-Tabs: [Syllabus], [Assessments], [Resources], [Progress]
-          if (_activeSubTab == 'Syllabus') ...[
-            _buildSyllabusTabHeader(course),
-            const SizedBox(height: 16),
-            _buildSyllabusActionBar(course),
-            const SizedBox(height: 16),
-            _buildGranularTopicTree(course),
-          ] else if (_activeSubTab == 'Assessments') ...[
-            _buildCourseAssessmentsWorkspace(course),
-          ] else if (_activeSubTab == 'Resources') ...[
-            _buildCourseResourcesWorkspace(course),
-          ] else if (_activeSubTab == 'Progress') ...[
-            _buildCourseProgressWorkspace(course),
-          ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -892,6 +905,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                     topic.title,
                     isDone: isDone,
                     isInProgress: topic.isInProgress,
+                    resourceUrl: topic.resourceUrl,
                     onTapToggle: () {
                       SafeHaptics.selectionClick();
                       setState(() {
@@ -1013,6 +1027,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
     String title, {
     bool isDone = false,
     bool isInProgress = false,
+    String? resourceUrl,
     VoidCallback? onTapToggle,
   }) {
     return Container(
@@ -1076,6 +1091,41 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                 ),
               ),
             ),
+          if (resourceUrl != null && resourceUrl.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () async {
+                final uri = Uri.tryParse(resourceUrl);
+                if (uri != null && await canLaunchUrl(uri)) {
+                  await launchUrl(uri);
+                }
+              },
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1816),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFF34D399).withValues(alpha: 0.5), width: 0.8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.link_rounded, size: 13, color: Color(0xFF34D399)),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Resource',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: const Color(0xFF34D399),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

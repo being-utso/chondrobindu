@@ -46,43 +46,91 @@ class CourseRepository {
         .map((c) => SyllabusNode.fromMap(Map<String, dynamic>.from(c)))
         .toList();
 
+    const dummyCategoryLabels = {
+      'class note',
+      'lecture sheet',
+      'ref book',
+      'reference book',
+      'term final question',
+      'question bank',
+      'note',
+      'notes',
+      'resource',
+      'resources',
+      'books',
+    };
+
     final List<SyllabusTopic> topics = [];
     for (int chIdx = 0; chIdx < nodes.length; chIdx++) {
       final ch = nodes[chIdx];
       final chapterName = ch.title.trim().isNotEmpty ? ch.title : 'Chapter ${chIdx + 1}';
       final chapterOrder = chIdx + 1;
 
-      void extractLeafTopics(SyllabusNode node, String prefix) {
-        if (node.children.isEmpty) {
-          topics.add(SyllabusTopic(
-            id: node.id,
-            chapterTitle: chapterName,
-            topicIndex: prefix,
-            title: node.title,
-            chapterOrder: chapterOrder,
-            isCompleted: node.isCompleted,
-          ));
-        } else {
-          for (int i = 0; i < node.children.length; i++) {
-            final child = node.children[i];
-            extractLeafTopics(child, '$prefix.${i + 1}');
-          }
-        }
-      }
-
       if (ch.children.isEmpty) {
-        topics.add(SyllabusTopic(
-          id: ch.id,
-          chapterTitle: chapterName,
-          topicIndex: '$chapterOrder.1',
-          title: ch.title,
-          chapterOrder: chapterOrder,
-          isCompleted: ch.isCompleted,
-        ));
+        final titleTrim = ch.title.trim();
+        if (!dummyCategoryLabels.contains(titleTrim.toLowerCase())) {
+          topics.add(SyllabusTopic(
+            id: ch.id,
+            chapterTitle: chapterName,
+            topicIndex: '$chapterOrder.1',
+            title: titleTrim,
+            chapterOrder: chapterOrder,
+            isCompleted: ch.isCompleted,
+            resourceUrl: ch.resourceUrl,
+          ));
+        }
       } else {
+        int topicCount = 0;
         for (int tIdx = 0; tIdx < ch.children.length; tIdx++) {
           final t = ch.children[tIdx];
-          extractLeafTopics(t, '$chapterOrder.${tIdx + 1}');
+          final tTitle = t.title.trim();
+          if (dummyCategoryLabels.contains(tTitle.toLowerCase())) {
+            continue;
+          }
+
+          // Check if t has real subtopics or dummy category children
+          final realSubtopics = t.children.where((sub) {
+            final s = sub.title.trim().toLowerCase();
+            return !dummyCategoryLabels.contains(s);
+          }).toList();
+
+          // Also check if any dummy children had a resourceUrl
+          String? attachedResource = t.resourceUrl;
+          if (attachedResource == null || attachedResource.isEmpty) {
+            for (final c in t.children) {
+              if (c.resourceUrl != null && c.resourceUrl!.isNotEmpty) {
+                attachedResource = c.resourceUrl;
+                break;
+              }
+            }
+          }
+
+          if (realSubtopics.isEmpty) {
+            topicCount++;
+            topics.add(SyllabusTopic(
+              id: t.id,
+              chapterTitle: chapterName,
+              topicIndex: '$chapterOrder.$topicCount',
+              title: tTitle,
+              chapterOrder: chapterOrder,
+              isCompleted: t.isCompleted,
+              resourceUrl: attachedResource,
+            ));
+          } else {
+            // Real subtopics exist under t
+            for (int sIdx = 0; sIdx < realSubtopics.length; sIdx++) {
+              final sub = realSubtopics[sIdx];
+              topics.add(SyllabusTopic(
+                id: sub.id,
+                chapterTitle: chapterName,
+                topicIndex: '$chapterOrder.${tIdx + 1}.${sIdx + 1}',
+                title: sub.title.trim(),
+                chapterOrder: chapterOrder,
+                isCompleted: sub.isCompleted,
+                resourceUrl: sub.resourceUrl ?? attachedResource,
+              ));
+            }
+          }
         }
       }
     }

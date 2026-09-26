@@ -4910,6 +4910,28 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     }
   }
 
+  Widget _buildCalendarLegendDot(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            color: const Color(0xFF9E8C82),
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
   /// TASK 4: Updates class attendance state in Firestore in real time
   TimeOfDay _parseTimeString(String? str, TimeOfDay fallback) {
     if (str == null || str.trim().isEmpty) return fallback;
@@ -7713,9 +7735,12 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                     stepIndex: 1,
                                     totalSteps: 3,
                                     child: buildGlassCard(
-                                    padding: const EdgeInsets.all(12),
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: TableCalendar<dynamic>(
+                                      padding: const EdgeInsets.all(12),
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          TableCalendar<dynamic>(
                                       firstDay: DateTime.utc(2020, 1, 1),
                                       lastDay: DateTime.utc(2035, 12, 31),
                                       focusedDay: _uniFocusedDay,
@@ -7723,7 +7748,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                       calendarFormat: CalendarFormat.month,
                                       startingDayOfWeek: StartingDayOfWeek.saturday,
                                       weekendDays: const [], // TASK 1: Override default hardcoded Sat/Sun weekends
-                                      holidayPredicate: (day) => holidaySettings.isHoliday(day),
+                                      holidayPredicate: (day) => holidaySettings.isHolidayOrBreak(day),
                                       headerStyle: HeaderStyle(
                                         formatButtonVisible: false,
                                         titleCentered: true,
@@ -7783,12 +7808,31 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                           );
                                         },
                                         defaultBuilder: (context, day, focusedDay) {
-                                          if (holidaySettings.isHoliday(day)) {
+                                          if (holidaySettings.isExamPeriod(day)) {
+                                            return Center(
+                                              child: Container(
+                                                padding: const EdgeInsets.all(6),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.16),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: Text(
+                                                  '${day.day}',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFFF59E0B),
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13.5,
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                          if (holidaySettings.isHolidayOrBreak(day)) {
                                             return Center(
                                               child: Text(
                                                 '${day.day}',
                                                 style: const TextStyle(
-                                                  color: Colors.redAccent,
+                                                  color: Color(0xFFEF4444),
                                                   fontWeight: FontWeight.bold,
                                                   fontSize: 13.5,
                                                 ),
@@ -7798,11 +7842,30 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                           return null;
                                         },
                                         holidayBuilder: (context, day, focusedDay) {
+                                          if (holidaySettings.isExamPeriod(day)) {
+                                            return Center(
+                                              child: Container(
+                                                padding: const EdgeInsets.all(6),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.16),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: Text(
+                                                  '${day.day}',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFFF59E0B),
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13.5,
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          }
                                           return Center(
                                             child: Text(
                                               '${day.day}',
                                               style: const TextStyle(
-                                                color: Colors.redAccent,
+                                                color: Color(0xFFEF4444),
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 13.5,
                                               ),
@@ -7810,12 +7873,23 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                           );
                                         },
                                         outsideBuilder: (context, day, focusedDay) {
-                                          final isHol = holidaySettings.isHoliday(day);
+                                          if (holidaySettings.isExamPeriod(day)) {
+                                            return Center(
+                                              child: Text(
+                                                '${day.day}',
+                                                style: TextStyle(
+                                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                                                  fontSize: 12.5,
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                          final isHol = holidaySettings.isHolidayOrBreak(day);
                                           return Center(
                                             child: Text(
                                               '${day.day}',
                                               style: TextStyle(
-                                                color: isHol ? Colors.redAccent.withValues(alpha: 0.4) : Colors.white24,
+                                                color: isHol ? const Color(0xFFEF4444).withValues(alpha: 0.4) : Colors.white24,
                                                 fontSize: 12.5,
                                               ),
                                             ),
@@ -7827,13 +7901,14 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                               bottom: 4,
                                               child: Row(
                                                 mainAxisSize: MainAxisSize.min,
-                                                children: events.take(3).map((_) {
+                                                children: events.take(3).map((e) {
+                                                  final isAss = e is Assessment;
                                                   return Container(
                                                     margin: const EdgeInsets.symmetric(horizontal: 1.5),
                                                     width: 5,
                                                     height: 5,
-                                                    decoration: const BoxDecoration(
-                                                      color: Color(0xFF10B981),
+                                                    decoration: BoxDecoration(
+                                                      color: isAss ? const Color(0xFFF2B78A) : const Color(0xFF34D399),
                                                       shape: BoxShape.circle,
                                                     ),
                                                   );
@@ -7845,8 +7920,23 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                         },
                                       ),
                                     ),
+                                    const SizedBox(height: 12),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          _buildCalendarLegendDot(const Color(0xFF34D399), 'Routine'),
+                                          const SizedBox(width: 14),
+                                          _buildCalendarLegendDot(const Color(0xFFF59E0B), 'Exam Window'),
+                                          const SizedBox(width: 14),
+                                          _buildCalendarLegendDot(const Color(0xFFF2B78A), 'Exam Day'),
+                                          const SizedBox(width: 14),
+                                          _buildCalendarLegendDot(const Color(0xFFEF4444), 'Holiday'),
+                                        ],
+                                      ),
+                                    ],
                                   ),
-                                  ),
+                                ),
+                              ),
                                   const SizedBox(height: 20),
 
                                   // TASK 3: The Unified Daily Agenda Header & Overrides Evaluation

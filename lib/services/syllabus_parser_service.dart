@@ -33,24 +33,19 @@ Return ONLY a valid JSON array matching this exact schema:
     "title": "Differential Calculus",
     "topics": [
       {
-        "title": "Leibnitz's theorem",
-        "items": ["Class Note", "Lecture Sheet", "Ref Book", "Term Final Question"]
+        "title": "Leibnitz's theorem"
       },
       {
-        "title": "Rolle's theorem",
-        "items": []
+        "title": "Rolle's theorem"
       },
       {
-        "title": "Mean value theorem",
-        "items": []
+        "title": "Mean value theorem"
       },
       {
-        "title": "Taylor's theorem",
-        "items": []
+        "title": "Taylor's theorem"
       },
       {
-        "title": "Maclaurin's theorem",
-        "items": []
+        "title": "Maclaurin's theorem"
       }
     ]
   }
@@ -75,24 +70,19 @@ Return ONLY a valid JSON array matching this exact schema:
     "title": "Differential Calculus",
     "topics": [
       {
-        "title": "Leibnitz's theorem",
-        "items": ["Class Note", "Lecture Sheet", "Ref Book", "Term Final Question"]
+        "title": "Leibnitz's theorem"
       },
       {
-        "title": "Rolle's theorem",
-        "items": []
+        "title": "Rolle's theorem"
       },
       {
-        "title": "Mean value theorem",
-        "items": []
+        "title": "Mean value theorem"
       },
       {
-        "title": "Taylor's theorem",
-        "items": []
+        "title": "Taylor's theorem"
       },
       {
-        "title": "Maclaurin's theorem",
-        "items": []
+        "title": "Maclaurin's theorem"
       }
     ]
   }

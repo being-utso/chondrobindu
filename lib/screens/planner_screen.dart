@@ -6,11 +6,13 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../models/assessment_model.dart';
 import '../models/course_model.dart';
+import '../models/routine_models.dart';
 import '../models/routine_slot_model.dart';
 import '../providers/firestore_providers.dart';
 import '../utils/safe_haptics.dart';
 import '../widgets/assessment_card.dart';
 import 'exams_screen.dart' as mobile;
+import 'journal_screen.dart' show holidaySettingsStreamProvider;
 
 /// Screen 04: Academic Planner & Routine Matrix
 /// Responsive desktop split-view layout aligned with Android mobile design.
@@ -34,23 +36,27 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     }
 
     final assessmentsAsync = ref.watch(allAssessmentsStreamProvider);
-    final allAssessments = assessmentsAsync.value ?? [];
+    final allAssessments = assessmentsAsync.valueOrNull ?? [];
 
     final routineAsync = ref.watch(weeklyRoutineStreamProvider);
-    final allSlots = routineAsync.value ?? [];
+    final allSlots = routineAsync.valueOrNull ?? [];
 
     final coursesAsync = ref.watch(coursesStreamProvider);
-    final courses = coursesAsync.value ?? [];
+    final courses = coursesAsync.valueOrNull ?? [];
 
     final Map<String, String> courseCodeMap = {for (final c in courses) c.id: c.code};
     final Map<String, String> courseTitleMap = {for (final c in courses) c.id: c.title};
 
+    final holidaySettingsAsync = ref.watch(holidaySettingsStreamProvider);
+    final holidaySettings = holidaySettingsAsync.valueOrNull ?? HolidaySettings.defaultSettings;
+
     // Filter for selected day
     final selectedDayAssessments = allAssessments.where((a) {
-      if (a.date == null) return false;
-      return a.date!.year == _selectedDate.year &&
-          a.date!.month == _selectedDate.month &&
-          a.date!.day == _selectedDate.day;
+      final d = a.date ?? a.dueDate;
+      if (d == null) return false;
+      return d.year == _selectedDate.year &&
+          d.month == _selectedDate.month &&
+          d.day == _selectedDate.day;
     }).toList();
 
     final selectedDaySlots = allSlots.where((s) => s.dayOfWeek == _selectedDate.weekday).toList()
@@ -77,7 +83,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 // Left Column: Interactive monthly calendar (flex: 5)
                 Expanded(
                   flex: 5,
-                  child: _buildLeftCalendarColumn(allAssessments, allSlots),
+                  child: _buildLeftCalendarColumn(allAssessments, allSlots, holidaySettings),
                 ),
                 const SizedBox(width: 24),
                 // Right Column: Day Agenda (flex: 7)
@@ -99,7 +105,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   }
 
   // --- SECTION A: Left Column — Monthly Interactive Calendar ---
-  Widget _buildLeftCalendarColumn(List<Assessment> allAssessments, List<RoutineSlot> allSlots) {
+  Widget _buildLeftCalendarColumn(List<Assessment> allAssessments, List<RoutineSlot> allSlots, HolidaySettings holidaySettings) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -223,74 +229,324 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               });
             },
             eventLoader: (day) {
-              final dayAssessments = allAssessments.where((a) => a.date != null && isSameDay(a.date, day)).toList();
+              final dayAssessments = allAssessments.where((a) {
+                final d = a.date ?? a.dueDate;
+                return d != null && isSameDay(d, day);
+              }).toList();
               final daySlots = allSlots.where((s) => s.dayOfWeek == day.weekday).toList();
               return [...dayAssessments, ...daySlots];
             },
+            holidayPredicate: (day) => holidaySettings.isHolidayOrBreak(day),
             calendarBuilders: CalendarBuilders(
-              markerBuilder: (context, date, events) {
-                if (events.isEmpty) return null;
-                final hasAssessment = allAssessments.any((a) => a.date != null && isSameDay(a.date, date));
-                final hasSlot = allSlots.any((s) => s.dayOfWeek == date.weekday);
-                return Positioned(
-                  bottom: 4,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (hasSlot)
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                          width: 5,
-                          height: 5,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF34D399),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      if (hasAssessment)
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 1.5),
-                          width: 5,
-                          height: 5,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFF2B78A),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                    ],
-                  ),
+              defaultBuilder: (context, date, focusedDay) {
+                return _buildCalendarDayCell(
+                  date: date,
+                  isSelected: false,
+                  isToday: isSameDay(date, DateTime.now()),
+                  allAssessments: allAssessments,
+                  allSlots: allSlots,
+                  holidaySettings: holidaySettings,
                 );
+              },
+              todayBuilder: (context, date, focusedDay) {
+                return _buildCalendarDayCell(
+                  date: date,
+                  isSelected: isSameDay(date, _selectedDate),
+                  isToday: true,
+                  allAssessments: allAssessments,
+                  allSlots: allSlots,
+                  holidaySettings: holidaySettings,
+                );
+              },
+              selectedBuilder: (context, date, focusedDay) {
+                return _buildCalendarDayCell(
+                  date: date,
+                  isSelected: true,
+                  isToday: isSameDay(date, DateTime.now()),
+                  allAssessments: allAssessments,
+                  allSlots: allSlots,
+                  holidaySettings: holidaySettings,
+                );
+              },
+              holidayBuilder: (context, date, focusedDay) {
+                return _buildCalendarDayCell(
+                  date: date,
+                  isSelected: isSameDay(date, _selectedDate),
+                  isToday: isSameDay(date, DateTime.now()),
+                  allAssessments: allAssessments,
+                  allSlots: allSlots,
+                  holidaySettings: holidaySettings,
+                );
+              },
+              markerBuilder: (context, date, events) {
+                return null;
               },
             ),
           ),
           const SizedBox(height: 20),
           const Divider(color: Color(0xFF2E2623), height: 1),
           const SizedBox(height: 14),
-          // Legend
+          // 4-Tier Visual Hierarchy Legend
           Wrap(
             spacing: 16,
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF34D399), shape: BoxShape.circle)),
-                  const SizedBox(width: 6),
-                  Text('Class Routine', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
-                ],
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFFF2B78A), shape: BoxShape.circle)),
-                  const SizedBox(width: 6),
-                  Text('Assessment / Deadline', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
-                ],
-              ),
+              _calendarLegendItem(const Color(0xFF34D399), 'Class Routine'),
+              _calendarLegendItem(const Color(0xFFF59E0B), 'Exam Window'),
+              _calendarLegendItem(const Color(0xFFF2B78A), 'Exam Day'),
+              _calendarLegendItem(const Color(0xFFEF4444), 'Holiday / Vacation'),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _calendarLegendItem(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            color: const Color(0xFF9E8C82),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCalendarDayCell({
+    required DateTime date,
+    required bool isSelected,
+    required bool isToday,
+    required List<Assessment> allAssessments,
+    required List<RoutineSlot> allSlots,
+    required HolidaySettings holidaySettings,
+  }) {
+    final dayAssessments = allAssessments.where((a) {
+      final d = a.date ?? a.dueDate;
+      return d != null && isSameDay(d, date);
+    }).toList();
+    final hasSlot = allSlots.any((s) => s.dayOfWeek == date.weekday);
+    final isExamPeriod = holidaySettings.isExamPeriod(date);
+    final isHoliday = holidaySettings.isHolidayOrBreak(date);
+    final isExamDay = dayAssessments.isNotEmpty;
+
+    // Tier 1 (Highest priority): Selected Day
+    if (isSelected) {
+      return Center(
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF2B78A),
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              '${date.day}',
+              style: GoogleFonts.jetBrainsMono(
+                color: const Color(0xFF151211),
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Tier 2: Specific Exam / Assessment Day (CT, Quiz, Lab Final, Term Final)
+    if (isExamDay) {
+      return Center(
+        child: Tooltip(
+          message: '${dayAssessments.length} Exam/Assessment${dayAssessments.length > 1 ? "s" : ""}',
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: isExamPeriod ? const Color(0xFFF59E0B).withValues(alpha: 0.16) : const Color(0xFF241C1A),
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFF2B78A), width: 1.8),
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Text(
+                  '${date.day}',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: const Color(0xFFF2B78A),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+                if (dayAssessments.length > 1)
+                  Positioned(
+                    top: 2,
+                    right: 2,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF2B78A),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${dayAssessments.length}',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: const Color(0xFF151211),
+                            fontSize: 7.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  bottom: 3,
+                  child: Container(
+                    width: 4,
+                    height: 4,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF2B78A),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Tier 3: Exam Period / Prep Leave (Window) — distinct Muted Amber, never red!
+    if (isExamPeriod) {
+      return Center(
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(8),
+            border: isToday ? Border.all(color: const Color(0xFFF59E0B), width: 1.2) : null,
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Text(
+                '${date.day}',
+                style: GoogleFonts.jetBrainsMono(
+                  color: const Color(0xFFF59E0B),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+              Positioned(
+                bottom: 3,
+                child: Container(
+                  width: 4,
+                  height: 4,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF59E0B),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Tier 4: Holidays & Vacations — Muted Red / Crimson (#EF4444)
+    if (isHoliday) {
+      return Center(
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: isToday
+              ? BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFEF4444), width: 1.2),
+                )
+              : null,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Text(
+                '${date.day}',
+                style: GoogleFonts.jetBrainsMono(
+                  color: const Color(0xFFEF4444),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+              Positioned(
+                bottom: 3,
+                child: Container(
+                  width: 4,
+                  height: 4,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEF4444),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Tier 5: Regular Class Days / Ordinary Days
+    return Center(
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: isToday
+            ? BoxDecoration(
+                color: const Color(0xFFF2B78A).withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFF2B78A), width: 1.2),
+              )
+            : null,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(
+              '${date.day}',
+              style: GoogleFonts.jetBrainsMono(
+                color: isToday ? const Color(0xFFF2B78A) : const Color(0xFFEDE8E3),
+                fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
+                fontSize: 13,
+              ),
+            ),
+            if (hasSlot)
+              Positioned(
+                bottom: 3,
+                child: Container(
+                  width: 4,
+                  height: 4,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF34D399),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -434,13 +690,46 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         else
           ...routineSlots.map((slot) => Padding(
                 padding: const EdgeInsets.only(bottom: 10.0),
-                child: _buildRoutineSlotCard(slot),
+                child: _buildRoutineSlotCard(slot, courseCodeMap, courseTitleMap),
               )),
       ],
     );
   }
 
-  Widget _buildRoutineSlotCard(RoutineSlot slot) {
+  String _cleanCourseCode(RoutineSlot slot, Map<String, String> courseCodeMap) {
+    if (courseCodeMap.containsKey(slot.courseId) && courseCodeMap[slot.courseId]!.isNotEmpty) {
+      return courseCodeMap[slot.courseId]!;
+    }
+    final raw = slot.courseCode.trim();
+    final match = RegExp(r'^([A-Z]{2,5})\s*(\d{3,4}[A-Z]?)').firstMatch(raw);
+    if (match != null) {
+      return '${match.group(1)} ${match.group(2)}';
+    }
+    final tokens = raw.split(RegExp(r'\s+'));
+    if (tokens.length >= 4 && tokens[0] == tokens[2] && tokens[1] == tokens[3]) {
+      return '${tokens[0]} ${tokens[1]}';
+    }
+    return raw.isNotEmpty ? raw : 'Course';
+  }
+
+  String _cleanCourseTitle(RoutineSlot slot, String cleanCode, Map<String, String> courseTitleMap) {
+    if (courseTitleMap.containsKey(slot.courseId) && courseTitleMap[slot.courseId]!.isNotEmpty) {
+      return courseTitleMap[slot.courseId]!;
+    }
+    String title = slot.courseTitle.trim();
+    final codeRegex = RegExp(RegExp.escape(cleanCode), caseSensitive: false);
+    title = title.replaceAll(codeRegex, '').trim();
+    title = title.replaceFirst(RegExp(r'^[\s\-–—:]+'), '').trim();
+    if (title.isEmpty) {
+      return cleanCode;
+    }
+    return title;
+  }
+
+  Widget _buildRoutineSlotCard(RoutineSlot slot, Map<String, String> courseCodeMap, Map<String, String> courseTitleMap) {
+    final cleanCode = _cleanCourseCode(slot, courseCodeMap);
+    final cleanTitle = _cleanCourseTitle(slot, cleanCode, courseTitleMap);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -451,7 +740,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row 1: Time Block + Room Badge + Slot Type
+          // Line 1: Time badge + Room badge
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -469,72 +758,68 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  if (slot.room.isNotEmpty)
-                    Container(
-                      constraints: const BoxConstraints(maxWidth: 130),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF241C1A),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFF382A24)),
-                      ),
-                      child: Text(
-                        slot.room.startsWith('Room') || slot.room.startsWith('Lab') ? slot.room : 'Room ${slot.room}',
-                        style: GoogleFonts.jetBrainsMono(
-                          color: const Color(0xFFF2B78A),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                    ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF241C1A),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFF2E2623)),
-                    ),
-                    child: Text(
-                      slot.slotType.displayName,
-                      style: GoogleFonts.jetBrainsMono(
-                        color: const Color(0xFF9E8C82),
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+              if (slot.room.isNotEmpty)
+                Container(
+                  constraints: const BoxConstraints(maxWidth: 130),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF241C1A),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFF382A24)),
                   ),
-                ],
-              ),
+                  child: Text(
+                    slot.room.startsWith('Room') || slot.room.startsWith('Lab') ? slot.room : 'Room ${slot.room}',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: const Color(0xFFF2B78A),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 10),
-          // Row 2: Course Code & Title + Teacher Badge
+          // Line 2: Single bold Course Code
+          Text(
+            cleanCode,
+            style: GoogleFonts.jetBrainsMono(
+              color: const Color(0xFFEDE8E3),
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Line 3: Single Course Title
+          Text(
+            cleanTitle,
+            style: GoogleFonts.plusJakartaSans(
+              color: const Color(0xFF9E8C82),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+          const SizedBox(height: 10),
+          // Line 4: Class type badge (Theory or Sessional/Lab) + optional Teacher badge
           Row(
             children: [
-              Text(
-                slot.courseCode,
-                style: GoogleFonts.jetBrainsMono(
-                  color: const Color(0xFFEDE8E3),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF241C1A),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFF2E2623)),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
                 child: Text(
-                  slot.courseTitle,
-                  style: GoogleFonts.plusJakartaSans(
+                  slot.slotType == CourseType.sessional ? 'Sessional/Lab' : (slot.slotType == CourseType.practical ? 'Practical' : 'Theory'),
+                  style: GoogleFonts.jetBrainsMono(
                     color: const Color(0xFF9E8C82),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
                 ),
               ),
               if (slot.teacherBadge != null && slot.teacherBadge!.isNotEmpty) ...[

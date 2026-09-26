@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../models/assessment_model.dart';
@@ -11,35 +12,88 @@ class AssessmentRepository {
   CollectionReference<Map<String, dynamic>>? _assessmentsRef(String uid) =>
       _firestore?.collection('users').doc(uid).collection('assessments');
 
-  Stream<List<Assessment>> watchUpcomingAssessments(String uid) {
-    if (_firestore == null || uid.isEmpty) return Stream.value([]);
-    return _assessmentsRef(uid)!.snapshots().map((snapshot) {
-      final list = snapshot.docs.map((doc) => Assessment.fromFirestore(doc)).where((a) {
-        return !a.isCompleted && a.status.toLowerCase() != 'attended';
-      }).toList();
+  CollectionReference<Map<String, dynamic>>? _coursesRef(String uid) =>
+      _firestore?.collection('users').doc(uid).collection('courses');
 
-      list.sort((a, b) {
-        if (a.dueDate == null && b.dueDate == null) return 0;
-        if (a.dueDate == null) return 1;
-        if (b.dueDate == null) return -1;
-        return a.dueDate!.compareTo(b.dueDate!);
-      });
-      return list;
+  Stream<List<Assessment>> watchUpcomingAssessments(String uid) {
+    return watchAllAssessments(uid).map((list) {
+      return list.where((a) => !a.isCompleted && a.status.toLowerCase() != 'attended').toList();
     });
   }
 
   Stream<List<Assessment>> watchAllAssessments(String uid) {
     if (_firestore == null || uid.isEmpty) return Stream.value([]);
-    return _assessmentsRef(uid)!.snapshots().map((snapshot) {
-      final list = snapshot.docs.map((doc) => Assessment.fromFirestore(doc)).toList();
-      list.sort((a, b) {
-        if (a.dueDate == null && b.dueDate == null) return 0;
-        if (a.dueDate == null) return 1;
-        if (b.dueDate == null) return -1;
-        return a.dueDate!.compareTo(b.dueDate!);
+
+    late StreamController<List<Assessment>> controller;
+    List<Assessment> directAssessments = [];
+    List<Assessment> courseDocAssessments = [];
+
+    void emitMerged() {
+      final Map<String, Assessment> map = {};
+      for (final a in courseDocAssessments) {
+        if (a.id.isNotEmpty) {
+          map[a.id] = a;
+        } else if (a.name.isNotEmpty) {
+          map['${a.courseId}_${a.name}'] = a;
+        }
+      }
+      for (final a in directAssessments) {
+        if (a.id.isNotEmpty) {
+          map[a.id] = a;
+        } else if (a.name.isNotEmpty) {
+          map['${a.courseId}_${a.name}'] = a;
+        }
+      }
+      final merged = map.values.toList();
+      merged.sort((a, b) {
+        final dA = a.date ?? a.dueDate;
+        final dB = b.date ?? b.dueDate;
+        if (dA == null && dB == null) return 0;
+        if (dA == null) return 1;
+        if (dB == null) return -1;
+        return dA.compareTo(dB);
       });
-      return list;
-    });
+      if (!controller.isClosed) {
+        controller.add(merged);
+      }
+    }
+
+    StreamSubscription? sub1;
+    StreamSubscription? sub2;
+
+    controller = StreamController<List<Assessment>>.broadcast(
+      onListen: () {
+        sub1 = _assessmentsRef(uid)?.snapshots().listen(
+          (snap) {
+            directAssessments = snap.docs.map((doc) => Assessment.fromFirestore(doc)).toList();
+            emitMerged();
+          },
+          onError: (e) {
+            if (!controller.isClosed) controller.addError(e);
+          },
+        );
+
+        sub2 = _coursesRef(uid)?.snapshots().listen(
+          (snap) {
+            final List<Assessment> fromCourses = [];
+            for (final doc in snap.docs) {
+              fromCourses.addAll(Assessment.fromCourseData(doc.data(), courseId: doc.id));
+            }
+            courseDocAssessments = fromCourses;
+            emitMerged();
+          },
+          onError: (e) {
+            if (!controller.isClosed) controller.addError(e);
+          },
+        );
+      },
+      onCancel: () {
+        sub1?.cancel();
+        sub2?.cancel();
+      },
+    );
+
+    return controller.stream;
   }
 
   Future<void> createAssessment(String uid, Assessment assessment) async {

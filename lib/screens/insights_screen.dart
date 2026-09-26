@@ -5087,8 +5087,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
+                                  fontFamily: 'monospace',
                                 ),
                               ),
+                              SizedBox(height: 2),
                               Text(
                                 'Focused',
                                 style: TextStyle(
@@ -5189,8 +5191,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
+                                fontFamily: 'monospace',
                               ),
                             ),
+                            const SizedBox(height: 2),
                             const Text(
                               'Focused',
                               style: TextStyle(

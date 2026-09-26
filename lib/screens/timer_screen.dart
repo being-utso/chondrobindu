@@ -241,16 +241,45 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                 // Center Column (flex 6): Immersive Timer Engine
                 Expanded(
                   flex: 6,
-                  child: _buildDesktopCenterDial(
-                    timerState,
-                    timerNotifier,
-                    currentSubject,
-                    isBreak,
-                    isRunning,
-                    isPaused,
-                    isStopwatch,
-                    dialProgress,
-                    currentColor,
+                  child: Builder(
+                    builder: (context) {
+                      final courses = ref.watch(coursesStreamProvider).valueOrNull ?? [];
+                      Course? selectedCourse;
+                      for (final c in courses) {
+                        if (c.title.toLowerCase() == currentSubject.toLowerCase() ||
+                            c.code.toLowerCase() == currentSubject.toLowerCase()) {
+                          selectedCourse = c;
+                          break;
+                        }
+                      }
+                      String? selectedTopicTitle;
+                      if (selectedCourse != null) {
+                        final liveTopics = ref.watch(syllabusTopicsStreamProvider(selectedCourse.id)).valueOrNull ?? [];
+                        for (final t in liveTopics) {
+                          if (_selectedDesktopTopics.contains(t.topicIndex) || _selectedDesktopTopics.contains(t.id)) {
+                            selectedTopicTitle = t.title;
+                            break;
+                          }
+                        }
+                      }
+                      if (selectedTopicTitle == null && _selectedDesktopTopics.isNotEmpty) {
+                        selectedTopicTitle = _selectedDesktopTopics.first;
+                      }
+
+                      return _buildDesktopCenterDial(
+                        timerState,
+                        timerNotifier,
+                        currentSubject,
+                        isBreak,
+                        isRunning,
+                        isPaused,
+                        isStopwatch,
+                        dialProgress,
+                        currentColor,
+                        selectedCourse: selectedCourse,
+                        selectedTopicTitle: selectedTopicTitle,
+                      );
+                    },
                   ),
                 ),
 
@@ -499,8 +528,10 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     bool isPaused,
     bool isStopwatch,
     double dialProgress,
-    Color currentColor,
-  ) {
+    Color currentColor, {
+    Course? selectedCourse,
+    String? selectedTopicTitle,
+  }) {
     return Container(
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
@@ -572,17 +603,27 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                         letterSpacing: -1.0,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      isBreak
-                          ? 'Break • 5:1 Focus Ratio'
-                          : (timerState.isOvertime
-                              ? 'Overtime • Counting Up'
-                              : '$currentSubject • Focus Session'),
-                      style: GoogleFonts.plusJakartaSans(
-                        color: isBreak ? const Color(0xFF34D399) : const Color(0xFF9E8C82),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E1A18),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFF2E2623), width: 1),
+                      ),
+                      child: Text(
+                        isBreak
+                            ? 'Break • 5:1 Focus Ratio'
+                            : (timerState.isOvertime
+                                ? 'Overtime • Counting Up'
+                                : '${selectedCourse?.code ?? currentSubject} • ${selectedTopicTitle ?? 'Focus Session'}'),
+                        style: GoogleFonts.plusJakartaSans(
+                          color: isBreak ? const Color(0xFF34D399) : const Color(0xFFD4C5B9),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
