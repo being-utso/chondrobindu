@@ -79,9 +79,9 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
         child: Row(
           children: [
             // Left: Moon Crescent + Bengali Wordmark + Subtitle
-            _buildBrand(),
+            _buildBrand(isCompactDesktop),
 
-            SizedBox(width: isCompactDesktop ? 8.0 : 16.0),
+            SizedBox(width: isCompactDesktop ? 4.0 : 16.0),
 
             // Center: Navigation Tabs
             Expanded(
@@ -89,13 +89,14 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                 scrollDirection: Axis.horizontal,
                 clipBehavior: Clip.hardEdge,
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     _NavTabItem(
                       icon: Icons.home_outlined,
                       selectedIcon: Icons.home_rounded,
                       label: 'Home',
                       isSelected: activeIndex == 0,
+                      isCompact: isCompactDesktop,
                       onTap: () {
                         SafeHaptics.selectionClick();
                         onDestinationSelected?.call(0);
@@ -107,6 +108,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                       selectedIcon: Icons.school_rounded,
                       label: 'Courses',
                       isSelected: activeIndex == 1,
+                      isCompact: isCompactDesktop,
                       onTap: () {
                         SafeHaptics.selectionClick();
                         onDestinationSelected?.call(1);
@@ -118,6 +120,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                       selectedIcon: Icons.timer_rounded,
                       label: 'Timer',
                       isSelected: activeIndex == 2,
+                      isCompact: isCompactDesktop,
                       onTap: () {
                         SafeHaptics.selectionClick();
                         onDestinationSelected?.call(2);
@@ -129,6 +132,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                       selectedIcon: Icons.calendar_month_rounded,
                       label: 'Planner',
                       isSelected: activeIndex == 3,
+                      isCompact: isCompactDesktop,
                       onTap: () {
                         SafeHaptics.selectionClick();
                         onDestinationSelected?.call(3);
@@ -140,6 +144,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                       selectedIcon: Icons.insights_rounded,
                       label: 'Insights',
                       isSelected: activeIndex == 4,
+                      isCompact: isCompactDesktop,
                       onTap: () {
                         SafeHaptics.selectionClick();
                         onDestinationSelected?.call(4);
@@ -151,27 +156,27 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
               ),
             ),
 
-            SizedBox(width: isCompactDesktop ? 8.0 : 16.0),
+            SizedBox(width: isCompactDesktop ? 4.0 : 16.0),
 
             // Right: Quick Search, Notification Bell, Profile Chip
-            _buildRightActions(context, ref, profile, displayName, photoUrl),
+            _buildRightActions(context, ref, profile, displayName, photoUrl, isCompactDesktop),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBrand() {
+  Widget _buildBrand(bool isCompact) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Moon Crescent Glyph with soft glow
         Container(
-          width: 36,
-          height: 36,
+          width: isCompact ? 30 : 36,
+          height: isCompact ? 30 : 36,
           decoration: BoxDecoration(
             color: const Color(0xFF1E1816),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(isCompact ? 8 : 10),
             border: Border.all(color: const Color(0xFF382A24), width: 1),
             boxShadow: [
               BoxShadow(
@@ -182,13 +187,13 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
             ],
           ),
           alignment: Alignment.center,
-          child: const Icon(
+          child: Icon(
             Icons.dark_mode_rounded,
-            color: Color(0xFFF2B78A),
-            size: 20,
+            color: const Color(0xFFF2B78A),
+            size: isCompact ? 16 : 20,
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: isCompact ? 6 : 12),
         Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,15 +204,15 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                   'চন্দ্রবিন্দু',
                   style: GoogleFonts.plusJakartaSans(
                     color: const Color(0xFFF2B78A),
-                    fontSize: 16.5,
+                    fontSize: isCompact ? 14.5 : 16.5,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.2,
                   ),
                 ),
                 const SizedBox(width: 4),
                 Container(
-                  width: 5,
-                  height: 5,
+                  width: 4,
+                  height: 4,
                   decoration: const BoxDecoration(
                     color: Color(0xFFF2B78A),
                     shape: BoxShape.circle,
@@ -219,9 +224,9 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
               'CHONDROBINDU',
               style: GoogleFonts.jetBrainsMono(
                 color: const Color(0xFF9E8C82),
-                fontSize: 9.5,
+                fontSize: isCompact ? 8.5 : 9.5,
                 fontWeight: FontWeight.w600,
-                letterSpacing: 1.6,
+                letterSpacing: isCompact ? 1.0 : 1.6,
               ),
             ),
           ],
@@ -236,6 +241,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
     UserProfile profile,
     String name,
     String? imageUrl,
+    bool isCompactDesktop,
   ) {
     final assessments = ref.watch(upcomingAssessmentsStreamProvider).value ?? [];
     final now = DateTime.now();
@@ -245,9 +251,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
       return a.date!.isAfter(now.subtract(const Duration(hours: 12))) && a.date!.isBefore(in3Days);
     }).toList();
 
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final isCompactDesktop = screenWidth <= 1200;
-    final double searchWidth = isCompactDesktop ? 140.0 : 240.0;
+    final double searchWidth = isCompactDesktop ? 220.0 : 250.0;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -259,6 +263,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
           child: Container(
             height: 36,
             width: searchWidth,
+            constraints: const BoxConstraints(minWidth: 220, maxWidth: 260),
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               color: const Color(0xFF1E1816),
@@ -305,7 +310,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
           ),
         ),
 
-        SizedBox(width: isCompactDesktop ? 8.0 : 14.0),
+        SizedBox(width: isCompactDesktop ? 6.0 : 14.0),
 
         // Notification Bell Popup
         PopupMenuButton<void>(
@@ -455,7 +460,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
           ),
         ),
 
-        const SizedBox(width: 8),
+        SizedBox(width: isCompactDesktop ? 6.0 : 8.0),
 
         // Profile Chip with Popup Menu
         PopupMenuButton<String>(
@@ -612,7 +617,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
             ),
           ],
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: EdgeInsets.symmetric(horizontal: isCompactDesktop ? 6.0 : 8.0, vertical: 4),
             decoration: BoxDecoration(
               color: const Color(0xFF1E1816),
               borderRadius: BorderRadius.circular(20),
@@ -638,13 +643,18 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                         )
                       : null,
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  name,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: const Color(0xFFEDE8E3),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                SizedBox(width: isCompactDesktop ? 6 : 8),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: isCompactDesktop ? 80 : 140),
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: const Color(0xFFEDE8E3),
+                      fontSize: isCompactDesktop ? 12.0 : 13.0,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -667,6 +677,7 @@ class _NavTabItem extends StatefulWidget {
   final IconData selectedIcon;
   final String label;
   final bool isSelected;
+  final bool isCompact;
   final VoidCallback onTap;
 
   const _NavTabItem({
@@ -674,6 +685,7 @@ class _NavTabItem extends StatefulWidget {
     required this.selectedIcon,
     required this.label,
     required this.isSelected,
+    this.isCompact = false,
     required this.onTap,
   });
 
@@ -687,6 +699,7 @@ class _NavTabItemState extends State<_NavTabItem> {
   @override
   Widget build(BuildContext context) {
     final bool active = widget.isSelected;
+    final bool isCompact = widget.isCompact;
     final Color textColor = active
         ? const Color(0xFFF2B78A)
         : (_isHovered ? const Color(0xFFEDE8E3) : const Color(0xFF9E8C82));
@@ -700,7 +713,7 @@ class _NavTabItemState extends State<_NavTabItem> {
         behavior: HitTestBehavior.opaque,
         child: Container(
           height: 64,
-          padding: const EdgeInsets.symmetric(horizontal: 5),
+          padding: EdgeInsets.symmetric(horizontal: isCompact ? 2.0 : 5.0),
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
@@ -715,14 +728,14 @@ class _NavTabItemState extends State<_NavTabItem> {
               Icon(
                 active ? widget.selectedIcon : widget.icon,
                 color: textColor,
-                size: 18,
+                size: isCompact ? 15 : 18,
               ),
-              const SizedBox(width: 5),
+              SizedBox(width: isCompact ? 3 : 5),
               Text(
                 widget.label,
                 style: GoogleFonts.plusJakartaSans(
                   color: textColor,
-                  fontSize: 12.5,
+                  fontSize: isCompact ? 11.5 : 12.5,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                   letterSpacing: 0.1,
                 ),

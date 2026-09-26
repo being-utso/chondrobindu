@@ -9,7 +9,7 @@ class StudySessionRepository {
       : _firestore = firestore ?? (Firebase.apps.isNotEmpty ? FirebaseFirestore.instance : null);
 
   CollectionReference<Map<String, dynamic>>? _sessionsRef(String uid) =>
-      _firestore?.collection('users').doc(uid).collection('study_sessions');
+      _firestore?.collection('users').doc(uid).collection('focus_sessions');
 
   DocumentReference<Map<String, dynamic>>? _userRef(String uid) =>
       _firestore?.collection('users').doc(uid);
@@ -19,12 +19,11 @@ class StudySessionRepository {
     final startOfDay = DateTime(date.year, date.month, date.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
-    return _sessionsRef(uid)!
-        .where('startedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-        .where('startedAt', isLessThan: Timestamp.fromDate(endOfDay))
-        .snapshots()
-        .map((snapshot) {
-      final list = snapshot.docs.map((doc) => StudySession.fromFirestore(doc)).toList();
+    return _sessionsRef(uid)!.snapshots().map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => StudySession.fromFirestore(doc))
+          .where((s) => !s.startedAt.isBefore(startOfDay) && s.startedAt.isBefore(endOfDay))
+          .toList();
       list.sort((a, b) => a.startedAt.compareTo(b.startedAt));
       return list;
     });
@@ -32,12 +31,11 @@ class StudySessionRepository {
 
   Stream<List<StudySession>> watchSessionsRange(String uid, DateTime start, DateTime end) {
     if (_firestore == null || uid.isEmpty) return Stream.value([]);
-    return _sessionsRef(uid)!
-        .where('startedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-        .where('startedAt', isLessThanOrEqualTo: Timestamp.fromDate(end))
-        .snapshots()
-        .map((snapshot) {
-      final list = snapshot.docs.map((doc) => StudySession.fromFirestore(doc)).toList();
+    return _sessionsRef(uid)!.snapshots().map((snapshot) {
+      final list = snapshot.docs
+          .map((doc) => StudySession.fromFirestore(doc))
+          .where((s) => !s.startedAt.isBefore(start) && !s.startedAt.isAfter(end))
+          .toList();
       list.sort((a, b) => a.startedAt.compareTo(b.startedAt));
       return list;
     });
@@ -45,12 +43,10 @@ class StudySessionRepository {
 
   Stream<List<StudySession>> watchRecentSessions(String uid, {int limit = 50}) {
     if (_firestore == null || uid.isEmpty) return Stream.value([]);
-    return _sessionsRef(uid)!
-        .orderBy('startedAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => StudySession.fromFirestore(doc)).toList();
+    return _sessionsRef(uid)!.snapshots().map((snapshot) {
+      final list = snapshot.docs.map((doc) => StudySession.fromFirestore(doc)).toList();
+      list.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+      return list.take(limit).toList();
     });
   }
 

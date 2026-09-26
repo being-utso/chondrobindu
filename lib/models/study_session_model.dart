@@ -62,6 +62,12 @@ class StudySession {
       } else if (map['startTime'] is String) {
         start = DateTime.tryParse(map['startTime'] as String) ?? start;
       }
+    } else if (map['timestamp'] != null) {
+      if (map['timestamp'] is Timestamp) {
+        start = (map['timestamp'] as Timestamp).toDate();
+      } else if (map['timestamp'] is String) {
+        start = DateTime.tryParse(map['timestamp'] as String) ?? start;
+      }
     } else if (map['date'] != null) {
       if (map['date'] is Timestamp) {
         start = (map['date'] as Timestamp).toDate();
@@ -114,11 +120,16 @@ class StudySession {
       'overtimeSeconds': overtimeSeconds,
       'startedAt': Timestamp.fromDate(startedAt),
       'endedAt': Timestamp.fromDate(endedAt),
+      'timestamp': Timestamp.fromDate(startedAt),
+      'startTime': Timestamp.fromDate(startedAt),
+      'endTime': Timestamp.fromDate(endedAt),
       'focusNotes': focusNotes,
       'focusRating': focusRating,
       // Compatibility fields with legacy StudySessionLog
+      'subject': courseCode,
       'subjectId': courseId,
       'subjectName': courseCode,
+      'durationMinutes': (durationSeconds / 60).round(),
       'durationInMinutes': (durationSeconds / 60).round(),
       'date': Timestamp.fromDate(startedAt),
     };

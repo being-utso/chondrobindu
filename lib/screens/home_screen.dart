@@ -113,7 +113,9 @@ class HomeScreen extends ConsumerWidget {
 
     try {
       if (profile != null) {
-        if (profile.institutionType == InstitutionType.college) {
+        if (profile is UserProfile && profile.profileSubtitle.isNotEmpty) {
+          metadataPrefix = profile.profileSubtitle;
+        } else if (profile.institutionType == InstitutionType.college) {
           final collegeClass = (profile.collegeClass != null && profile.collegeClass.toString().trim().isNotEmpty)
               ? profile.collegeClass.toString().trim()
               : 'Class 11';
@@ -472,7 +474,7 @@ class HomeScreen extends ConsumerWidget {
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: 8,
-            runSpacing: 6,
+            runSpacing: 8,
             children: [
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -563,6 +565,8 @@ class HomeScreen extends ConsumerWidget {
           Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               Row(
                 mainAxisSize: MainAxisSize.min,

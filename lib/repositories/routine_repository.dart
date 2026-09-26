@@ -9,7 +9,7 @@ class RoutineRepository {
       : _firestore = firestore ?? (Firebase.apps.isNotEmpty ? FirebaseFirestore.instance : null);
 
   CollectionReference<Map<String, dynamic>>? _slotsRef(String uid) =>
-      _firestore?.collection('users').doc(uid).collection('routine_slots');
+      _firestore?.collection('users').doc(uid).collection('routine');
 
   Stream<List<RoutineSlot>> watchWeeklyRoutine(String uid) {
     if (_firestore == null || uid.isEmpty) return Stream.value([]);

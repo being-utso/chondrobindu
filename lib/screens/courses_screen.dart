@@ -1325,6 +1325,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                 uid = FirebaseAuth.instance.currentUser?.uid ?? '';
               } catch (_) {}
               if (uid.isNotEmpty) {
+                await ref.read(courseRepositoryProvider).addSyllabusChapter(uid, course.id, chapter);
                 await ref.read(courseRepositoryProvider).addTopics(uid, course.id, [newTopic]);
               }
               if (ctx.mounted) Navigator.of(ctx).pop();
@@ -1462,6 +1463,12 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                   uid = FirebaseAuth.instance.currentUser?.uid ?? '';
                 } catch (_) {}
                 if (uid.isNotEmpty) {
+                  await ref.read(courseRepositoryProvider).addSyllabusTopicToChapter(
+                        uid,
+                        course.id,
+                        chapter,
+                        title,
+                      );
                   await ref.read(courseRepositoryProvider).addTopics(uid, course.id, [newTopic]);
                 }
                 if (ctx.mounted) Navigator.of(ctx).pop();

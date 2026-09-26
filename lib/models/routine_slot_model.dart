@@ -49,9 +49,9 @@ class RoutineSlot {
     final day = (map['dayOfWeek'] as num?)?.toInt() ?? 1;
     final start = map['startTime'] as String? ?? '08:00 AM';
     final end = map['endTime'] as String? ?? '09:00 AM';
-    final room = map['room'] as String? ?? '';
-    final teacher = map['teacherBadge'] as String? ?? map['teacher'] as String?;
-    final sType = CourseType.fromString(map['slotType'] as String? ?? map['courseType'] as String?);
+    final room = map['room'] as String? ?? map['roomNumber'] as String? ?? '';
+    final teacher = map['teacherBadge'] as String? ?? map['teacher'] as String? ?? map['teacherId'] as String?;
+    final sType = CourseType.fromString(map['slotType'] as String? ?? map['classType'] as String? ?? map['courseType'] as String?);
 
     DateTime? effFrom;
     if (map['effectiveFrom'] != null) {
@@ -93,12 +93,18 @@ class RoutineSlot {
       'courseId': courseId,
       'courseCode': courseCode,
       'courseTitle': courseTitle,
+      'courseName': courseTitle,
       'dayOfWeek': dayOfWeek,
       'startTime': startTime,
       'endTime': endTime,
       'room': room,
+      'roomNumber': room,
       'teacherBadge': teacherBadge,
+      'teacherId': teacherBadge,
       'slotType': slotType.name,
+      'classType': slotType == CourseType.sessional ? 'Lab' : (slotType == CourseType.practical ? 'Practical' : 'Theory'),
+      'isAlternating': false,
+      'recurrence': 'weekly',
       'effectiveFrom': effectiveFrom != null ? Timestamp.fromDate(effectiveFrom!) : null,
       'effectiveUntil': effectiveUntil != null ? Timestamp.fromDate(effectiveUntil!) : null,
     };
