@@ -24,6 +24,12 @@ import '../widgets/tour_coach_mark.dart';
 import '../providers/firestore_providers.dart';
 import 'package:chondrobindu/utils/safe_haptics.dart';
 
+import 'package:intl/intl.dart';
+import '../models/study_session_model.dart';
+
+/// Period selector for analytics and study sessions
+enum InsightPeriod { day, week, month, trend }
+
 /// Performance & Study Insights Screen with uncapped historical data,
 /// interactive calendar explorer, dynamic daily breakdowns, and chronological activity timeline.
 class InsightsScreen extends ConsumerStatefulWidget {
@@ -99,7 +105,78 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
   // Desktop State
   String _desktopCategoryTab = 'Overview';
-  String _desktopPeriodTab = 'Week';
+  InsightPeriod _selectedPeriod = InsightPeriod.week;
+  DateTime _currentAnchorDate = DateTime.now();
+
+  DateTime get _rangeStart {
+    switch (_selectedPeriod) {
+      case InsightPeriod.day:
+        return DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day);
+      case InsightPeriod.week:
+        final daysFromMonday = _currentAnchorDate.weekday - 1;
+        return DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day)
+            .subtract(Duration(days: daysFromMonday));
+      case InsightPeriod.month:
+        return DateTime(_currentAnchorDate.year, _currentAnchorDate.month, 1);
+      case InsightPeriod.trend:
+        final end = DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day, 23, 59, 59);
+        return end.subtract(const Duration(days: 29)).copyWith(hour: 0, minute: 0, second: 0, millisecond: 0);
+    }
+  }
+
+  DateTime get _rangeEnd {
+    switch (_selectedPeriod) {
+      case InsightPeriod.day:
+        return _rangeStart.add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
+      case InsightPeriod.week:
+        return _rangeStart.add(const Duration(days: 7)).subtract(const Duration(milliseconds: 1));
+      case InsightPeriod.month:
+        return DateTime(_currentAnchorDate.year, _currentAnchorDate.month + 1, 1)
+            .subtract(const Duration(milliseconds: 1));
+      case InsightPeriod.trend:
+        return DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day, 23, 59, 59);
+    }
+  }
+
+  String get _dateRangeLabel {
+    switch (_selectedPeriod) {
+      case InsightPeriod.day:
+        return DateFormat('d MMM yyyy').format(_currentAnchorDate);
+      case InsightPeriod.week:
+        final start = _rangeStart;
+        final end = _rangeEnd;
+        if (start.month == end.month) {
+          return '${start.day} - ${end.day} ${DateFormat('MMM yyyy').format(end)}';
+        }
+        return '${DateFormat('d MMM').format(start)} - ${DateFormat('d MMM yyyy').format(end)}';
+      case InsightPeriod.month:
+        return DateFormat('MMMM yyyy').format(_currentAnchorDate);
+      case InsightPeriod.trend:
+        final start = _rangeStart;
+        final end = _rangeEnd;
+        return '${DateFormat('d MMM').format(start)} - ${DateFormat('d MMM yyyy').format(end)}';
+    }
+  }
+
+  void _stepDateRange(int direction) {
+    SafeHaptics.selectionClick();
+    setState(() {
+      switch (_selectedPeriod) {
+        case InsightPeriod.day:
+          _currentAnchorDate = _currentAnchorDate.add(Duration(days: direction));
+          break;
+        case InsightPeriod.week:
+          _currentAnchorDate = _currentAnchorDate.add(Duration(days: 7 * direction));
+          break;
+        case InsightPeriod.month:
+          _currentAnchorDate = DateTime(_currentAnchorDate.year, _currentAnchorDate.month + direction, _currentAnchorDate.day);
+          break;
+        case InsightPeriod.trend:
+          _currentAnchorDate = _currentAnchorDate.add(Duration(days: 30 * direction));
+          break;
+      }
+    });
+  }
 
   // TASK 4: University Study Analytics & Heatmap state
   String _uniStudyPeriodTab = 'Month';
@@ -4338,6 +4415,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
   // ============================================================================
 
   Widget _buildDesktopInsightsScreen(BuildContext context) {
+    final sessionsAsync = ref.watch(studySessionsRangeStreamProvider(DateRangeParam(_rangeStart, _rangeEnd)));
+    final sessions = sessionsAsync.value ?? [];
+
     return Scaffold(
       backgroundColor: const Color(0xFF151211),
       body: SingleChildScrollView(
@@ -4354,7 +4434,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 const SizedBox(height: 24),
 
                 // B. Top KPIs (4 Horizontal Metric Cards)
-                _buildDesktopTopKpis(),
+                _buildDesktopTopKpis(sessions),
 
                 const SizedBox(height: 24),
 
@@ -4364,12 +4444,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   children: [
                     Expanded(
                       flex: 6,
-                      child: _buildDesktopWeeklyHistogram(),
+                      child: _buildDesktopWeeklyHistogram(sessions),
                     ),
                     const SizedBox(width: 24),
                     Expanded(
                       flex: 4,
-                      child: _buildDesktopSubjectDistribution(),
+                      child: _buildDesktopSubjectDistribution(sessions),
                     ),
                   ],
                 ),
@@ -4377,12 +4457,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 const SizedBox(height: 24),
 
                 // D. Daily Timeline Bar
-                _buildDesktopDailyTimelineBar(),
+                _buildDesktopDailyTimelineBar(sessions),
 
                 const SizedBox(height: 24),
 
                 // E. Focus Heatmap
-                _buildDesktopFocusHeatmap(),
+                _buildDesktopFocusHeatmap(sessions),
               ],
             ),
           ),
@@ -4393,7 +4473,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
   Widget _buildDesktopAnalyticsSubNav() {
     final categories = ['Overview', 'Time', 'Subjects', 'Performance', 'CGPA Forecaster'];
-    final periods = ['Day', 'Week', 'Month', 'Trend'];
+    final periods = [
+      (InsightPeriod.day, 'Day'),
+      (InsightPeriod.week, 'Week'),
+      (InsightPeriod.month, 'Month'),
+      (InsightPeriod.trend, 'Trend'),
+    ];
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -4454,11 +4539,11 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ),
             child: Row(
               children: periods.map((p) {
-                final active = _desktopPeriodTab == p;
+                final active = _selectedPeriod == p.$1;
                 return InkWell(
                   onTap: () {
                     SafeHaptics.selectionClick();
-                    setState(() => _desktopPeriodTab = p);
+                    setState(() => _selectedPeriod = p.$1);
                   },
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
@@ -4469,7 +4554,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       border: active ? Border.all(color: const Color(0xFFF2B78A), width: 0.8) : null,
                     ),
                     child: Text(
-                      p,
+                      p.$2,
                       style: GoogleFonts.plusJakartaSans(
                         color: active ? const Color(0xFFF2B78A) : const Color(0xFF9E8C82),
                         fontSize: 12,
@@ -4489,23 +4574,23 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             children: [
               IconButton(
                 icon: const Icon(Icons.chevron_left_rounded, color: Color(0xFFEDE8E3), size: 20),
-                onPressed: () => SafeHaptics.selectionClick(),
+                onPressed: () => _stepDateRange(-1),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               Text(
-                '22 - 28 Sep 2026',
+                _dateRangeLabel,
                 style: GoogleFonts.jetBrainsMono(
                   color: const Color(0xFFEDE8E3),
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.chevron_right_rounded, color: Color(0xFFEDE8E3), size: 20),
-                onPressed: () => SafeHaptics.selectionClick(),
+                onPressed: () => _stepDateRange(1),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
@@ -4516,33 +4601,33 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     );
   }
 
-  Widget _buildDesktopTopKpis() {
-    final sessionsAsync = ref.watch(studySessionsDateStreamProvider(_selectedDay));
+  Widget _buildDesktopTopKpis(List<StudySession> sessions) {
     final profileAsync = ref.watch(liveUserProfileProvider);
-    final profile = profileAsync.value;
-    final sessions = sessionsAsync.value ?? [];
+    final fallbackProfile = ref.watch(userProfileProvider);
+    final profile = profileAsync.value ?? fallbackProfile;
 
     final int totalSec = sessions.fold<int>(0, (acc, s) => acc + s.durationSeconds);
-    final String focusTimeStr = sessions.isNotEmpty
+    final String focusTimeStr = totalSec > 0
         ? (totalSec >= 3600
             ? '${totalSec ~/ 3600}h ${(totalSec % 3600) ~/ 60}m'
             : '${totalSec ~/ 60}m')
-        : (profile?.totalFocusMinutes != null && profile!.totalFocusMinutes > 0
-            ? '${profile.totalFocusMinutes ~/ 60}h ${profile.totalFocusMinutes % 60}m'
-            : '18h 32m');
+        : '0h 0m';
 
-    final String sessionCountStr = sessions.isNotEmpty
-        ? '${sessions.length}'
-        : '42';
+    final String sessionCountStr = '${sessions.length}';
+    final String sessionSubtitle = sessions.isNotEmpty ? '▲ High consistency' : 'No sessions recorded';
 
     final int maxSec = sessions.fold<int>(0, (currMax, s) => s.durationSeconds > currMax ? s.durationSeconds : currMax);
     final String maxSessionStr = maxSec > 0
         ? (maxSec >= 3600 ? '${maxSec ~/ 3600}h ${(maxSec % 3600) ~/ 60}m' : '${maxSec ~/ 60}m')
-        : '2h 15m';
+        : '0m';
 
-    final String streakSubtitle = profile != null
-        ? '${profile.streakDays}-day streak active'
-        : '▲ +12% vs last week';
+    final int daysCount = (_rangeEnd.difference(_rangeStart).inDays + 1).clamp(1, 365);
+    final int avgDailySec = sessions.isNotEmpty ? (totalSec ~/ daysCount) : 0;
+    final String avgDailyStr = avgDailySec > 0
+        ? (avgDailySec >= 3600 ? '${avgDailySec ~/ 3600}h ${(avgDailySec % 3600) ~/ 60}m' : '${avgDailySec ~/ 60}m')
+        : '0m';
+
+    final String streakSubtitle = '${profile.streakDays}-day streak active';
 
     return Row(
       children: [
@@ -4561,8 +4646,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           child: _desktopKpiCard(
             title: 'SESSIONS',
             value: sessionCountStr,
-            subtitle: '▲ High consistency',
-            subtitleColor: const Color(0xFF34D399),
+            subtitle: sessionSubtitle,
+            subtitleColor: sessions.isNotEmpty ? const Color(0xFF34D399) : const Color(0xFF9E8C82),
             icon: Icons.psychology_outlined,
             iconColor: const Color(0xFF34D399),
           ),
@@ -4582,10 +4667,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         Expanded(
           child: _desktopKpiCard(
             title: 'AVG DAILY FOCUS',
-            value: profile?.todaysFocusMinutes != null && profile!.todaysFocusMinutes > 0
-                ? '${profile.todaysFocusMinutes}m'
-                : '26m',
-            subtitle: 'Consistent pace',
+            value: avgDailyStr,
+            subtitle: 'Daily average',
             subtitleColor: const Color(0xFF9E8C82),
             icon: Icons.trending_up_rounded,
             iconColor: const Color(0xFF34D399),
@@ -4655,17 +4738,147 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     );
   }
 
-  Widget _buildDesktopWeeklyHistogram() {
+  Widget _buildDesktopWeeklyHistogram(List<StudySession> sessions) {
+    if (sessions.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1816),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF2E2623), width: 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${_selectedPeriod.name.toUpperCase()} FOCUS TIME',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: const Color(0xFF9E8C82),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                Text(
+                  'Peak: None (0 hrs)',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: const Color(0xFFF2B78A),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 180,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.bar_chart_rounded, color: Color(0xFF9E8C82), size: 36),
+                    const SizedBox(height: 10),
+                    Text(
+                      'No study sessions recorded for this period. Use the Timer to start logging focus blocks.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: const Color(0xFF9E8C82),
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF2B78A),
+                        foregroundColor: const Color(0xFF151211),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      ),
+                      onPressed: () {
+                        SafeHaptics.selectionClick();
+                        ref.read(navigationIndexProvider.notifier).state = 2; // Jump to Timer
+                      },
+                      icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                      label: const Text('Start Focus', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Dynamic grouping based on period
     final todayWeekday = DateTime.now().weekday; // 1 = Mon ... 7 = Sun
-    final days = [
-      {'day': 'Mon', 'val': 2.4, 'max': 5.0, 'highlight': todayWeekday == 1},
-      {'day': 'Tue', 'val': 3.5, 'max': 5.0, 'highlight': todayWeekday == 2},
-      {'day': 'Wed', 'val': 2.8, 'max': 5.0, 'highlight': todayWeekday == 3},
-      {'day': 'Thu', 'val': 4.2, 'max': 5.0, 'highlight': todayWeekday == 4},
-      {'day': 'Fri', 'val': 1.8, 'max': 5.0, 'highlight': todayWeekday == 5},
-      {'day': 'Sat', 'val': 3.0, 'max': 5.0, 'highlight': todayWeekday == 6},
-      {'day': 'Sun', 'val': 0.8, 'max': 5.0, 'highlight': todayWeekday == 7},
-    ];
+    final List<Map<String, dynamic>> barItems = [];
+    double peakVal = 0.0;
+    String peakName = '';
+
+    if (_selectedPeriod == InsightPeriod.week) {
+      final dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      for (int i = 1; i <= 7; i++) {
+        final daySessions = sessions.where((s) => s.startedAt.weekday == i);
+        final int sec = daySessions.fold<int>(0, (acc, s) => acc + s.durationSeconds);
+        final double hrs = double.parse((sec / 3600.0).toStringAsFixed(1));
+        if (hrs > peakVal) {
+          peakVal = hrs;
+          peakName = dayNames[i - 1];
+        }
+        barItems.add({
+          'label': dayNames[i - 1],
+          'val': hrs,
+          'highlight': todayWeekday == i,
+        });
+      }
+    } else if (_selectedPeriod == InsightPeriod.day) {
+      final blocks = ['00-04', '04-08', '08-12', '12-16', '16-20', '20-24'];
+      for (int b = 0; b < 6; b++) {
+        final startH = b * 4;
+        final endH = startH + 4;
+        final bSessions = sessions.where((s) => s.startedAt.hour >= startH && s.startedAt.hour < endH);
+        final int sec = bSessions.fold<int>(0, (acc, s) => acc + s.durationSeconds);
+        final double hrs = double.parse((sec / 3600.0).toStringAsFixed(1));
+        if (hrs > peakVal) {
+          peakVal = hrs;
+          peakName = blocks[b];
+        }
+        barItems.add({
+          'label': blocks[b],
+          'val': hrs,
+          'highlight': DateTime.now().hour >= startH && DateTime.now().hour < endH,
+        });
+      }
+    } else {
+      final blocks = ['W1', 'W2', 'W3', 'W4'];
+      final totalDays = (_rangeEnd.difference(_rangeStart).inDays + 1);
+      final segmentDays = (totalDays / 4.0).ceil();
+      for (int b = 0; b < 4; b++) {
+        final segStart = _rangeStart.add(Duration(days: b * segmentDays));
+        final segEnd = segStart.add(Duration(days: segmentDays));
+        final bSessions = sessions.where((s) =>
+            s.startedAt.isAfter(segStart.subtract(const Duration(seconds: 1))) &&
+            s.startedAt.isBefore(segEnd));
+        final int sec = bSessions.fold<int>(0, (acc, s) => acc + s.durationSeconds);
+        final double hrs = double.parse((sec / 3600.0).toStringAsFixed(1));
+        if (hrs > peakVal) {
+          peakVal = hrs;
+          peakName = blocks[b];
+        }
+        barItems.add({
+          'label': blocks[b],
+          'val': hrs,
+          'highlight': false,
+        });
+      }
+    }
+
+    final double maxVal = barItems.fold<double>(0.0, (m, item) => (item['val'] as double) > m ? (item['val'] as double) : m);
+    final double chartMax = maxVal > 0 ? maxVal : 1.0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -4681,7 +4894,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'WEEKLY FOCUS TIME',
+                '${_selectedPeriod.name.toUpperCase()} FOCUS TIME',
                 style: GoogleFonts.jetBrainsMono(
                   color: const Color(0xFF9E8C82),
                   fontSize: 11,
@@ -4690,7 +4903,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 ),
               ),
               Text(
-                'Peak: Thu (4.2 hrs)',
+                peakVal > 0 ? 'Peak: $peakName (${peakVal} hrs)' : 'Peak: None (0 hrs)',
                 style: GoogleFonts.jetBrainsMono(
                   color: const Color(0xFFF2B78A),
                   fontSize: 12,
@@ -4705,10 +4918,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: days.map((d) {
+              children: barItems.map((d) {
                 final double val = d['val'] as double;
                 final bool isHl = d['highlight'] == true;
-                final double heightFactor = val / 5.0;
+                final double heightFactor = (val / chartMax).clamp(0.04, 1.0);
 
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -4726,9 +4939,11 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       width: 32,
                       height: 120 * heightFactor,
                       decoration: BoxDecoration(
-                        color: isHl ? const Color(0xFFF2B78A) : const Color(0xFF382A24),
+                        color: isHl
+                            ? const Color(0xFFF2B78A)
+                            : (val > 0 ? const Color(0xFF6E4D3E) : const Color(0xFF382A24)),
                         borderRadius: BorderRadius.circular(6),
-                        boxShadow: isHl
+                        boxShadow: isHl && val > 0
                             ? [
                                 BoxShadow(
                                   color: const Color(0xFFF2B78A).withValues(alpha: 0.25),
@@ -4741,7 +4956,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      d['day'] as String,
+                      d['label'] as String,
                       style: GoogleFonts.jetBrainsMono(
                         color: isHl ? const Color(0xFFEDE8E3) : const Color(0xFF9E8C82),
                         fontSize: 12,
@@ -4758,23 +4973,24 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     );
   }
 
-  Widget _buildDesktopSubjectDistribution() {
-    final coursesAsync = ref.watch(coursesStreamProvider);
-    final courses = coursesAsync.value;
-
+  Widget _buildDesktopSubjectDistribution(List<StudySession> sessions) {
     const palette = [
       Color(0xFFF2B78A),
       Color(0xFF34D399),
       Color(0xFF60A5FA),
       Color(0xFFA78BFA),
+      Color(0xFFFBBF24),
     ];
 
-    final hasLiveCourses = courses != null && courses.isNotEmpty;
-    final displayCourses = hasLiveCourses ? courses.take(4).toList() : null;
+    final Map<String, int> subjectSec = {};
+    for (final s in sessions) {
+      final code = s.courseCode.isNotEmpty ? s.courseCode : 'General';
+      subjectSec[code] = (subjectSec[code] ?? 0) + s.durationSeconds;
+    }
 
-    final totalTopics = hasLiveCourses
-        ? displayCourses!.fold<int>(0, (total, c) => total + (c.totalTopicsCount > 0 ? c.totalTopicsCount : 1))
-        : 0;
+    final totalSec = subjectSec.values.fold<int>(0, (a, b) => a + b);
+    final sortedEntries = subjectSec.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -4796,12 +5012,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          if (!hasLiveCourses)
+          if (sortedEntries.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24.0),
               child: Center(
                 child: Text(
-                  'No enrolled courses to distribute.',
+                  'No enrolled courses or sessions to distribute.',
                   style: GoogleFonts.plusJakartaSans(
                     color: const Color(0xFF9E8C82),
                     fontSize: 13,
@@ -4825,15 +5041,17 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E2623)),
                       ),
                       CircularProgressIndicator(
-                        value: (totalTopics > 0 ? (displayCourses!.first.totalTopicsCount / totalTopics) : 0.0).clamp(0.0, 1.0),
+                        value: totalSec > 0 ? (sortedEntries.first.value / totalSec).clamp(0.0, 1.0) : 0.0,
                         strokeWidth: 14,
-                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFF2B78A)),
+                        valueColor: AlwaysStoppedAnimation<Color>(palette[0]),
                       ),
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            '$totalTopics',
+                            totalSec >= 3600
+                                ? '${totalSec ~/ 3600}h'
+                                : '${totalSec ~/ 60}m',
                             style: GoogleFonts.jetBrainsMono(
                               color: const Color(0xFFEDE8E3),
                               fontSize: 16,
@@ -4841,7 +5059,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                             ),
                           ),
                           Text(
-                            'Topics',
+                            'Focused',
                             style: GoogleFonts.plusJakartaSans(
                               color: const Color(0xFF9E8C82),
                               fontSize: 11,
@@ -4857,15 +5075,14 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: displayCourses!.asMap().entries.map((e) {
+                    children: sortedEntries.take(4).toList().asMap().entries.map((e) {
                       final idx = e.key;
-                      final c = e.value;
+                      final entry = e.value;
                       final color = palette[idx % palette.length];
-                      final count = c.totalTopicsCount > 0 ? c.totalTopicsCount : 1;
-                      final pct = totalTopics > 0 ? ((count / totalTopics) * 100).round() : 0;
+                      final pct = totalSec > 0 ? ((entry.value / totalSec) * 100).round() : 0;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8.0),
-                        child: _subjectLegendRow(c.code, '$pct%', color),
+                        child: _subjectLegendRow(entry.key, '$pct%', color),
                       );
                     }).toList(),
                   ),
@@ -4904,7 +5121,47 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     );
   }
 
-  Widget _buildDesktopDailyTimelineBar() {
+  Widget _buildDesktopDailyTimelineBar(List<StudySession> sessions) {
+    final daySessions = sessions.where((s) =>
+        s.startedAt.year == _currentAnchorDate.year &&
+        s.startedAt.month == _currentAnchorDate.month &&
+        s.startedAt.day == _currentAnchorDate.day).toList()
+      ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
+
+    int currentMinute = 0;
+    final List<Widget> segments = [];
+
+    for (final s in daySessions) {
+      final startMin = (s.startedAt.hour * 60 + s.startedAt.minute).clamp(0, 1440);
+      final endMin = (s.endedAt.hour * 60 + s.endedAt.minute).clamp(startMin, 1440);
+      if (startMin > currentMinute) {
+        segments.add(Expanded(
+          flex: (startMin - currentMinute).clamp(1, 1440),
+          child: Container(color: Colors.transparent),
+        ));
+      }
+      final durMin = (endMin - startMin).clamp(1, 1440);
+      segments.add(Expanded(
+        flex: durMin,
+        child: Tooltip(
+          message: '${s.courseCode}: ${s.startedAt.hour.toString().padLeft(2, '0')}:${s.startedAt.minute.toString().padLeft(2, '0')} - ${s.endedAt.hour.toString().padLeft(2, '0')}:${s.endedAt.minute.toString().padLeft(2, '0')} (${durMin}m)',
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF2B78A),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+      ));
+      currentMinute = endMin;
+    }
+    if (currentMinute < 1440) {
+      segments.add(Expanded(
+        flex: (1440 - currentMinute).clamp(1, 1440),
+        child: Container(color: Colors.transparent),
+      ));
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -4933,17 +5190,13 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   ),
                 ],
               ),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFF2B78A),
-                  side: const BorderSide(color: Color(0xFF382A24)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  minimumSize: Size.zero,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              Text(
+                DateFormat('d MMM yyyy').format(_currentAnchorDate),
+                style: GoogleFonts.jetBrainsMono(
+                  color: const Color(0xFFF2B78A),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
-                onPressed: () => SafeHaptics.selectionClick(),
-                icon: const Icon(Icons.add_rounded, size: 16),
-                label: const Text('Log Gap'),
               ),
             ],
           ),
@@ -4954,17 +5207,14 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             child: Container(
               height: 24,
               color: const Color(0xFF241C1A),
-              child: Row(
-                children: [
-                  Expanded(flex: 9, child: Container(color: Colors.transparent)),
-                  Expanded(flex: 2, child: Container(color: const Color(0xFFF2B78A))), // 9-11am
-                  Expanded(flex: 2, child: Container(color: Colors.transparent)),
-                  Expanded(flex: 3, child: Container(color: const Color(0xFF34D399))), // 1-4pm
-                  Expanded(flex: 3, child: Container(color: Colors.transparent)),
-                  Expanded(flex: 2, child: Container(color: const Color(0xFF60A5FA))), // 7-9pm
-                  Expanded(flex: 3, child: Container(color: Colors.transparent)),
-                ],
-              ),
+              child: daySessions.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No focus blocks logged on ${DateFormat('d MMM yyyy').format(_currentAnchorDate)}.',
+                        style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 11),
+                      ),
+                    )
+                  : Row(children: segments),
             ),
           ),
           const SizedBox(height: 8),
@@ -4983,7 +5233,19 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     );
   }
 
-  Widget _buildDesktopFocusHeatmap() {
+  Widget _buildDesktopFocusHeatmap(List<StudySession> sessions) {
+    // 7 weekdays (0 = Mon .. 6 = Sun) x 24 hours
+    final matrix = List.generate(7, (_) => List.filled(24, 0));
+    for (final s in sessions) {
+      final dayIdx = s.startedAt.weekday - 1;
+      final hourIdx = s.startedAt.hour.clamp(0, 23);
+      if (dayIdx >= 0 && dayIdx < 7) {
+        matrix[dayIdx][hourIdx] += s.durationSeconds ~/ 60;
+      }
+    }
+
+    final dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -5028,28 +5290,41 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 4.0),
                 child: Row(
-                  children: List.generate(24, (colIndex) {
-                    final int pseudoDensity = (rowIndex * 3 + colIndex * 7) % 5;
-                    final Color cellColor = pseudoDensity == 0
-                        ? const Color(0xFF241C1A)
-                        : (pseudoDensity == 1
-                            ? const Color(0xFF382A24)
-                            : (pseudoDensity == 2
-                                ? const Color(0xFF6E4D3E)
-                                : (pseudoDensity == 3
-                                    ? const Color(0xFFF2B78A)
-                                    : const Color(0xFF34D399))));
-                    return Expanded(
-                      child: Container(
-                        height: 14,
-                        margin: const EdgeInsets.only(right: 4),
-                        decoration: BoxDecoration(
-                          color: cellColor,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      child: Text(
+                        dayLabels[rowIndex],
+                        style: GoogleFonts.jetBrainsMono(color: const Color(0xFF9E8C82), fontSize: 10),
                       ),
-                    );
-                  }),
+                    ),
+                    const SizedBox(width: 6),
+                    ...List.generate(24, (colIndex) {
+                      final int mins = matrix[rowIndex][colIndex];
+                      final Color cellColor = mins == 0
+                          ? const Color(0xFF241C1A)
+                          : (mins <= 15
+                              ? const Color(0xFF382A24)
+                              : (mins <= 30
+                                  ? const Color(0xFF6E4D3E)
+                                  : (mins <= 45
+                                      ? const Color(0xFFF2B78A)
+                                      : const Color(0xFF34D399))));
+                      return Expanded(
+                        child: Tooltip(
+                          message: '${dayLabels[rowIndex]} ${colIndex.toString().padLeft(2, '0')}:00 — ${mins}m focus',
+                          child: Container(
+                            height: 14,
+                            margin: const EdgeInsets.only(right: 4),
+                            decoration: BoxDecoration(
+                              color: cellColor,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
                 ),
               );
             }),
