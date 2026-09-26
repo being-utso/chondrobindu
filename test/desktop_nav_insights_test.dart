@@ -199,9 +199,9 @@ void main() {
 
       // Popup menu items
       expect(find.text('student@chondrobindu.edu'), findsOneWidget);
-      expect(find.text('Academic Track'), findsOneWidget);
-      expect(find.text('University'), findsOneWidget);
       expect(find.text('Settings'), findsOneWidget);
+      expect(find.text('Help & Support'), findsOneWidget);
+      expect(find.text('About Developer'), findsOneWidget);
       expect(find.text('Sign Out'), findsOneWidget);
     });
   });

@@ -588,6 +588,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                 ),
                 onPressed: () {
                   SafeHaptics.selectionClick();
+                  _showEditCourseDialog(context, course);
                 },
                 icon: const Icon(Icons.edit_outlined, size: 16),
                 label: const Text('Edit'),
@@ -1246,6 +1247,99 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  void _showEditCourseDialog(BuildContext context, Course course) {
+    SafeHaptics.selectionClick();
+    final titleCtrl = TextEditingController(text: course.title);
+    final badgeCtrl = TextEditingController(text: course.teacherBadge ?? '');
+    final creditCtrl = TextEditingController(text: course.credits.toString());
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1816),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFF2E2623)),
+        ),
+        title: Text(
+          'Edit ${course.code}',
+          style: GoogleFonts.plusJakartaSans(
+            color: const Color(0xFFEDE8E3),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleCtrl,
+              style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+              decoration: InputDecoration(
+                labelText: 'Course Title',
+                labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: badgeCtrl,
+              style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+              decoration: InputDecoration(
+                labelText: 'Teacher / Instructor Badge (e.g. MSR)',
+                labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: creditCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+              decoration: InputDecoration(
+                labelText: 'Credits',
+                labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF2B78A),
+              foregroundColor: const Color(0xFF151211),
+            ),
+            onPressed: () async {
+              final newTitle = titleCtrl.text.trim();
+              final newBadge = badgeCtrl.text.trim();
+              final newCredits = double.tryParse(creditCtrl.text.trim()) ?? course.credits;
+              if (newTitle.isNotEmpty) {
+                String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                if (uid.isNotEmpty) {
+                  final updated = course.copyWith(
+                    title: newTitle,
+                    teacherInitials: newBadge.isNotEmpty ? [newBadge] : const [],
+                    credits: newCredits,
+                  );
+                  await ref.read(courseRepositoryProvider).updateCourse(uid, updated);
+                }
+              }
+              if (ctx.mounted) Navigator.of(ctx).pop();
+            },
+            child: Text('Save', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+          ),
+        ],
       ),
     );
   }

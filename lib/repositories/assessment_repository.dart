@@ -47,6 +47,10 @@ class AssessmentRepository {
     await _assessmentsRef(uid)!.doc(assessment.id).set(assessment.toMap(), SetOptions(merge: true));
   }
 
+  Future<void> updateAssessment(String uid, Assessment assessment) async {
+    await createAssessment(uid, assessment);
+  }
+
   Future<void> toggleAssessmentCompleted(
     String uid,
     String assessmentId,

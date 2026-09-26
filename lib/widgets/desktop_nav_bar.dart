@@ -473,27 +473,74 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
             side: const BorderSide(color: Color(0xFF2E2623), width: 1),
           ),
           onSelected: (value) async {
-            if (value == 'track') {
+            if (value == 'settings') {
               SafeHaptics.selectionClick();
-              final newIsUni = !profile.isUniversityStudent;
-              final newTrack = newIsUni ? InstitutionType.university : InstitutionType.college;
-              final updated = profile.copyWith(
-                isUniversityStudent: newIsUni,
-                institutionType: newTrack,
-              );
-              await ref.read(userProfileProvider.notifier).saveProfile(updated);
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
+            } else if (value == 'help') {
+              SafeHaptics.selectionClick();
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Switched academic track to ${newTrack.displayName}'),
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
                     backgroundColor: const Color(0xFF1E1816),
-                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: const BorderSide(color: Color(0xFF2E2623)),
+                    ),
+                    title: Row(
+                      children: [
+                        const Icon(Icons.help_outline_rounded, color: Color(0xFFF2B78A)),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Help & Support',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFFEDE8E3),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                    content: Text(
+                      'For feedback, feature requests, or technical support, please contact ssayem1911@gmail.com or reach out through the official repository.',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: const Color(0xFF9E8C82),
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: Text(
+                          'Close',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFFF2B78A),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 );
               }
-            } else if (value == 'settings') {
+            } else if (value == 'about') {
               SafeHaptics.selectionClick();
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
+              if (context.mounted) {
+                showAboutDialog(
+                  context: context,
+                  applicationName: 'Chondrobindu',
+                  applicationVersion: '1.0.0',
+                  applicationLegalese: '© 2026 Chondrobindu.\nDeveloped by Shahriyer Sayem (Utso).',
+                  children: [
+                    const SizedBox(height: 12),
+                    Text(
+                      'Chondrobindu is an all-in-one academic planner, syllabus manager, and focus companion crafted for university and college students.',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFF9E8C82)),
+                    ),
+                  ],
+                );
+              }
             } else if (value == 'sign_out') {
               SafeHaptics.mediumImpact();
               if (Firebase.apps.isNotEmpty) {
@@ -508,73 +555,63 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
             }
           },
           itemBuilder: (menuCtx) => [
-            // Header: Display user's displayName and email with divider
+            // Header: Display user's avatar, displayName and email with divider
             PopupMenuItem<String>(
               enabled: false,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    profile.displayName.isNotEmpty ? profile.displayName : name,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: const Color(0xFFEDE8E3),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    profile.email.isNotEmpty ? profile.email : 'student@chondrobindu.edu',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: const Color(0xFF9E8C82),
-                      fontSize: 12,
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFFF2B78A).withValues(alpha: 0.15),
+                          border: Border.all(color: const Color(0xFFF2B78A).withValues(alpha: 0.4), width: 1.5),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          (profile.displayName.isNotEmpty ? profile.displayName : name).characters.first.toUpperCase(),
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFFF2B78A),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              profile.displayName.isNotEmpty ? profile.displayName : name,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: const Color(0xFFEDE8E3),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              profile.email.isNotEmpty ? profile.email : 'student@chondrobindu.edu',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: const Color(0xFF9E8C82),
+                                fontSize: 12,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   const Divider(color: Color(0xFF2E2623), height: 1),
-                ],
-              ),
-            ),
-            // Academic Track Item with toggle option
-            PopupMenuItem<String>(
-              value: 'track',
-              child: Row(
-                children: [
-                  const Icon(Icons.school_outlined, color: Color(0xFFF2B78A), size: 18),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Academic Track',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: const Color(0xFFEDE8E3),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          profile.isUniversityStudent ? 'University' : 'College',
-                          style: GoogleFonts.jetBrainsMono(
-                            color: const Color(0xFF9E8C82),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF241C1A),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFF382A24)),
-                    ),
-                    child: const Icon(Icons.swap_horiz_rounded, color: Color(0xFFF2B78A), size: 14),
-                  ),
                 ],
               ),
             ),
@@ -587,6 +624,42 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                   const SizedBox(width: 10),
                   Text(
                     'Settings',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: const Color(0xFFEDE8E3),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Help & Support Item
+            PopupMenuItem<String>(
+              value: 'help',
+              child: Row(
+                children: [
+                  const Icon(Icons.help_outline_rounded, color: Color(0xFF9E8C82), size: 18),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Help & Support',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: const Color(0xFFEDE8E3),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // About Developer Item
+            PopupMenuItem<String>(
+              value: 'about',
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded, color: Color(0xFF9E8C82), size: 18),
+                  const SizedBox(width: 10),
+                  Text(
+                    'About Developer',
                     style: GoogleFonts.plusJakartaSans(
                       color: const Color(0xFFEDE8E3),
                       fontSize: 13,

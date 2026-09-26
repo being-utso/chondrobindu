@@ -1,19 +1,19 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:table_calendar/table_calendar.dart';
 import '../models/assessment_model.dart';
 import '../models/course_model.dart';
-import '../models/routine_models.dart';
 import '../models/routine_slot_model.dart';
 import '../providers/firestore_providers.dart';
 import '../utils/safe_haptics.dart';
+import '../widgets/assessment_card.dart';
 import 'exams_screen.dart' as mobile;
 
-/// Screen 04: Planner & Routine Matrix
-/// Responsive desktop timetable grid (width >= 800) with mobile fallback to ExamsScreen.
+/// Screen 04: Academic Planner & Routine Matrix
+/// Responsive desktop split-view layout aligned with Android mobile design.
 class PlannerScreen extends ConsumerStatefulWidget {
   const PlannerScreen({super.key});
 
@@ -22,10 +22,8 @@ class PlannerScreen extends ConsumerStatefulWidget {
 }
 
 class _PlannerScreenState extends ConsumerState<PlannerScreen> {
-  String _selectedView = 'Week';
-  String _rightPanelTab = 'Assessments';
-
-  final List<String> _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  DateTime _selectedDate = DateTime.now();
+  DateTime _focusedMonth = DateTime.now();
 
   @override
   Widget build(BuildContext context) {
@@ -35,8 +33,39 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       return const mobile.PlannerScreen();
     }
 
+    final assessmentsAsync = ref.watch(allAssessmentsStreamProvider);
+    final allAssessments = assessmentsAsync.value ?? [];
+
+    final routineAsync = ref.watch(weeklyRoutineStreamProvider);
+    final allSlots = routineAsync.value ?? [];
+
+    final coursesAsync = ref.watch(coursesStreamProvider);
+    final courses = coursesAsync.value ?? [];
+
+    final Map<String, String> courseCodeMap = {for (final c in courses) c.id: c.code};
+    final Map<String, String> courseTitleMap = {for (final c in courses) c.id: c.title};
+
+    // Filter for selected day
+    final selectedDayAssessments = allAssessments.where((a) {
+      if (a.date == null) return false;
+      return a.date!.year == _selectedDate.year &&
+          a.date!.month == _selectedDate.month &&
+          a.date!.day == _selectedDate.day;
+    }).toList();
+
+    final selectedDaySlots = allSlots.where((s) => s.dayOfWeek == _selectedDate.weekday).toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
     return Scaffold(
       backgroundColor: const Color(0xFF151211),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFFF2B78A),
+        foregroundColor: const Color(0xFF151211),
+        elevation: 4,
+        onPressed: () => _showAddPlannerItemDialog(context),
+        icon: const Icon(Icons.add_rounded, size: 20),
+        label: Text('Schedule', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
         child: Center(
@@ -45,25 +74,21 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Main Area: Weekly Routine Calendar Grid (flex: 7)
+                // Left Column: Interactive monthly calendar (flex: 5)
+                Expanded(
+                  flex: 5,
+                  child: _buildLeftCalendarColumn(allAssessments, allSlots),
+                ),
+                const SizedBox(width: 24),
+                // Right Column: Day Agenda (flex: 7)
                 Expanded(
                   flex: 7,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildDateNavigationBar(),
-                      const SizedBox(height: 20),
-                      _buildWeeklyTimetableGrid(),
-                    ],
+                  child: _buildRightDayAgendaColumn(
+                    selectedDayAssessments,
+                    selectedDaySlots,
+                    courseCodeMap,
+                    courseTitleMap,
                   ),
-                ),
-
-                const SizedBox(width: 24),
-
-                // Right Column: Assessments & Attendance Ledger (flex: 3)
-                Expanded(
-                  flex: 3,
-                  child: _buildRightSidePanel(),
                 ),
               ],
             ),
@@ -73,416 +98,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     );
   }
 
-  // --- SECTION A: Date Navigation Bar ---
-  Widget _buildDateNavigationBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1816),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF2E2623), width: 1),
-      ),
-      child: Wrap(
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 12,
-        runSpacing: 10,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left_rounded, color: Color(0xFFEDE8E3), size: 22),
-                onPressed: () => SafeHaptics.selectionClick(),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '22 - 28 Sep 2026',
-                style: GoogleFonts.jetBrainsMono(
-                  color: const Color(0xFFEDE8E3),
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.chevron_right_rounded, color: Color(0xFFEDE8E3), size: 22),
-                onPressed: () => SafeHaptics.selectionClick(),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 14),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFF2B78A),
-                  side: const BorderSide(color: Color(0xFF382A24)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  minimumSize: Size.zero,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: () => SafeHaptics.selectionClick(),
-                child: Text(
-                  'Today',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // View toggles: [ Week ] [ Month ]
-              Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF241C1A),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF2E2623), width: 1),
-                ),
-                child: Row(
-                  children: [
-                    _viewToggleItem('Week', _selectedView == 'Week'),
-                    _viewToggleItem('Month', _selectedView == 'Month'),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF2B78A),
-                  foregroundColor: const Color(0xFF151211),
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: () => _showAddRoutineSlotDialog(context),
-                icon: const Icon(Icons.add_rounded, size: 16),
-                label: Text(
-                  '+ Add Class Slot',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _viewToggleItem(String label, bool isSelected) {
-    return InkWell(
-      onTap: () {
-        SafeHaptics.selectionClick();
-        setState(() => _selectedView = label);
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF2B78A).withValues(alpha: 0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: isSelected ? Border.all(color: const Color(0xFFF2B78A), width: 0.8) : null,
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            color: isSelected ? const Color(0xFFF2B78A) : const Color(0xFF9E8C82),
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // --- SECTION B: 7-Column Timetable Grid ---
-  Widget _buildWeeklyTimetableGrid() {
-    final routineAsync = ref.watch(weeklyRoutineStreamProvider);
-    final List<RoutineSlot> allSlots = routineAsync.value ?? [];
-
-    final todayIndex = DateTime.now().weekday - 1; // 0..6
-    final todayDayName = (todayIndex >= 0 && todayIndex < _days.length) ? _days[todayIndex] : 'Thu';
-
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1816),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2E2623), width: 1),
-      ),
-      child: Column(
-        children: [
-          // Day Header Row
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFF2E2623), width: 1)),
-            ),
-            child: Row(
-              children: _days.map((day) {
-                final isToday = day == todayDayName;
-                return Expanded(
-                  child: Column(
-                    children: [
-                      Text(
-                        day.toUpperCase(),
-                        style: GoogleFonts.jetBrainsMono(
-                          color: isToday ? const Color(0xFFF2B78A) : const Color(0xFF9E8C82),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      if (isToday)
-                        Container(
-                          margin: const EdgeInsets.only(top: 4),
-                          width: 4,
-                          height: 4,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFF2B78A),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-
-          // Time Slots Grid
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: List.generate(_days.length, (index) {
-                final dayNum = index + 1; // 1 = Monday ... 7 = Sunday
-                final daySlots = allSlots.where((s) => s.dayOfWeek == dayNum).toList()
-                  ..sort((a, b) => a.startTime.compareTo(b.startTime));
-                final courses = ref.watch(coursesStreamProvider).value ?? [];
-
-                return Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Column(
-                      children: daySlots.isNotEmpty
-                          ? daySlots.map((slot) => _buildLectureSlotCard(slot, courses)).toList()
-                          : [
-                              Container(
-                                height: 120,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1E1816).withValues(alpha: 0.4),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(0xFF2E2623).withValues(alpha: 0.6),
-                                    width: 1,
-                                  ),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  '—',
-                                  style: GoogleFonts.jetBrainsMono(
-                                    color: const Color(0xFF5A483E),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _cleanCourseCode(RoutineSlot slot, List<Course> courses) {
-    final raw = slot.courseCode.trim();
-    final parsed = RoutineCourseSyncService.parseCourseCode(raw.isNotEmpty ? raw : slot.courseTitle);
-    if (parsed.isNotEmpty) return parsed;
-    return raw;
-  }
-
-  String _cleanCourseTitle(RoutineSlot slot, List<Course> courses) {
-    final code = _cleanCourseCode(slot, courses);
-    for (final c in courses) {
-      if (c.id == slot.courseId || c.code.toLowerCase() == code.toLowerCase()) {
-        if (c.title.isNotEmpty && c.title.toLowerCase() != code.toLowerCase()) {
-          return c.title;
-        }
-      }
-    }
-
-    String raw = slot.courseTitle.trim();
-    for (final delim in [' - ', ' – ', ' — ', ': ', ' • ', '|']) {
-      if (raw.contains(delim)) {
-        final parts = raw.split(delim);
-        final part1 = parts[0].trim();
-        final part2 = parts.sublist(1).join(delim).trim();
-        if (part2.toLowerCase() != part1.toLowerCase() && part2.toLowerCase() != code.toLowerCase()) {
-          return part2;
-        } else {
-          raw = part1;
-        }
-      }
-    }
-
-    if (raw.toUpperCase().startsWith(code.toUpperCase())) {
-      final stripped = raw.substring(code.length).replaceFirst(RegExp(r'^[\s\-–—:•|]+'), '').trim();
-      if (stripped.isNotEmpty) return stripped;
-    }
-
-    final words = raw.split(RegExp(r'\s+'));
-    if (words.length >= 2 &&
-        words.sublist(0, words.length ~/ 2).join(' ').toLowerCase() ==
-            words.sublist(words.length ~/ 2).join(' ').toLowerCase()) {
-      return words.sublist(0, words.length ~/ 2).join(' ');
-    }
-
-    return raw.isNotEmpty ? raw : code;
-  }
-
-  Widget _buildLectureSlotCard(RoutineSlot slot, List<Course> courses) {
-    final Color accent = slot.slotType == CourseType.sessional
-        ? const Color(0xFF34D399)
-        : (slot.courseCode.startsWith('MATH') || slot.courseCode.startsWith('HUM')
-            ? const Color(0xFF9E8C82)
-            : const Color(0xFFF2B78A));
-    final String cleanCode = _cleanCourseCode(slot, courses);
-    final String cleanTitle = _cleanCourseTitle(slot, courses);
-    final String timeBadge = '${slot.startTime} - ${slot.endTime}';
-    final String roomBadge = slot.room.trim().isNotEmpty
-        ? (slot.room.toLowerCase().startsWith('room') || slot.room.toLowerCase().startsWith('lab')
-            ? slot.room
-            : 'Room ${slot.room}')
-        : '';
-    final String classTypeLabel = slot.slotType == CourseType.sessional ? 'Lab' : 'Theory';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF241C1A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2E2623), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Line 1 (Badge row): Start time - End time + Room badge
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                timeBadge,
-                style: GoogleFonts.jetBrainsMono(
-                  color: const Color(0xFF9E8C82),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (roomBadge.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E1816),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: const Color(0xFF382A24), width: 0.8),
-                  ),
-                  child: Text(
-                    roomBadge,
-                    style: GoogleFonts.jetBrainsMono(
-                      color: const Color(0xFFEDE8E3),
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Line 2 (Title): Course Code in bold with color accent pip
-          Row(
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  cleanCode,
-                  style: GoogleFonts.jetBrainsMono(
-                    color: const Color(0xFFEDE8E3),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 3),
-
-          // Line 3 (Subtitle): Course Title with single line truncation and ellipsis
-          Text(
-            cleanTitle,
-            style: GoogleFonts.plusJakartaSans(
-              color: const Color(0xFF9E8C82),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 8),
-
-          // Line 4 (Footer): Teacher initials and class type tag
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              if (slot.teacherBadge != null && slot.teacherBadge!.isNotEmpty)
-                Text(
-                  '[${slot.teacherBadge}]',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: const Color(0xFFF2B78A),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                )
-              else
-                const SizedBox.shrink(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  classTypeLabel,
-                  style: GoogleFonts.jetBrainsMono(
-                    color: accent,
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- SECTION C: Right Column — Assessments & Attendance ---
-  Widget _buildRightSidePanel() {
+  // --- SECTION A: Left Column — Monthly Interactive Calendar ---
+  Widget _buildLeftCalendarColumn(List<Assessment> allAssessments, List<RoutineSlot> allSlots) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -493,512 +110,183 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Tab switcher
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: const Color(0xFF241C1A),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF2E2623), width: 1),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _panelTabItem('Assessments', _rightPanelTab == 'Assessments'),
-                ),
-                Expanded(
-                  child: _panelTabItem('Attendance', _rightPanelTab == 'Attendance'),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          if (_rightPanelTab == 'Assessments') ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    'UPCOMING ASSESSMENTS',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: const Color(0xFF9E8C82),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.0,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFFF2B78A),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  onPressed: () => _showAddAssessmentDialog(context),
-                  icon: const Icon(Icons.add_rounded, size: 14),
-                  label: Text(
-                    '+ Schedule',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            ..._buildAssessmentsList(),
-          ] else ...[
-            Text(
-              'ATTENDANCE LEDGER',
-              style: GoogleFonts.jetBrainsMono(
-                color: const Color(0xFF9E8C82),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.0,
-              ),
-            ),
-            const SizedBox(height: 14),
-            ..._buildAttendanceList(),
-          ],
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildAssessmentsList() {
-    final assessmentsAsync = ref.watch(upcomingAssessmentsStreamProvider);
-    final items = assessmentsAsync.value;
-
-    if (items != null && items.isNotEmpty) {
-      return items.take(5).map((a) {
-        final daysLeftStr = a.date != null
-            ? () {
-                final diff = a.date!.difference(DateTime.now()).inDays;
-                if (diff < 0) return 'Past due';
-                if (diff == 0) return 'Today';
-                return '$diff days left';
-              }()
-            : 'Unscheduled';
-        final dateStr = a.date != null ? DateFormat('MMM d').format(a.date!) : 'TBA';
-        final Color cardColor = (a.type == 'quiz' || a.type == 'assignment')
-            ? const Color(0xFF34D399)
-            : const Color(0xFFF2B78A);
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: _assessmentCard(
-            title: a.name,
-            course: a.courseCode.isNotEmpty ? a.courseCode : 'Course',
-            date: dateStr,
-            marks: '${a.totalMarks.toInt()} marks',
-            daysLeft: daysLeftStr,
-            color: cardColor,
-          ),
-        );
-      }).toList();
-    }
-
-    return [
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 28.0),
-        child: Center(
-          child: Text(
-            'No upcoming assessments.',
-            style: GoogleFonts.plusJakartaSans(
-              color: const Color(0xFF9E8C82),
-              fontSize: 13,
-            ),
-          ),
-        ),
-      ),
-    ];
-  }
-
-  List<Widget> _buildAttendanceList() {
-    final coursesAsync = ref.watch(coursesStreamProvider);
-    final liveCourses = coursesAsync.value;
-    final attendanceAsync = ref.watch(attendanceRecordsStreamProvider);
-    final records = attendanceAsync.value ?? [];
-
-    if (liveCourses != null && liveCourses.isNotEmpty) {
-      return liveCourses.map((c) {
-        final courseRecords = records.where((r) => r.courseId == c.id || (r.courseCode != null && r.courseCode == c.code)).toList();
-        final totalClasses = courseRecords.where((r) => r.status != AttendanceStatus.canceled && r.status != AttendanceStatus.unmarked).length;
-        final attendedClasses = courseRecords.where((r) => r.status == AttendanceStatus.attended || r.status == AttendanceStatus.extra).length;
-
-        final String pctStr;
-        final String classesStr;
-        final Color pctColor;
-        final double progressFraction;
-
-        if (totalClasses > 0) {
-          final pct = ((attendedClasses / totalClasses) * 100).toInt();
-          progressFraction = attendedClasses / totalClasses;
-          pctStr = '$pct%';
-          classesStr = '$attendedClasses / $totalClasses classes';
-          pctColor = pct >= 80 ? const Color(0xFF34D399) : const Color(0xFFF2B78A);
-        } else {
-          progressFraction = 0.0;
-          pctStr = '--';
-          classesStr = '0 / 0 classes';
-          pctColor = const Color(0xFF9E8C82);
-        }
-
-        return _attendanceCardWithQuickLog(
-          c,
-          pctStr,
-          classesStr,
-          pctColor,
-          progressFraction,
-        );
-      }).toList();
-    }
-
-    return [
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 28.0),
-        child: Center(
-          child: Text(
-            'No courses enrolled yet.',
-            style: GoogleFonts.plusJakartaSans(
-              color: const Color(0xFF9E8C82),
-              fontSize: 13,
-            ),
-          ),
-        ),
-      ),
-    ];
-  }
-
-  Widget _panelTabItem(String label, bool isSelected) {
-    return InkWell(
-      onTap: () {
-        SafeHaptics.selectionClick();
-        setState(() => _rightPanelTab = label);
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF2B78A) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFFF2B78A).withValues(alpha: 0.2),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            color: isSelected ? const Color(0xFF151211) : const Color(0xFF9E8C82),
-            fontSize: 12.5,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _assessmentCard({
-    required String title,
-    required String course,
-    required String date,
-    required String marks,
-    required String daysLeft,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF241C1A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2E2623), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.plusJakartaSans(
-                  color: const Color(0xFFEDE8E3),
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: color.withValues(alpha: 0.4), width: 0.8),
-                ),
-                child: Text(
-                  daysLeft,
-                  style: GoogleFonts.jetBrainsMono(
-                    color: color,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            course,
-            style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                date,
-                style: GoogleFonts.jetBrainsMono(color: const Color(0xFFABA093), fontSize: 11),
-              ),
-              Text(
-                marks,
-                style: GoogleFonts.jetBrainsMono(color: const Color(0xFFF2B78A), fontSize: 11),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _logQuickAttendance(Course course, AttendanceStatus status) async {
-    SafeHaptics.mediumImpact();
-    String uid = '';
-    try {
-      uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    } catch (_) {}
-    if (uid.isEmpty) return;
-
-    final now = DateTime.now();
-    final dateKey = '${now.year}_${now.month.toString().padLeft(2, '0')}_${now.day.toString().padLeft(2, '0')}';
-    final docId = '${course.id}_quick_$dateKey';
-
-    final record = AttendanceRecord(
-      id: docId,
-      courseId: course.id,
-      courseCode: course.code,
-      courseName: course.title,
-      date: DateTime(now.year, now.month, now.day),
-      status: status,
-      time: DateFormat('hh:mm a').format(now),
-      classType: course.courseType.displayName,
-    );
-
-    try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('attendance_records')
-          .doc(docId)
-          .set(record.toMap(), SetOptions(merge: true));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFF1E1816),
-            behavior: SnackBarBehavior.floating,
-            content: Text('${course.code}: Marked as ${status.displayName}'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error marking attendance: $e');
-    }
-  }
-
-  Widget _attendanceCardWithQuickLog(
-    Course course,
-    String pct,
-    String counts,
-    Color pctColor,
-    double progressFraction,
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF241C1A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2E2623), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          // Header Row: Month Name + Year + < > + Today button
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      course.code,
-                      style: GoogleFonts.jetBrainsMono(
-                        color: const Color(0xFFF2B78A),
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      course.title,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: const Color(0xFFEDE8E3),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                child: Text(
+                  DateFormat('MMMM yyyy').format(_focusedMonth),
+                  style: GoogleFonts.plusJakartaSans(
+                    color: const Color(0xFFEDE8E3),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    pct,
-                    style: GoogleFonts.jetBrainsMono(
-                      color: pctColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFF2B78A),
+                      side: const BorderSide(color: Color(0xFF382A24)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      minimumSize: Size.zero,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
+                    onPressed: () {
+                      SafeHaptics.selectionClick();
+                      setState(() {
+                        final now = DateTime.now();
+                        _selectedDate = now;
+                        _focusedMonth = now;
+                      });
+                    },
+                    child: Text('Today', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600)),
                   ),
-                  Text(
-                    counts,
-                    style: GoogleFonts.jetBrainsMono(
-                      color: const Color(0xFF9E8C82),
-                      fontSize: 10,
-                    ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left_rounded, color: Color(0xFFEDE8E3), size: 22),
+                    onPressed: () {
+                      SafeHaptics.selectionClick();
+                      setState(() {
+                        _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
+                      });
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right_rounded, color: Color(0xFFEDE8E3), size: 22),
+                    onPressed: () {
+                      SafeHaptics.selectionClick();
+                      setState(() {
+                        _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1);
+                      });
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
-              value: progressFraction.clamp(0.0, 1.0),
-              minHeight: 4,
-              backgroundColor: const Color(0xFF1E1816),
-              valueColor: AlwaysStoppedAnimation<Color>(pctColor),
+          const SizedBox(height: 16),
+          // Interactive TableCalendar
+          TableCalendar<dynamic>(
+            firstDay: DateTime.utc(2020, 1, 1),
+            lastDay: DateTime.utc(2035, 12, 31),
+            focusedDay: _focusedMonth,
+            currentDay: DateTime.now(),
+            calendarFormat: CalendarFormat.month,
+            startingDayOfWeek: StartingDayOfWeek.saturday,
+            headerVisible: false,
+            daysOfWeekStyle: DaysOfWeekStyle(
+              weekdayStyle: GoogleFonts.jetBrainsMono(color: const Color(0xFF9E8C82), fontSize: 12, fontWeight: FontWeight.w600),
+              weekendStyle: GoogleFonts.jetBrainsMono(color: const Color(0xFF9E8C82), fontSize: 12, fontWeight: FontWeight.w600),
+              dowTextFormatter: (date, locale) {
+                const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                return days[date.weekday - 1];
+              },
+            ),
+            calendarStyle: CalendarStyle(
+              outsideDaysVisible: false,
+              defaultTextStyle: GoogleFonts.jetBrainsMono(color: const Color(0xFFEDE8E3), fontSize: 13),
+              weekendTextStyle: GoogleFonts.jetBrainsMono(color: const Color(0xFFEDE8E3), fontSize: 13),
+              todayDecoration: BoxDecoration(
+                color: const Color(0xFFF2B78A).withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFF2B78A), width: 1.2),
+              ),
+              todayTextStyle: GoogleFonts.jetBrainsMono(color: const Color(0xFFF2B78A), fontWeight: FontWeight.bold),
+              selectedDecoration: const BoxDecoration(
+                color: Color(0xFFF2B78A),
+                shape: BoxShape.circle,
+              ),
+              selectedTextStyle: GoogleFonts.jetBrainsMono(color: const Color(0xFF151211), fontWeight: FontWeight.bold),
+            ),
+            selectedDayPredicate: (day) => isSameDay(_selectedDate, day),
+            onDaySelected: (selectedDay, focusedDay) {
+              SafeHaptics.lightImpact();
+              setState(() {
+                _selectedDate = selectedDay;
+                _focusedMonth = focusedDay;
+              });
+            },
+            onPageChanged: (focusedDay) {
+              setState(() {
+                _focusedMonth = focusedDay;
+              });
+            },
+            eventLoader: (day) {
+              final dayAssessments = allAssessments.where((a) => a.date != null && isSameDay(a.date, day)).toList();
+              final daySlots = allSlots.where((s) => s.dayOfWeek == day.weekday).toList();
+              return [...dayAssessments, ...daySlots];
+            },
+            calendarBuilders: CalendarBuilders(
+              markerBuilder: (context, date, events) {
+                if (events.isEmpty) return null;
+                final hasAssessment = allAssessments.any((a) => a.date != null && isSameDay(a.date, date));
+                final hasSlot = allSlots.any((s) => s.dayOfWeek == date.weekday);
+                return Positioned(
+                  bottom: 4,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (hasSlot)
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                          width: 5,
+                          height: 5,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF34D399),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      if (hasAssessment)
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                          width: 5,
+                          height: 5,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF2B78A),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
-          const SizedBox(height: 10),
-          // Quick Log Action Buttons: Present, Absent, Canceled
-          Row(
+          const SizedBox(height: 20),
+          const Divider(color: Color(0xFF2E2623), height: 1),
+          const SizedBox(height: 14),
+          // Legend
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () => _logQuickAttendance(course, AttendanceStatus.attended),
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF34D399).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFF34D399).withValues(alpha: 0.4), width: 0.8),
-                    ),
-                    alignment: Alignment.center,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF34D399), size: 13),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Present',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: const Color(0xFF34D399),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF34D399), shape: BoxShape.circle)),
+                  const SizedBox(width: 6),
+                  Text('Class Routine', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
+                ],
               ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: InkWell(
-                  onTap: () => _logQuickAttendance(course, AttendanceStatus.missed),
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.4), width: 0.8),
-                    ),
-                    alignment: Alignment.center,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.cancel_outlined, color: Color(0xFFEF4444), size: 13),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Absent',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: const Color(0xFFEF4444),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: InkWell(
-                  onTap: () => _logQuickAttendance(course, AttendanceStatus.canceled),
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF9E8C82).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFF9E8C82).withValues(alpha: 0.3), width: 0.8),
-                    ),
-                    alignment: Alignment.center,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.remove_circle_outline_rounded, color: Color(0xFF9E8C82), size: 13),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Cancel',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: const Color(0xFF9E8C82),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFFF2B78A), shape: BoxShape.circle)),
+                  const SizedBox(width: 6),
+                  Text('Assessment / Deadline', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
+                ],
               ),
             ],
           ),
@@ -1007,208 +295,420 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     );
   }
 
-  void _showAddRoutineSlotDialog(BuildContext context) {
-    SafeHaptics.selectionClick();
-    final coursesAsync = ref.read(coursesStreamProvider);
-    final courses = coursesAsync.value ?? [];
+  // --- SECTION B: Right Column — Day Agenda ---
+  Widget _buildRightDayAgendaColumn(
+    List<Assessment> assessments,
+    List<RoutineSlot> routineSlots,
+    Map<String, String> courseCodeMap,
+    Map<String, String> courseTitleMap,
+  ) {
+    final dayLabel = DateFormat('d MMM (EEEE)').format(_selectedDate);
 
-    Course? selectedCourse = courses.isNotEmpty ? courses.first : null;
-    int selectedDay = 1; // Monday
-    final startCtrl = TextEditingController(text: '08:00 AM');
-    final endCtrl = TextEditingController(text: '09:30 AM');
-    final roomCtrl = TextEditingController();
-    final teacherCtrl = TextEditingController();
-    CourseType selectedType = CourseType.theory;
-
-    final daysList = [
-      {'name': 'Monday', 'day': 1},
-      {'name': 'Tuesday', 'day': 2},
-      {'name': 'Wednesday', 'day': 3},
-      {'name': 'Thursday', 'day': 4},
-      {'name': 'Friday', 'day': 5},
-      {'name': 'Saturday', 'day': 6},
-      {'name': 'Sunday', 'day': 7},
-    ];
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1E1816),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFF2E2623)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Agenda Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1816),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFF2E2623), width: 1),
           ),
-          title: Text(
-            'Add Class Routine Slot',
-            style: GoogleFonts.plusJakartaSans(
-              color: const Color(0xFFEDE8E3),
-              fontWeight: FontWeight.w700,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Agenda: $dayLabel',
+                style: GoogleFonts.plusJakartaSans(
+                  color: const Color(0xFFEDE8E3),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF2B78A),
+                  foregroundColor: const Color(0xFF151211),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => _showAddPlannerItemDialog(context),
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: Text('+ Schedule', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 13)),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // Section 1: Assessments & Deadlines
+        Row(
+          children: [
+            const Icon(Icons.assignment_turned_in_rounded, color: Color(0xFFF2B78A), size: 18),
+            const SizedBox(width: 8),
+            Text(
+              'Assessments & Deadlines (${assessments.length})',
+              style: GoogleFonts.plusJakartaSans(
+                color: const Color(0xFFEDE8E3),
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-          content: SingleChildScrollView(
-            child: SizedBox(
-              width: 440,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (assessments.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1816),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF2E2623)),
+            ),
+            child: Center(
+              child: Text(
+                'No assessments or deadlines scheduled for this day.',
+                style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+              ),
+            ),
+          )
+        else
+          ...assessments.map((a) {
+            final cCode = courseCodeMap[a.courseId] ?? a.courseCode;
+            final cTitle = courseTitleMap[a.courseId];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: AssessmentCard(
+                assessment: a,
+                courseCode: cCode.isNotEmpty ? cCode : 'Course',
+                courseTitle: cTitle,
+                cardColor: const Color(0xFF1E1816),
+                accentColor: const Color(0xFFF2B78A),
+                onAttended: () => _updateAssessmentStatus(a, 'Attended'),
+                onMissed: () => _updateAssessmentStatus(a, 'Missed'),
+                onPostponed: () => _handlePostponeAssessment(a),
+                onEditDetails: () => _showEditAssessmentDialog(a),
+                onDelete: () => _deleteAssessment(a),
+              ),
+            );
+          }),
+
+        const SizedBox(height: 24),
+
+        // Section 2: Routine / Class Schedule
+        Row(
+          children: [
+            const Icon(Icons.schedule_rounded, color: Color(0xFF34D399), size: 18),
+            const SizedBox(width: 8),
+            Text(
+              'Class Schedule (${routineSlots.length})',
+              style: GoogleFonts.plusJakartaSans(
+                color: const Color(0xFFEDE8E3),
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (routineSlots.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1816),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF2E2623)),
+            ),
+            child: Center(
+              child: Text(
+                'No classes scheduled for this day.',
+                style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
+              ),
+            ),
+          )
+        else
+          ...routineSlots.map((slot) => Padding(
+                padding: const EdgeInsets.only(bottom: 10.0),
+                child: _buildRoutineSlotCard(slot),
+              )),
+      ],
+    );
+  }
+
+  Widget _buildRoutineSlotCard(RoutineSlot slot) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1816),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF2E2623), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Row 1: Time Block + Room Badge + Slot Type
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
                 children: [
-                  Text('Course', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
-                  const SizedBox(height: 6),
-                  if (courses.isNotEmpty)
-                    DropdownButton<Course>(
-                      value: selectedCourse,
-                      dropdownColor: const Color(0xFF241C1A),
-                      style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
-                      isExpanded: true,
-                      underline: Container(height: 1, color: const Color(0xFF2E2623)),
-                      items: courses.map((c) => DropdownMenuItem(value: c, child: Text('${c.code}: ${c.title}'))).toList(),
-                      onChanged: (val) {
-                        if (val != null) setDialogState(() => selectedCourse = val);
-                      },
-                    )
-                  else
-                    Text(
-                      'No enrolled courses. Please add a course first.',
-                      style: GoogleFonts.plusJakartaSans(color: const Color(0xFFF2B78A), fontSize: 13),
+                  const Icon(Icons.access_time_rounded, color: Color(0xFF34D399), size: 15),
+                  const SizedBox(width: 6),
+                  Text(
+                    slot.timeRange,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: const Color(0xFF34D399),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
                     ),
-                  const SizedBox(height: 14),
-                  Text('Day of Week', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
-                  const SizedBox(height: 6),
-                  DropdownButton<int>(
-                    value: selectedDay,
-                    dropdownColor: const Color(0xFF241C1A),
-                    style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
-                    isExpanded: true,
-                    underline: Container(height: 1, color: const Color(0xFF2E2623)),
-                    items: daysList.map((d) => DropdownMenuItem(value: d['day'] as int, child: Text(d['name'] as String))).toList(),
-                    onChanged: (val) {
-                      if (val != null) setDialogState(() => selectedDay = val);
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: startCtrl,
-                          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
-                          decoration: InputDecoration(
-                            labelText: 'Start Time (e.g. 08:00 AM)',
-                            labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
-                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
-                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: endCtrl,
-                          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
-                          decoration: InputDecoration(
-                            labelText: 'End Time (e.g. 09:30 AM)',
-                            labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
-                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
-                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: roomCtrl,
-                          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
-                          decoration: InputDecoration(
-                            labelText: 'Room / Venue (e.g. LT-1)',
-                            labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
-                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
-                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: teacherCtrl,
-                          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
-                          decoration: InputDecoration(
-                            labelText: 'Teacher Initials (e.g. MSR)',
-                            labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
-                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
-                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Text('Class Type', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
-                  const SizedBox(height: 6),
-                  DropdownButton<CourseType>(
-                    value: selectedType,
-                    dropdownColor: const Color(0xFF241C1A),
-                    style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
-                    isExpanded: true,
-                    underline: Container(height: 1, color: const Color(0xFF2E2623)),
-                    items: const [
-                      DropdownMenuItem(value: CourseType.theory, child: Text('Theory')),
-                      DropdownMenuItem(value: CourseType.sessional, child: Text('Sessional / Lab')),
-                      DropdownMenuItem(value: CourseType.practical, child: Text('Practical')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setDialogState(() => selectedType = val);
-                    },
                   ),
                 ],
               ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82))),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF2B78A),
-                foregroundColor: const Color(0xFF151211),
+              Row(
+                children: [
+                  if (slot.room.isNotEmpty)
+                    Container(
+                      constraints: const BoxConstraints(maxWidth: 130),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF241C1A),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF382A24)),
+                      ),
+                      child: Text(
+                        slot.room.startsWith('Room') || slot.room.startsWith('Lab') ? slot.room : 'Room ${slot.room}',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: const Color(0xFFF2B78A),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF241C1A),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFF2E2623)),
+                    ),
+                    child: Text(
+                      slot.slotType.displayName,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: const Color(0xFF9E8C82),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              onPressed: () async {
-                if (selectedCourse == null) return;
-                final start = startCtrl.text.trim();
-                final end = endCtrl.text.trim();
-                if (start.isEmpty || end.isEmpty) return;
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Row 2: Course Code & Title + Teacher Badge
+          Row(
+            children: [
+              Text(
+                slot.courseCode,
+                style: GoogleFonts.jetBrainsMono(
+                  color: const Color(0xFFEDE8E3),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  slot.courseTitle,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: const Color(0xFF9E8C82),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+              if (slot.teacherBadge != null && slot.teacherBadge!.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2E2623),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '[${slot.teacherBadge}]',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: const Color(0xFFF2B78A),
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
-                final newSlot = RoutineSlot(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  courseId: selectedCourse!.id,
-                  courseCode: selectedCourse!.code,
-                  courseTitle: selectedCourse!.title,
-                  dayOfWeek: selectedDay,
-                  startTime: start,
-                  endTime: end,
-                  room: roomCtrl.text.trim(),
-                  teacherBadge: teacherCtrl.text.trim().isNotEmpty ? teacherCtrl.text.trim() : null,
-                  slotType: selectedType,
-                );
+  // --- Assessment Actions ---
+  Future<void> _updateAssessmentStatus(Assessment assessment, String newStatus) async {
+    SafeHaptics.selectionClick();
+    String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (uid.isEmpty) return;
+    try {
+      final updated = assessment.copyWith(status: assessment.status == newStatus ? 'Pending' : newStatus);
+      await ref.read(assessmentRepositoryProvider).updateAssessment(uid, updated);
+    } catch (e) {
+      debugPrint('Error updating assessment status: $e');
+    }
+  }
 
-                String uid = '';
-                try {
-                  uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-                } catch (_) {}
-                if (uid.isNotEmpty) {
-                  await ref.read(routineRepositoryProvider).addRoutineSlot(uid, newSlot);
-                }
-                if (ctx.mounted) Navigator.of(ctx).pop();
-              },
-              child: Text('Add Slot', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+  Future<void> _deleteAssessment(Assessment assessment) async {
+    SafeHaptics.mediumImpact();
+    String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (uid.isEmpty) return;
+    try {
+      await ref.read(assessmentRepositoryProvider).deleteAssessment(uid, assessment.id);
+    } catch (e) {
+      debugPrint('Error deleting assessment: $e');
+    }
+  }
+
+  Future<void> _handlePostponeAssessment(Assessment assessment) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: (assessment.date ?? DateTime.now()).add(const Duration(days: 7)),
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      if (uid.isNotEmpty) {
+        final updated = assessment.copyWith(
+          status: 'Postponed',
+          postponedToDate: picked,
+        );
+        await ref.read(assessmentRepositoryProvider).updateAssessment(uid, updated);
+      }
+    }
+  }
+
+  void _showEditAssessmentDialog(Assessment assessment) {
+    SafeHaptics.selectionClick();
+    final nameCtrl = TextEditingController(text: assessment.name);
+    final marksCtrl = TextEditingController(text: assessment.totalMarks.toString());
+    final weightCtrl = TextEditingController(text: assessment.weightage.toString());
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1816),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFF2E2623)),
+        ),
+        title: Text('Edit Assessment', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(labelText: 'Title', labelStyle: TextStyle(color: Color(0xFF9E8C82))),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: marksCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(labelText: 'Total Marks', labelStyle: TextStyle(color: Color(0xFF9E8C82))),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: weightCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(labelText: 'Weightage (%)', labelStyle: TextStyle(color: Color(0xFF9E8C82))),
             ),
           ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF9E8C82))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF2B78A), foregroundColor: const Color(0xFF151211)),
+            onPressed: () async {
+              String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+              if (uid.isNotEmpty) {
+                final updated = assessment.copyWith(
+                  name: nameCtrl.text.trim(),
+                  totalMarks: double.tryParse(marksCtrl.text.trim()) ?? assessment.totalMarks,
+                  weightage: double.tryParse(weightCtrl.text.trim()) ?? assessment.weightage,
+                );
+                await ref.read(assessmentRepositoryProvider).updateAssessment(uid, updated);
+              }
+              if (ctx.mounted) Navigator.of(ctx).pop();
+            },
+            child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddPlannerItemDialog(BuildContext context) {
+    SafeHaptics.selectionClick();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1816),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Schedule New Item', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              ListTile(
+                tileColor: const Color(0xFF241C1A),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                leading: const Icon(Icons.assignment_turned_in_rounded, color: Color(0xFFF2B78A)),
+                title: const Text('Schedule Assessment', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                subtitle: const Text('Class test, quiz, midterm, or final exam', style: TextStyle(color: Color(0xFF9E8C82), fontSize: 12)),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _showAddAssessmentDialog(context);
+                },
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                tileColor: const Color(0xFF241C1A),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                leading: const Icon(Icons.schedule_rounded, color: Color(0xFF34D399)),
+                title: const Text('Add Routine Class Slot', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                subtitle: const Text('Weekly recurring lecture or lab session', style: TextStyle(color: Color(0xFF9E8C82), fontSize: 12)),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _showAddRoutineSlotDialog(context);
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1224,7 +724,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     final marksCtrl = TextEditingController(text: '20');
     final weightageCtrl = TextEditingController(text: '10');
     String selectedType = 'quiz';
-    DateTime selectedDate = DateTime.now().add(const Duration(days: 2));
+    DateTime selectedDate = _selectedDate;
 
     final typeOptions = [
       {'val': 'quiz', 'label': 'Quiz'},
@@ -1391,6 +891,213 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 if (ctx.mounted) Navigator.of(ctx).pop();
               },
               child: Text('Schedule', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddRoutineSlotDialog(BuildContext context) {
+    SafeHaptics.selectionClick();
+    final coursesAsync = ref.read(coursesStreamProvider);
+    final courses = coursesAsync.value ?? [];
+
+    Course? selectedCourse = courses.isNotEmpty ? courses.first : null;
+    int selectedDay = _selectedDate.weekday;
+    final startCtrl = TextEditingController(text: '08:00 AM');
+    final endCtrl = TextEditingController(text: '09:30 AM');
+    final roomCtrl = TextEditingController();
+    final teacherCtrl = TextEditingController();
+    CourseType selectedType = CourseType.theory;
+
+    final daysList = [
+      {'name': 'Saturday', 'day': 6},
+      {'name': 'Sunday', 'day': 7},
+      {'name': 'Monday', 'day': 1},
+      {'name': 'Tuesday', 'day': 2},
+      {'name': 'Wednesday', 'day': 3},
+      {'name': 'Thursday', 'day': 4},
+      {'name': 'Friday', 'day': 5},
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1816),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFF2E2623)),
+          ),
+          title: Text(
+            'Add Class Routine Slot',
+            style: GoogleFonts.plusJakartaSans(
+              color: const Color(0xFFEDE8E3),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Course', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
+                  const SizedBox(height: 6),
+                  if (courses.isNotEmpty)
+                    DropdownButton<Course>(
+                      value: selectedCourse,
+                      dropdownColor: const Color(0xFF241C1A),
+                      style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
+                      isExpanded: true,
+                      underline: Container(height: 1, color: const Color(0xFF2E2623)),
+                      items: courses.map((c) => DropdownMenuItem(value: c, child: Text('${c.code}: ${c.title}'))).toList(),
+                      onChanged: (val) {
+                        if (val != null) setDialogState(() => selectedCourse = val);
+                      },
+                    )
+                  else
+                    Text(
+                      'No enrolled courses. Please add a course first.',
+                      style: GoogleFonts.plusJakartaSans(color: const Color(0xFFF2B78A), fontSize: 13),
+                    ),
+                  const SizedBox(height: 14),
+                  Text('Day of Week', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
+                  const SizedBox(height: 6),
+                  DropdownButton<int>(
+                    value: selectedDay,
+                    dropdownColor: const Color(0xFF241C1A),
+                    style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
+                    isExpanded: true,
+                    underline: Container(height: 1, color: const Color(0xFF2E2623)),
+                    items: daysList.map((d) => DropdownMenuItem(value: d['day'] as int, child: Text(d['name'] as String))).toList(),
+                    onChanged: (val) {
+                      if (val != null) setDialogState(() => selectedDay = val);
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: startCtrl,
+                          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+                          decoration: InputDecoration(
+                            labelText: 'Start Time (e.g. 08:00 AM)',
+                            labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
+                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: endCtrl,
+                          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+                          decoration: InputDecoration(
+                            labelText: 'End Time (e.g. 09:30 AM)',
+                            labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
+                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: roomCtrl,
+                          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+                          decoration: InputDecoration(
+                            labelText: 'Room / Venue (e.g. Room 302 / Lab 1)',
+                            labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
+                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: teacherCtrl,
+                          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 14),
+                          decoration: InputDecoration(
+                            labelText: 'Teacher Initials (e.g. MSR)',
+                            labelStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
+                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
+                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text('Class Type', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12)),
+                  const SizedBox(height: 6),
+                  DropdownButton<CourseType>(
+                    value: selectedType,
+                    dropdownColor: const Color(0xFF241C1A),
+                    style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
+                    isExpanded: true,
+                    underline: Container(height: 1, color: const Color(0xFF2E2623)),
+                    items: const [
+                      DropdownMenuItem(value: CourseType.theory, child: Text('Theory')),
+                      DropdownMenuItem(value: CourseType.sessional, child: Text('Sessional / Lab')),
+                      DropdownMenuItem(value: CourseType.practical, child: Text('Practical')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setDialogState(() => selectedType = val);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82))),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF2B78A),
+                foregroundColor: const Color(0xFF151211),
+              ),
+              onPressed: () async {
+                if (selectedCourse == null) return;
+                final start = startCtrl.text.trim();
+                final end = endCtrl.text.trim();
+                if (start.isEmpty || end.isEmpty) return;
+
+                final newSlot = RoutineSlot(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  courseId: selectedCourse!.id,
+                  courseCode: selectedCourse!.code,
+                  courseTitle: selectedCourse!.title,
+                  dayOfWeek: selectedDay,
+                  startTime: start,
+                  endTime: end,
+                  room: roomCtrl.text.trim(),
+                  teacherBadge: teacherCtrl.text.trim().isNotEmpty ? teacherCtrl.text.trim() : null,
+                  slotType: selectedType,
+                );
+
+                String uid = '';
+                try {
+                  uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                } catch (_) {}
+                if (uid.isNotEmpty) {
+                  await ref.read(routineRepositoryProvider).addRoutineSlot(uid, newSlot);
+                }
+                if (ctx.mounted) Navigator.of(ctx).pop();
+              },
+              child: Text('Add Slot', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
             ),
           ],
         ),

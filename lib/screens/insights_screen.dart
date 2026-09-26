@@ -4418,6 +4418,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
   Widget _buildDesktopInsightsScreen(BuildContext context) {
     final sessionsAsync = ref.watch(studySessionsRangeStreamProvider(DateRangeParam(_rangeStart, _rangeEnd)));
     final sessions = sessionsAsync.value ?? [];
+    final profile = ref.watch(liveUserProfileProvider).value ?? ref.watch(userProfileProvider);
+    final isUni = profile?.isUniversityStudent == true || profile?.institutionType == InstitutionType.university;
+    final effectiveCategoryTab = (isUni && _desktopCategoryTab == 'Performance') ? 'Overview' : _desktopCategoryTab;
 
     return Scaffold(
       backgroundColor: const Color(0xFF151211),
@@ -4434,7 +4437,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
                 const SizedBox(height: 24),
 
-                if (_desktopCategoryTab == 'Time') ...[
+                if (effectiveCategoryTab == 'Time') ...[
                   _buildDesktopTopKpis(sessions),
                   const SizedBox(height: 24),
                   _buildDesktopDailyTimelineBar(sessions),
@@ -4453,7 +4456,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       ),
                     ],
                   ),
-                ] else if (_desktopCategoryTab == 'Subjects') ...[
+                ] else if (effectiveCategoryTab == 'Subjects') ...[
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -4468,11 +4471,11 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       ),
                     ],
                   ),
-                ] else if (_desktopCategoryTab == 'Performance') ...[
+                ] else if (effectiveCategoryTab == 'Performance') ...[
                   _buildExamPerformanceDeltas(ref, const Color(0xFF1E1816), const Color(0xFFF2B78A)),
                   const SizedBox(height: 24),
                   _buildDesktopPerformanceLedger(),
-                ] else if (_desktopCategoryTab == 'CGPA Forecaster') ...[
+                ] else if (effectiveCategoryTab == 'CGPA Forecaster') ...[
                   _buildDesktopCgpaForecasterWorkspace(),
                 ] else ...[
                   // Default 'Overview'
@@ -4512,7 +4515,11 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
   }
 
   Widget _buildDesktopAnalyticsSubNav() {
-    final categories = ['Overview', 'Time', 'Subjects', 'Performance', 'CGPA Forecaster'];
+    final profile = ref.watch(liveUserProfileProvider).value ?? ref.watch(userProfileProvider);
+    final isUni = profile?.isUniversityStudent == true || profile?.institutionType == InstitutionType.university;
+    final categories = isUni
+        ? ['Overview', 'Time', 'Subjects', 'CGPA Forecaster']
+        : ['Overview', 'Time', 'Subjects', 'Performance', 'CGPA Forecaster'];
     final periods = [
       (InsightPeriod.day, 'Day'),
       (InsightPeriod.week, 'Week'),
@@ -4943,7 +4950,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 ),
               ),
               Text(
-                peakVal > 0 ? 'Peak: $peakName (${peakVal} hrs)' : 'Peak: None (0 hrs)',
+                peakVal > 0 ? 'Peak: $peakName ($peakVal hrs)' : 'Peak: None (0 hrs)',
                 style: GoogleFonts.jetBrainsMono(
                   color: const Color(0xFFF2B78A),
                   fontSize: 12,
@@ -5059,45 +5066,37 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             if (enrolledCourses.isNotEmpty) ...[
               Row(
                 children: [
-                  SizedBox(
+                  const SizedBox(
                     width: 128,
                     height: 128,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        const CircularProgressIndicator(
+                        CircularProgressIndicator(
                           value: 1.0,
                           strokeWidth: 12,
                           valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E2623)),
                         ),
                         Center(
-                          child: SizedBox(
-                            width: 80,
-                            height: 80,
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    '0h',
-                                    style: GoogleFonts.jetBrainsMono(
-                                      color: const Color(0xFFEDE8E3),
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Focused',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      color: const Color(0xFF9E8C82),
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '0h',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                               ),
-                            ),
+                              Text(
+                                'Focused',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF9E8C82),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -5179,35 +5178,27 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         valueColor: AlwaysStoppedAnimation<Color>(palette[0]),
                       ),
                       Center(
-                        child: SizedBox(
-                          width: 80,
-                          height: 80,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  totalSec >= 3600
-                                      ? '${totalSec ~/ 3600}h'
-                                      : '${totalSec ~/ 60}m',
-                                  style: GoogleFonts.jetBrainsMono(
-                                    color: const Color(0xFFEDE8E3),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                Text(
-                                  'Focused',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: const Color(0xFF9E8C82),
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              totalSec >= 3600
+                                  ? '${totalSec ~/ 3600}h'
+                                  : '${totalSec ~/ 60}m',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
+                            const Text(
+                              'Focused',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF9E8C82),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],

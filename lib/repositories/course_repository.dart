@@ -231,6 +231,10 @@ class CourseRepository {
     await _coursesRef(uid)!.doc(course.id).set(course.toMap(), SetOptions(merge: true));
   }
 
+  Future<void> updateCourse(String uid, Course course) async {
+    await addCourse(uid, course);
+  }
+
   Future<void> addTopics(String uid, String courseId, List<SyllabusTopic> topics) async {
     if (_firestore == null || uid.isEmpty || courseId.isEmpty || topics.isEmpty) return;
     final batch = _firestore!.batch();
