@@ -1,5 +1,54 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Atomic Subtopic Model (e.g. 1.1.1 Lecture note, 1.1.2 Ref book, 1.1.3 Prev question)
+class SyllabusSubtopic {
+  final String id;
+  final String subtopicIndex; // e.g. "1.1.1"
+  final String title;         // e.g. "Lecture note"
+  final bool isCompleted;
+  final String? resourceUrl;
+
+  const SyllabusSubtopic({
+    required this.id,
+    required this.subtopicIndex,
+    required this.title,
+    this.isCompleted = false,
+    this.resourceUrl,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'subtopicIndex': subtopicIndex,
+    'title': title,
+    'isCompleted': isCompleted,
+    if (resourceUrl != null && resourceUrl!.isNotEmpty) 'resourceUrl': resourceUrl,
+  };
+
+  factory SyllabusSubtopic.fromMap(Map<String, dynamic> map, [String? docId]) => SyllabusSubtopic(
+    id: docId ?? map['id'] as String? ?? '',
+    subtopicIndex: map['subtopicIndex'] as String? ?? map['index'] as String? ?? '',
+    title: map['title'] as String? ?? '',
+    isCompleted: map['isCompleted'] as bool? ?? false,
+    resourceUrl: map['resourceUrl'] as String?,
+  );
+
+  SyllabusSubtopic copyWith({
+    String? id,
+    String? subtopicIndex,
+    String? title,
+    bool? isCompleted,
+    String? resourceUrl,
+  }) {
+    return SyllabusSubtopic(
+      id: id ?? this.id,
+      subtopicIndex: subtopicIndex ?? this.subtopicIndex,
+      title: title ?? this.title,
+      isCompleted: isCompleted ?? this.isCompleted,
+      resourceUrl: resourceUrl ?? this.resourceUrl,
+    );
+  }
+}
+
 /// Atomic Syllabus Topic Model inside `/users/{uid}/courses/{courseId}/topics/{topicId}`
 class SyllabusTopic {
   final String id;
@@ -11,6 +60,7 @@ class SyllabusTopic {
   final bool isInProgress;
   final DateTime? completedAt;
   final String? resourceUrl;
+  final List<SyllabusSubtopic> subtopics;
 
   const SyllabusTopic({
     required this.id,
@@ -22,7 +72,15 @@ class SyllabusTopic {
     this.isInProgress = false,
     this.completedAt,
     this.resourceUrl,
+    this.subtopics = const [],
   });
+
+  bool get hasSubtopics => subtopics.isNotEmpty;
+  int get totalSubtopicsCount => subtopics.length;
+  int get completedSubtopicsCount => subtopics.where((s) => s.isCompleted).length;
+  double get progressFraction => subtopics.isNotEmpty
+      ? (completedSubtopicsCount / totalSubtopicsCount)
+      : (isCompleted ? 1.0 : 0.0);
 
   String get chapter => chapterTitle;
   String get topicCode => topicIndex;
@@ -52,6 +110,12 @@ class SyllabusTopic {
 
     final resourceUrl = map['resourceUrl'] as String?;
 
+    final rawSubtopics = (map['subtopics'] as List<dynamic>?) ?? [];
+    final parsedSubtopics = rawSubtopics
+        .whereType<Map>()
+        .map((m) => SyllabusSubtopic.fromMap(Map<String, dynamic>.from(m)))
+        .toList();
+
     return SyllabusTopic(
       id: id,
       chapterTitle: chapterTitle,
@@ -62,6 +126,7 @@ class SyllabusTopic {
       isInProgress: isInProgress,
       completedAt: completedTime,
       resourceUrl: resourceUrl,
+      subtopics: parsedSubtopics,
     );
   }
 
@@ -76,6 +141,7 @@ class SyllabusTopic {
       'isInProgress': isInProgress,
       'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
       if (resourceUrl != null && resourceUrl!.isNotEmpty) 'resourceUrl': resourceUrl,
+      if (subtopics.isNotEmpty) 'subtopics': subtopics.map((s) => s.toMap()).toList(),
     };
   }
 
@@ -89,6 +155,7 @@ class SyllabusTopic {
     bool? isInProgress,
     DateTime? completedAt,
     String? resourceUrl,
+    List<SyllabusSubtopic>? subtopics,
   }) {
     return SyllabusTopic(
       id: id ?? this.id,
@@ -100,6 +167,7 @@ class SyllabusTopic {
       isInProgress: isInProgress ?? this.isInProgress,
       completedAt: completedAt ?? this.completedAt,
       resourceUrl: resourceUrl ?? this.resourceUrl,
+      subtopics: subtopics ?? this.subtopics,
     );
   }
 }

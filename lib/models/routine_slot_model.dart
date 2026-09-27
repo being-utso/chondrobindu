@@ -87,6 +87,21 @@ class RoutineSlot {
     );
   }
 
+  /// Checks if this routine slot is active on the given calendar date respecting dayOfWeek and lifecycle boundaries
+  bool isActiveOnDate(DateTime date) {
+    if (date.weekday != dayOfWeek) return false;
+    final d = DateTime(date.year, date.month, date.day);
+    if (effectiveFrom != null) {
+      final start = DateTime(effectiveFrom!.year, effectiveFrom!.month, effectiveFrom!.day);
+      if (d.isBefore(start)) return false;
+    }
+    if (effectiveUntil != null) {
+      final end = DateTime(effectiveUntil!.year, effectiveUntil!.month, effectiveUntil!.day);
+      if (d.isAfter(end)) return false;
+    }
+    return true;
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,

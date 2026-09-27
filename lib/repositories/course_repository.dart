@@ -46,20 +46,6 @@ class CourseRepository {
         .map((c) => SyllabusNode.fromMap(Map<String, dynamic>.from(c)))
         .toList();
 
-    const dummyCategoryLabels = {
-      'class note',
-      'lecture sheet',
-      'ref book',
-      'reference book',
-      'term final question',
-      'question bank',
-      'note',
-      'notes',
-      'resource',
-      'resources',
-      'books',
-    };
-
     final List<SyllabusTopic> topics = [];
     for (int chIdx = 0; chIdx < nodes.length; chIdx++) {
       final ch = nodes[chIdx];
@@ -68,33 +54,23 @@ class CourseRepository {
 
       if (ch.children.isEmpty) {
         final titleTrim = ch.title.trim();
-        if (!dummyCategoryLabels.contains(titleTrim.toLowerCase())) {
-          topics.add(SyllabusTopic(
-            id: ch.id,
-            chapterTitle: chapterName,
-            topicIndex: '$chapterOrder.1',
-            title: titleTrim,
-            chapterOrder: chapterOrder,
-            isCompleted: ch.isCompleted,
-            resourceUrl: ch.resourceUrl,
-          ));
-        }
+        topics.add(SyllabusTopic(
+          id: ch.id,
+          chapterTitle: chapterName,
+          topicIndex: '$chapterOrder.1',
+          title: titleTrim,
+          chapterOrder: chapterOrder,
+          isCompleted: ch.isCompleted,
+          resourceUrl: ch.resourceUrl,
+          subtopics: const [],
+        ));
       } else {
         int topicCount = 0;
         for (int tIdx = 0; tIdx < ch.children.length; tIdx++) {
           final t = ch.children[tIdx];
           final tTitle = t.title.trim();
-          if (dummyCategoryLabels.contains(tTitle.toLowerCase())) {
-            continue;
-          }
+          topicCount++;
 
-          // Check if t has real subtopics or dummy category children
-          final realSubtopics = t.children.where((sub) {
-            final s = sub.title.trim().toLowerCase();
-            return !dummyCategoryLabels.contains(s);
-          }).toList();
-
-          // Also check if any dummy children had a resourceUrl
           String? attachedResource = t.resourceUrl;
           if (attachedResource == null || attachedResource.isEmpty) {
             for (final c in t.children) {
@@ -105,32 +81,28 @@ class CourseRepository {
             }
           }
 
-          if (realSubtopics.isEmpty) {
-            topicCount++;
-            topics.add(SyllabusTopic(
-              id: t.id,
-              chapterTitle: chapterName,
-              topicIndex: '$chapterOrder.$topicCount',
-              title: tTitle,
-              chapterOrder: chapterOrder,
-              isCompleted: t.isCompleted,
-              resourceUrl: attachedResource,
+          final List<SyllabusSubtopic> subtopics = [];
+          for (int sIdx = 0; sIdx < t.children.length; sIdx++) {
+            final sub = t.children[sIdx];
+            subtopics.add(SyllabusSubtopic(
+              id: sub.id,
+              subtopicIndex: '$chapterOrder.$topicCount.${sIdx + 1}',
+              title: sub.title.trim().isNotEmpty ? sub.title.trim() : 'Subtopic ${sIdx + 1}',
+              isCompleted: sub.isCompleted,
+              resourceUrl: sub.resourceUrl ?? attachedResource,
             ));
-          } else {
-            // Real subtopics exist under t
-            for (int sIdx = 0; sIdx < realSubtopics.length; sIdx++) {
-              final sub = realSubtopics[sIdx];
-              topics.add(SyllabusTopic(
-                id: sub.id,
-                chapterTitle: chapterName,
-                topicIndex: '$chapterOrder.${tIdx + 1}.${sIdx + 1}',
-                title: sub.title.trim(),
-                chapterOrder: chapterOrder,
-                isCompleted: sub.isCompleted,
-                resourceUrl: sub.resourceUrl ?? attachedResource,
-              ));
-            }
           }
+
+          topics.add(SyllabusTopic(
+            id: t.id,
+            chapterTitle: chapterName,
+            topicIndex: '$chapterOrder.$topicCount',
+            title: tTitle,
+            chapterOrder: chapterOrder,
+            isCompleted: t.isCompleted,
+            resourceUrl: attachedResource,
+            subtopics: subtopics,
+          ));
         }
       }
     }
@@ -272,6 +244,16 @@ class CourseRepository {
         'completedTopicsCount': completed,
       });
     });
+  }
+
+  /// Toggles completion status of a subtopic or atomic syllabus item and updates course progress metrics
+  Future<void> toggleSubtopicCompletion(
+    String uid,
+    String courseId,
+    String subtopicId,
+    bool isCompleted,
+  ) async {
+    return toggleTopicStatus(uid, courseId, subtopicId, isCompleted);
   }
 
   Future<void> addCourse(String uid, Course course) async {

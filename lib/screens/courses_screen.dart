@@ -136,6 +136,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
   String _activeSubTab = 'Syllabus';
 
   final Map<String, bool> _expandedChapters = {};
+  final Map<String, bool> _expandedTopics = {};
   final Map<String, bool> _topicCheckState = {};
 
   @override
@@ -755,10 +756,24 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
   Widget _buildSyllabusTabHeader(Course course) {
     final topicsAsync = ref.watch(syllabusTopicsStreamProvider(course.id));
     final liveTopics = topicsAsync.valueOrNull ?? [];
-    final int total = liveTopics.isNotEmpty ? liveTopics.length : course.totalTopicsCount;
-    final int completed = liveTopics.isNotEmpty
-        ? liveTopics.where((t) => (_topicCheckState[t.id] ?? t.isCompleted)).length
-        : course.completedTopicsCount;
+    int total = 0;
+    int completed = 0;
+    if (liveTopics.isNotEmpty) {
+      for (final t in liveTopics) {
+        if (t.hasSubtopics) {
+          total += t.subtopics.length;
+          for (final s in t.subtopics) {
+            if (_topicCheckState[s.id] ?? s.isCompleted) completed++;
+          }
+        } else {
+          total += 1;
+          if (_topicCheckState[t.id] ?? t.isCompleted) completed++;
+        }
+      }
+    } else {
+      total = course.totalTopicsCount;
+      completed = course.completedTopicsCount;
+    }
     final int remaining = math.max(0, total - completed);
     final double progress = total > 0 ? (completed / total) : 0.0;
     final pctText = '${(progress * 100).toInt()}%';
@@ -882,7 +897,21 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
         children: byChapter.entries.map((entry) {
           final chapterName = entry.key;
           final chapterTopics = entry.value;
-          final completedCount = chapterTopics.where((t) => t.isCompleted).length;
+
+          int chapterTotalItems = 0;
+          int chapterCompletedItems = 0;
+          for (final t in chapterTopics) {
+            if (t.hasSubtopics) {
+              chapterTotalItems += t.subtopics.length;
+              for (final s in t.subtopics) {
+                if (_topicCheckState[s.id] ?? s.isCompleted) chapterCompletedItems++;
+              }
+            } else {
+              chapterTotalItems += 1;
+              if (_topicCheckState[t.id] ?? t.isCompleted) chapterCompletedItems++;
+            }
+          }
+
           final isExpanded = _expandedChapters[chapterName] ?? true;
 
           return Column(
@@ -890,7 +919,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
             children: [
               _buildChapterHeader(
                 chapterTitle: chapterName,
-                topicsCount: '${chapterTopics.length} Topics • $completedCount Completed',
+                topicsCount: '$chapterTotalItems Topics • $chapterCompletedItems Completed',
                 isExpanded: isExpanded,
                 onToggle: () => setState(() {
                   _expandedChapters[chapterName] = !isExpanded;
@@ -899,32 +928,19 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
               if (isExpanded) ...[
                 const SizedBox(height: 8),
                 ...chapterTopics.map((topic) {
-                  final isDone = _topicCheckState[topic.id] ?? topic.isCompleted;
-                  return _buildAtomicTopicRow(
-                    topic.topicCode,
-                    topic.title,
-                    isDone: isDone,
-                    isInProgress: topic.isInProgress,
-                    resourceUrl: topic.resourceUrl,
-                    onTapToggle: () {
-                      SafeHaptics.selectionClick();
-                      setState(() {
-                        _topicCheckState[topic.id] = !isDone;
-                      });
-                      String uid = '';
-                      try {
-                        uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-                      } catch (_) {}
-                      if (uid.isNotEmpty) {
-                        ref.read(courseRepositoryProvider).toggleTopicStatus(
-                              uid,
-                              course.id,
-                              topic.id,
-                              !isDone,
-                            );
-                      }
-                    },
-                  );
+                  if (topic.hasSubtopics) {
+                    return _buildNestedTopicWithSubtopics(course, topic);
+                  } else {
+                    final isDone = _topicCheckState[topic.id] ?? topic.isCompleted;
+                    return _buildAtomicTopicRow(
+                      topic.topicCode,
+                      topic.title,
+                      isDone: isDone,
+                      isInProgress: topic.isInProgress,
+                      resourceUrl: topic.resourceUrl,
+                      onTapToggle: () => _toggleTopicOrSubtopic(course.id, topic.id, !isDone),
+                    );
+                  }
                 }),
                 const SizedBox(height: 16),
               ],
@@ -1020,6 +1036,218 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildNestedTopicWithSubtopics(Course course, SyllabusTopic topic) {
+    final isExpanded = _expandedTopics[topic.id] ?? true;
+    final totalSubtopics = topic.subtopics.length;
+    final completedSubtopics = topic.subtopics.where((s) => _topicCheckState[s.id] ?? s.isCompleted).length;
+    final isAllDone = totalSubtopics > 0 && completedSubtopics == totalSubtopics;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF241C1A),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: topic.isInProgress
+              ? const Color(0xFFF2B78A).withValues(alpha: 0.5)
+              : const Color(0xFF2E2623),
+          width: 0.8,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Level 2: Topic Header (Expandable with Topic Progress)
+          InkWell(
+            onTap: () {
+              SafeHaptics.selectionClick();
+              setState(() {
+                _expandedTopics[topic.id] = !isExpanded;
+              });
+            },
+            borderRadius: BorderRadius.vertical(
+              top: const Radius.circular(10),
+              bottom: Radius.circular(isExpanded ? 0 : 10),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              child: Row(
+                children: [
+                  Icon(
+                    isExpanded ? Icons.expand_more_rounded : Icons.chevron_right_rounded,
+                    color: const Color(0xFFF2B78A),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    topic.topicCode,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: const Color(0xFFF2B78A),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      topic.title,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: isAllDone ? const Color(0xFF9E8C82) : const Color(0xFFEDE8E3),
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        decoration: isAllDone ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isAllDone
+                          ? const Color(0xFF34D399).withValues(alpha: 0.15)
+                          : const Color(0xFF1E1816),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isAllDone ? const Color(0xFF34D399) : const Color(0xFF2E2623),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Text(
+                      '$completedSubtopics/$totalSubtopics done',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: isAllDone ? const Color(0xFF34D399) : const Color(0xFFF2B78A),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Level 3: Subtopics / Atomic items
+          if (isExpanded) ...[
+            const Divider(height: 1, color: Color(0xFF2E2623)),
+            Padding(
+              padding: const EdgeInsets.only(left: 14, right: 10, top: 4, bottom: 6),
+              child: Column(
+                children: topic.subtopics.map((subtopic) {
+                  final isDone = _topicCheckState[subtopic.id] ?? subtopic.isCompleted;
+                  return _buildSubtopicRow(
+                    subtopic,
+                    isDone: isDone,
+                    onTapToggle: () => _toggleTopicOrSubtopic(course.id, subtopic.id, !isDone),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubtopicRow(
+    SyllabusSubtopic subtopic, {
+    required bool isDone,
+    required VoidCallback onTapToggle,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Row(
+        children: [
+          const SizedBox(width: 14),
+          Checkbox(
+            value: isDone,
+            activeColor: const Color(0xFF34D399),
+            checkColor: const Color(0xFF151211),
+            side: const BorderSide(color: Color(0xFF4A3830), width: 1.5),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+            onChanged: (val) => onTapToggle(),
+          ),
+          const SizedBox(width: 6),
+          if (subtopic.subtopicIndex.isNotEmpty) ...[
+            Text(
+              subtopic.subtopicIndex,
+              style: GoogleFonts.jetBrainsMono(
+                color: const Color(0xFF9E8C82),
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: Text(
+              subtopic.title,
+              style: GoogleFonts.plusJakartaSans(
+                color: isDone ? const Color(0xFF9E8C82) : const Color(0xFFEDE8E3),
+                decoration: isDone ? TextDecoration.lineThrough : null,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+          if (subtopic.resourceUrl != null && subtopic.resourceUrl!.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () async {
+                final uri = Uri.tryParse(subtopic.resourceUrl!);
+                if (uri != null && await canLaunchUrl(uri)) {
+                  await launchUrl(uri);
+                }
+              },
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1816),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFF34D399).withValues(alpha: 0.5), width: 0.8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.link_rounded, size: 12, color: Color(0xFF34D399)),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Resource',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: const Color(0xFF34D399),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _toggleTopicOrSubtopic(String courseId, String topicOrSubtopicId, bool newStatus) {
+    SafeHaptics.selectionClick();
+    setState(() {
+      _topicCheckState[topicOrSubtopicId] = newStatus;
+    });
+    String uid = '';
+    try {
+      uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    } catch (_) {}
+    if (uid.isNotEmpty) {
+      ref.read(courseRepositoryProvider).toggleSubtopicCompletion(
+        uid,
+        courseId,
+        topicOrSubtopicId,
+        newStatus,
+      );
+    }
   }
 
   Widget _buildAtomicTopicRow(
@@ -2341,10 +2569,24 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
   Widget _buildCourseProgressWorkspace(Course course) {
     final topicsAsync = ref.watch(syllabusTopicsStreamProvider(course.id));
     final liveTopics = topicsAsync.valueOrNull ?? [];
-    final int total = liveTopics.isNotEmpty ? liveTopics.length : course.totalTopicsCount;
-    final int completed = liveTopics.isNotEmpty
-        ? liveTopics.where((t) => (_topicCheckState[t.id] ?? t.isCompleted)).length
-        : course.completedTopicsCount;
+    int total = 0;
+    int completed = 0;
+    if (liveTopics.isNotEmpty) {
+      for (final t in liveTopics) {
+        if (t.hasSubtopics) {
+          total += t.subtopics.length;
+          for (final s in t.subtopics) {
+            if (_topicCheckState[s.id] ?? s.isCompleted) completed++;
+          }
+        } else {
+          total += 1;
+          if (_topicCheckState[t.id] ?? t.isCompleted) completed++;
+        }
+      }
+    } else {
+      total = course.totalTopicsCount;
+      completed = course.completedTopicsCount;
+    }
     final int remaining = math.max(0, total - completed);
     final double progress = total > 0 ? (completed / total) : 0.0;
     final pctText = '${(progress * 100).toInt()}%';
@@ -2480,8 +2722,19 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
           ...chapterMap.entries.map((entry) {
             final chTitle = entry.key;
             final chTopics = entry.value;
-            final chCompleted = chTopics.where((t) => (_topicCheckState[t.id] ?? t.isCompleted)).length;
-            final chTotal = chTopics.length;
+            int chTotal = 0;
+            int chCompleted = 0;
+            for (final t in chTopics) {
+              if (t.hasSubtopics) {
+                chTotal += t.subtopics.length;
+                for (final s in t.subtopics) {
+                  if (_topicCheckState[s.id] ?? s.isCompleted) chCompleted++;
+                }
+              } else {
+                chTotal += 1;
+                if (_topicCheckState[t.id] ?? t.isCompleted) chCompleted++;
+              }
+            }
             final double chRatio = chTotal > 0 ? (chCompleted / chTotal) : 0.0;
             final chPct = '${(chRatio * 100).toInt()}%';
 

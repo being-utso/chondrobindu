@@ -50,16 +50,35 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     final holidaySettingsAsync = ref.watch(holidaySettingsStreamProvider);
     final holidaySettings = holidaySettingsAsync.valueOrNull ?? HolidaySettings.defaultSettings;
 
-    // Filter for selected day
+    // Academic calendar status for selected date
+    final isHoliday = holidaySettings.isHolidayOrBreak(_selectedDate);
+    final isExamPeriod = holidaySettings.isExamPeriod(_selectedDate);
+    final isWithinSemester = holidaySettings.isWithinSemester(_selectedDate);
+    final isClassSuppressed = !isWithinSemester || isHoliday || isExamPeriod;
+
+    // Filter for selected day assessments (normalized date matching)
     final selectedDayAssessments = allAssessments.where((a) {
-      final d = a.date ?? a.dueDate;
+      final d = a.dueDate ?? a.date;
       if (d == null) return false;
       return d.year == _selectedDate.year &&
           d.month == _selectedDate.month &&
           d.day == _selectedDate.day;
     }).toList();
 
-    final selectedDaySlots = allSlots.where((s) => s.dayOfWeek == _selectedDate.weekday).toList()
+    // Active courses filter to exclude ended/archived courses
+    final Set<String>? activeCourseIds = courses.isNotEmpty
+        ? courses.where((c) => !c.isArchived).map((c) => c.id).toSet()
+        : null;
+
+    final selectedDaySlots = isClassSuppressed
+        ? <RoutineSlot>[]
+        : allSlots.where((s) {
+            if (s.dayOfWeek != _selectedDate.weekday) return false;
+            if (activeCourseIds != null && s.courseId.isNotEmpty && !activeCourseIds.contains(s.courseId)) {
+              return false;
+            }
+            return s.isActiveOnDate(_selectedDate);
+          }).toList()
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
     return Scaffold(
@@ -83,7 +102,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 // Left Column: Interactive monthly calendar (flex: 5)
                 Expanded(
                   flex: 5,
-                  child: _buildLeftCalendarColumn(allAssessments, allSlots, holidaySettings),
+                  child: _buildLeftCalendarColumn(allAssessments, allSlots, holidaySettings, activeCourseIds),
                 ),
                 const SizedBox(width: 24),
                 // Right Column: Day Agenda (flex: 7)
@@ -94,6 +113,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                     selectedDaySlots,
                     courseCodeMap,
                     courseTitleMap,
+                    isClassSuppressed: isClassSuppressed,
+                    isHoliday: isHoliday,
+                    isExamPeriod: isExamPeriod,
                   ),
                 ),
               ],
@@ -105,7 +127,12 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   }
 
   // --- SECTION A: Left Column — Monthly Interactive Calendar ---
-  Widget _buildLeftCalendarColumn(List<Assessment> allAssessments, List<RoutineSlot> allSlots, HolidaySettings holidaySettings) {
+  Widget _buildLeftCalendarColumn(
+    List<Assessment> allAssessments,
+    List<RoutineSlot> allSlots,
+    HolidaySettings holidaySettings,
+    Set<String>? activeCourseIds,
+  ) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -230,10 +257,24 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             },
             eventLoader: (day) {
               final dayAssessments = allAssessments.where((a) {
-                final d = a.date ?? a.dueDate;
-                return d != null && isSameDay(d, day);
+                final d = a.dueDate ?? a.date;
+                return d != null &&
+                    d.year == day.year &&
+                    d.month == day.month &&
+                    d.day == day.day;
               }).toList();
-              final daySlots = allSlots.where((s) => s.dayOfWeek == day.weekday).toList();
+              final isDaySuppressed = !holidaySettings.isWithinSemester(day) ||
+                  holidaySettings.isHolidayOrBreak(day) ||
+                  holidaySettings.isExamPeriod(day);
+              final daySlots = isDaySuppressed
+                  ? <RoutineSlot>[]
+                  : allSlots.where((s) {
+                      if (s.dayOfWeek != day.weekday) return false;
+                      if (activeCourseIds != null && s.courseId.isNotEmpty && !activeCourseIds.contains(s.courseId)) {
+                        return false;
+                      }
+                      return s.isActiveOnDate(day);
+                    }).toList();
               return [...dayAssessments, ...daySlots];
             },
             holidayPredicate: (day) => holidaySettings.isHolidayOrBreak(day),
@@ -246,6 +287,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   allAssessments: allAssessments,
                   allSlots: allSlots,
                   holidaySettings: holidaySettings,
+                  activeCourseIds: activeCourseIds,
                 );
               },
               todayBuilder: (context, date, focusedDay) {
@@ -256,6 +298,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   allAssessments: allAssessments,
                   allSlots: allSlots,
                   holidaySettings: holidaySettings,
+                  activeCourseIds: activeCourseIds,
                 );
               },
               selectedBuilder: (context, date, focusedDay) {
@@ -266,6 +309,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   allAssessments: allAssessments,
                   allSlots: allSlots,
                   holidaySettings: holidaySettings,
+                  activeCourseIds: activeCourseIds,
                 );
               },
               holidayBuilder: (context, date, focusedDay) {
@@ -276,6 +320,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   allAssessments: allAssessments,
                   allSlots: allSlots,
                   holidaySettings: holidaySettings,
+                  activeCourseIds: activeCourseIds,
                 );
               },
               markerBuilder: (context, date, events) {
@@ -292,10 +337,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _calendarLegendItem(const Color(0xFF34D399), 'Class Routine'),
+              _calendarLegendItem(const Color(0xFFEF4444), 'Holiday / Vacation'),
               _calendarLegendItem(const Color(0xFFF59E0B), 'Exam Window'),
               _calendarLegendItem(const Color(0xFFF2B78A), 'Exam Day'),
-              _calendarLegendItem(const Color(0xFFEF4444), 'Holiday / Vacation'),
+              _calendarLegendItem(const Color(0xFF34D399), 'Class Routine'),
             ],
           ),
         ],
@@ -332,15 +377,24 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     required List<Assessment> allAssessments,
     required List<RoutineSlot> allSlots,
     required HolidaySettings holidaySettings,
+    Set<String>? activeCourseIds,
   }) {
     final dayAssessments = allAssessments.where((a) {
-      final d = a.date ?? a.dueDate;
-      return d != null && isSameDay(d, date);
+      final d = a.dueDate ?? a.date;
+      return d != null &&
+          d.year == date.year &&
+          d.month == date.month &&
+          d.day == date.day;
     }).toList();
-    final hasSlot = allSlots.any((s) => s.dayOfWeek == date.weekday);
     final isExamPeriod = holidaySettings.isExamPeriod(date);
     final isHoliday = holidaySettings.isHolidayOrBreak(date);
+    final isWithinSemester = holidaySettings.isWithinSemester(date);
     final isExamDay = dayAssessments.isNotEmpty;
+    final hasSlot = (!isHoliday && !isExamPeriod && isWithinSemester) &&
+        allSlots.any((s) =>
+            s.dayOfWeek == date.weekday &&
+            s.isActiveOnDate(date) &&
+            (activeCourseIds == null || !s.courseId.isNotEmpty || activeCourseIds.contains(s.courseId)));
 
     // Tier 1 (Highest priority): Selected Day
     if (isSelected) {
@@ -366,7 +420,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       );
     }
 
-    // Tier 2: Specific Exam / Assessment Day (CT, Quiz, Lab Final, Term Final)
+    // Tier 2: Specific Exam / Assessment Day (CT, Quiz, Lab Final, Term Final) — Prioritized over Holidays!
     if (isExamDay) {
       return Center(
         child: Tooltip(
@@ -375,7 +429,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: isExamPeriod ? const Color(0xFFF59E0B).withValues(alpha: 0.16) : const Color(0xFF241C1A),
+              color: isExamPeriod
+                  ? const Color(0xFFF59E0B).withValues(alpha: 0.16)
+                  : (isHoliday ? const Color(0xFFEF4444).withValues(alpha: 0.16) : const Color(0xFF241C1A)),
               shape: BoxShape.circle,
               border: Border.all(color: const Color(0xFFF2B78A), width: 1.8),
             ),
@@ -418,8 +474,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   child: Container(
                     width: 4,
                     height: 4,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF2B78A),
+                    decoration: BoxDecoration(
+                      color: isHoliday ? const Color(0xFFEF4444) : const Color(0xFFF2B78A),
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -556,8 +612,11 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     List<Assessment> assessments,
     List<RoutineSlot> routineSlots,
     Map<String, String> courseCodeMap,
-    Map<String, String> courseTitleMap,
-  ) {
+    Map<String, String> courseTitleMap, {
+    required bool isClassSuppressed,
+    required bool isHoliday,
+    required bool isExamPeriod,
+  }) {
     final dayLabel = DateFormat('d MMM (EEEE)').format(_selectedDate);
 
     return Column(
@@ -671,7 +730,60 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        if (routineSlots.isEmpty)
+        if (isClassSuppressed)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+            decoration: BoxDecoration(
+              color: isExamPeriod
+                  ? const Color(0xFFF59E0B).withValues(alpha: 0.12)
+                  : const Color(0xFFEF4444).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isExamPeriod
+                    ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                    : const Color(0xFFEF4444).withValues(alpha: 0.35),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  isExamPeriod ? Icons.school_rounded : Icons.beach_access_rounded,
+                  color: isExamPeriod ? const Color(0xFFF59E0B) : const Color(0xFFEF4444),
+                  size: 22,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isExamPeriod
+                            ? 'No scheduled classes (Exam Period / Prep Leave)'
+                            : 'No scheduled classes (Vacation / Holiday)',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: const Color(0xFFEDE8E3),
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isExamPeriod
+                            ? 'Regular routines are suspended during the examination window.'
+                            : 'Classes are suspended for the scheduled vacation/holiday break.',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: const Color(0xFF9E8C82),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )
+        else if (routineSlots.isEmpty)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
