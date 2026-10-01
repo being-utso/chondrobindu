@@ -361,6 +361,20 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                   if (val != null) {
                     SafeHaptics.selectionClick();
                     timerNotifier.changeSubject(val);
+                    final courses = ref.read(coursesStreamProvider).valueOrNull ?? [];
+                    Course? matchedCourse;
+                    for (final c in courses) {
+                      if (c.title.toLowerCase() == val.toLowerCase() ||
+                          c.code.toLowerCase() == val.toLowerCase()) {
+                        matchedCourse = c;
+                        break;
+                      }
+                    }
+                    timerNotifier.setSelectedCourseAndTopic(
+                      courseId: matchedCourse?.id,
+                      courseCode: matchedCourse?.code ?? val,
+                      topicId: _selectedDesktopTopics.isNotEmpty ? _selectedDesktopTopics.first : null,
+                    );
                   }
                 },
               ),
@@ -403,7 +417,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
             if (matchedCourse != null) {
               final liveTopics = ref.watch(syllabusTopicsStreamProvider(matchedCourse.id)).valueOrNull;
               if (liveTopics != null && liveTopics.isNotEmpty) {
-                return liveTopics.take(5).map((t) => _desktopTopicCheckbox(t.topicIndex, t.title)).toList();
+                return liveTopics.take(5).map((t) => _desktopTopicCheckbox(t.topicIndex, t.title, course: matchedCourse)).toList();
               }
             }
             return [
@@ -466,7 +480,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     );
   }
 
-  Widget _desktopTopicCheckbox(String id, String title) {
+  Widget _desktopTopicCheckbox(String id, String title, {Course? course}) {
     final isChecked = _selectedDesktopTopics.contains(id);
     return Padding(
       padding: const EdgeInsets.only(bottom: 6.0),
@@ -480,6 +494,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
               _selectedDesktopTopics.add(id);
             }
           });
+          ref.read(timerProvider.notifier).setSelectedCourseAndTopic(
+            courseId: course?.id,
+            courseCode: course?.code,
+            topicId: _selectedDesktopTopics.isNotEmpty ? _selectedDesktopTopics.first : null,
+          );
         },
         borderRadius: BorderRadius.circular(8),
         child: Container(
@@ -724,9 +743,33 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                     color: Color(0xFF9E8C82),
                     size: 22,
                   ),
-                  onPressed: () {
+                  onPressed: () async {
                     SafeHaptics.heavyImpact();
-                    timerNotifier.startBreakAfterSession();
+                    final metadata = timerNotifier.prepareSessionCompletion();
+                    final totalSecs = metadata.totalDurationSeconds;
+                    int calculatedMins = (totalSecs / 60).round();
+                    if (calculatedMins == 0 && totalSecs >= 15) calculatedMins = 1;
+
+                    if (calculatedMins > 0) {
+                      await ref.read(userProfileProvider.notifier).addFocusMinutes(calculatedMins);
+                    }
+
+                    await timerNotifier.completeSession(
+                      courseId: metadata.courseId,
+                      courseCode: metadata.courseCode,
+                      finalElapsedSeconds: totalSecs,
+                      mode: isStopwatch ? 'stopwatch' : 'focus',
+                      sessionStartTime: metadata.sessionStartTime,
+                    );
+
+                    if (mounted) {
+                      _showPostSessionDialog(
+                        context,
+                        metadata: metadata,
+                        subject: metadata.courseTitle,
+                        durationMinutes: calculatedMins > 0 ? calculatedMins : 1,
+                      );
+                    }
                   },
                 ),
               ],
@@ -1499,6 +1542,19 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                               if (newSubj != null) {
                                 SafeHaptics.lightImpact();
                                 timerNotifier.changeSubject(newSubj);
+                                final courses = ref.read(coursesStreamProvider).valueOrNull ?? [];
+                                Course? matchedCourse;
+                                for (final c in courses) {
+                                  if (c.title.toLowerCase() == newSubj.toLowerCase() ||
+                                      c.code.toLowerCase() == newSubj.toLowerCase()) {
+                                    matchedCourse = c;
+                                    break;
+                                  }
+                                }
+                                timerNotifier.setSelectedCourseAndTopic(
+                                  courseId: matchedCourse?.id,
+                                  courseCode: matchedCourse?.code ?? newSubj,
+                                );
                                 if (isRunning || isPaused) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -2046,14 +2102,21 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                             await ref.read(userProfileProvider.notifier).addFocusMinutes(calculatedMins);
                           }
 
-                          if (context.mounted) {
-                            _showPostSessionDialog(
-                              context,
-                              metadata: metadata,
-                              subject: metadata.courseTitle,
-                              durationMinutes: calculatedMins > 0 ? calculatedMins : 1,
-                            );
-                          }
+                          await timerNotifier.completeSession(
+                            courseId: metadata.courseId,
+                            courseCode: metadata.courseCode,
+                            finalElapsedSeconds: totalSecs,
+                            mode: isStopwatch ? 'stopwatch' : 'focus',
+                            sessionStartTime: metadata.sessionStartTime,
+                          );
+
+                          if (!context.mounted) return;
+                          _showPostSessionDialog(
+                            context,
+                            metadata: metadata,
+                            subject: metadata.courseTitle,
+                            durationMinutes: calculatedMins > 0 ? calculatedMins : 1,
+                          );
                         },
                         icon: const Icon(
                           Icons.check_circle_rounded,
@@ -2337,7 +2400,8 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
       // On modal dismissal / save / skip:
       // Transition immediately to FocusTimerMode.breakRunning and begin ticking earned break clock
       if (mounted) {
-        ref.read(timerProvider.notifier).startBreakAfterSession();
+        final totalSecs = metadata?.totalDurationSeconds ?? (durationMinutes != null ? durationMinutes * 60 : 0);
+        ref.read(timerProvider.notifier).startBreakAfterSession(totalSecs > 0 ? totalSecs : null);
       }
     }
   }

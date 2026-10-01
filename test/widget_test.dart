@@ -473,6 +473,24 @@ void main() {
       notifier.dispose();
     });
 
+    test('calculateBreakMinutes dynamically calculates post-session breaks with correct ratios and clamps', () {
+      // < 5 mins elapsed -> 1 min
+      expect(calculateBreakMinutes(60), 1);   // 1 min study -> 1 min break
+      expect(calculateBreakMinutes(240), 1);  // 4 mins study -> 1 min break
+
+      // break < 2 mins (e.g. 6 mins study / 5 = 1.2 -> round to 1 -> clamp to 2)
+      expect(calculateBreakMinutes(360), 2);  // 6 mins study -> 2 mins break
+      expect(calculateBreakMinutes(480), 2);  // 8 mins study -> 2 mins break
+
+      // Standard study: 25 mins -> 5 mins, 50 mins -> 10 mins
+      expect(calculateBreakMinutes(1500), 5); // 25 mins study -> 5 mins break
+      expect(calculateBreakMinutes(3000), 10); // 50 mins study -> 10 mins break (Bug fix verification)
+
+      // Maximum cap: break > 20 mins -> 20 mins
+      expect(calculateBreakMinutes(7200), 20); // 120 mins study -> capped at 20 mins break
+      expect(calculateBreakMinutes(12000), 20); // 200 mins study -> capped at 20 mins break
+    });
+
     test('Global study and focus calculation providers compute accurate stats from StudySessionLogs', () {
       final now = DateTime.now();
       final logs = [
