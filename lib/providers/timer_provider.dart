@@ -54,6 +54,7 @@ class TimerState {
   final String selectedSubject;
   final String? selectedCourseId;
   final String? selectedTopicId;
+  final String? activeSessionId;
   final int currentSubjectElapsedSeconds;
   final SessionMetadata? sessionMetadata;
 
@@ -71,6 +72,7 @@ class TimerState {
     this.selectedSubject = 'General Study',
     this.selectedCourseId,
     this.selectedTopicId,
+    this.activeSessionId,
     this.currentSubjectElapsedSeconds = 0,
     this.sessionMetadata,
   });
@@ -186,6 +188,8 @@ class TimerState {
     String? selectedSubject,
     String? selectedCourseId,
     String? selectedTopicId,
+    String? activeSessionId,
+    bool clearActiveSessionId = false,
     int? currentSubjectElapsedSeconds,
     SessionMetadata? sessionMetadata,
   }) {
@@ -203,6 +207,7 @@ class TimerState {
       selectedSubject: selectedSubject ?? this.selectedSubject,
       selectedCourseId: selectedCourseId ?? this.selectedCourseId,
       selectedTopicId: selectedTopicId ?? this.selectedTopicId,
+      activeSessionId: clearActiveSessionId ? null : (activeSessionId ?? this.activeSessionId),
       currentSubjectElapsedSeconds: currentSubjectElapsedSeconds ?? this.currentSubjectElapsedSeconds,
       sessionMetadata: sessionMetadata ?? this.sessionMetadata,
     );
@@ -229,6 +234,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
   StreamSubscription<ActiveSessionState>? _activeSessionSub;
   StreamSubscription<User?>? _authSub;
   bool _isLocallyInitiated = false;
+  bool _isCompletingSession = false;
 
   Timer? _ticker;
   Timer? _abandonedPauseTimer;
@@ -339,6 +345,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
           focusMode: FocusTimerMode.breakRunning,
           breakDurationSeconds: breakDur,
           breakElapsedSeconds: nextBreakElapsed,
+          activeSessionId: remoteSession.sessionId,
           selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
           selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
           selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
@@ -350,6 +357,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
           status: TimerStatus.running,
           focusMode: FocusTimerMode.focusRunning,
           elapsedSeconds: currentElapsed,
+          activeSessionId: remoteSession.sessionId,
           selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
           selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
           selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
@@ -366,6 +374,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
             targetSeconds: target,
             elapsedSeconds: target,
             overtimeSeconds: overtime,
+            activeSessionId: remoteSession.sessionId,
             selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
             selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
             selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
@@ -379,6 +388,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
             targetSeconds: target,
             elapsedSeconds: currentElapsed,
             overtimeSeconds: 0,
+            activeSessionId: remoteSession.sessionId,
             selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
             selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
             selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
@@ -411,6 +421,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
           status: TimerStatus.paused,
           focusMode: FocusTimerMode.breakPaused,
           breakElapsedSeconds: currentElapsed,
+          activeSessionId: remoteSession.sessionId,
           selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
           selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
           selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
@@ -422,6 +433,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
           status: TimerStatus.paused,
           focusMode: FocusTimerMode.focusPaused,
           elapsedSeconds: currentElapsed,
+          activeSessionId: remoteSession.sessionId,
           selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
           selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
           selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
@@ -438,6 +450,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
             targetSeconds: target,
             elapsedSeconds: target,
             overtimeSeconds: overtime,
+            activeSessionId: remoteSession.sessionId,
             selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
             selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
             selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
@@ -451,6 +464,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
             targetSeconds: target,
             elapsedSeconds: currentElapsed,
             overtimeSeconds: 0,
+            activeSessionId: remoteSession.sessionId,
             selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
             selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
             selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
@@ -607,13 +621,16 @@ class TimerNotifier extends StateNotifier<TimerState> {
 
     final now = DateTime.now();
     final startTime = now.subtract(Duration(seconds: durationSeconds));
+    final segmentId = 'segment_${now.millisecondsSinceEpoch}_$uid';
 
     try {
       await firestore
           .collection('users')
           .doc(uid)
           .collection('focus_sessions')
-          .add({
+          .doc(segmentId)
+          .set({
+        'sessionId': segmentId,
         'subject': subject,
         'subjectName': subject,
         'durationSeconds': durationSeconds,
@@ -622,7 +639,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
         'endTime': Timestamp.fromDate(now),
         'timestamp': Timestamp.fromDate(now),
         'createdAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
       debugPrint('Logged focus session ($mins mins, $durationSeconds s) for "$subject"');
 
       // Task 3: Schedule rolling streak protector for 9:00 PM tomorrow (dead-man's switch)
@@ -713,6 +730,11 @@ class TimerNotifier extends StateNotifier<TimerState> {
     _notificationService.cancelAbandonedPauseNudge();
 
     final isInitial = state.status == TimerStatus.initial;
+    final uid = _auth?.currentUser?.uid ?? '';
+    final currentSessionId = isInitial
+        ? 'session_${DateTime.now().millisecondsSinceEpoch}_${uid.isNotEmpty ? uid : "local"}'
+        : (state.activeSessionId ?? 'session_${DateTime.now().millisecondsSinceEpoch}_${uid.isNotEmpty ? uid : "local"}');
+
     if (isInitial) {
       _sessionStartTime = DateTime.now();
       final breakDur = calculateBreakMinutes(state.targetSeconds) * 60;
@@ -725,6 +747,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
         breakDurationSeconds: breakDur,
         breakElapsedSeconds: 0,
         extraElapsedSeconds: 0,
+        activeSessionId: currentSessionId,
       );
     } else {
       final newFocusMode = state.isBreak
@@ -735,6 +758,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
       state = state.copyWith(
         status: TimerStatus.running,
         focusMode: newFocusMode,
+        activeSessionId: currentSessionId,
       );
     }
     _lastTickTime = DateTime.now();
@@ -757,12 +781,12 @@ class TimerNotifier extends StateNotifier<TimerState> {
     });
 
     // Cross-Device Sync State Transition to Firestore
-    final uid = _auth?.currentUser?.uid ?? '';
     if (uid.isNotEmpty) {
       _isLocallyInitiated = true;
       if (isInitial) {
         unawaited(_timerService.startActiveSession(
           uid: uid,
+          sessionId: currentSessionId,
           mode: state.isBreak ? 'break' : (state.timerType == TimerType.stopwatch ? 'stopwatch' : 'focus'),
           courseId: state.selectedCourseId,
           courseCode: state.selectedSubject,
@@ -1010,7 +1034,6 @@ class TimerNotifier extends StateNotifier<TimerState> {
   /// 1. Pauses timer ticks.
   /// 2. Sets state to FocusTimerMode.sessionCompleted.
   /// 3. Builds immutable SessionMetadata snapshot for course isolation.
-  /// 4. Asynchronously logs focus segment to Firestore.
   SessionMetadata prepareSessionCompletion() {
     _ticker?.cancel();
     _lastTickTime = null;
@@ -1037,10 +1060,6 @@ class TimerNotifier extends StateNotifier<TimerState> {
       sessionMetadata: metadata,
     );
 
-    if (totalSecs > 0) {
-      unawaited(_logFocusSegment(state.selectedSubject, totalSecs));
-    }
-
     return metadata;
   }
 
@@ -1055,33 +1074,41 @@ class TimerNotifier extends StateNotifier<TimerState> {
     DateTime? sessionStartTime,
     DateTime? sessionEndTime,
   }) async {
-    _ticker?.cancel();
-    _lastTickTime = null;
-    _abandonedPauseTimer?.cancel();
-    _abandonedPauseTimer = null;
-    _notificationService.cancelAbandonedPauseNudge();
-    _disableWakelock();
+    if (_isCompletingSession) return false;
+    _isCompletingSession = true;
+    try {
+      _ticker?.cancel();
+      _lastTickTime = null;
+      _abandonedPauseTimer?.cancel();
+      _abandonedPauseTimer = null;
+      _notificationService.cancelAbandonedPauseNudge();
+      _disableWakelock();
 
-    final uid = _auth?.currentUser?.uid ?? '';
-    final elapsed = finalElapsedSeconds ?? state.totalLoggedSeconds;
-    final start = sessionStartTime ?? _sessionStartTime ?? DateTime.now().subtract(Duration(seconds: elapsed));
-    final sessionMode = mode ?? (state.timerType == TimerType.stopwatch ? 'stopwatch' : 'focus');
+      final uid = _auth?.currentUser?.uid ?? '';
+      final elapsed = finalElapsedSeconds ?? state.totalLoggedSeconds;
+      final start = sessionStartTime ?? _sessionStartTime ?? DateTime.now().subtract(Duration(seconds: elapsed));
+      final sessionMode = mode ?? (state.timerType == TimerType.stopwatch ? 'stopwatch' : 'focus');
 
-    if (uid.isEmpty) return false;
+      if (uid.isEmpty) return false;
 
-    _isLocallyInitiated = true;
-    final success = await _timerService.completeSession(
-      uid: uid,
-      courseId: courseId ?? state.selectedCourseId,
-      courseCode: courseCode ?? state.selectedSubject,
-      topicId: topicId ?? state.selectedTopicId,
-      finalElapsedSeconds: elapsed,
-      mode: sessionMode,
-      sessionStartTime: start,
-      sessionEndTime: sessionEndTime,
-    );
+      _isLocallyInitiated = true;
+      final success = await _timerService.completeSession(
+        uid: uid,
+        sessionId: state.activeSessionId,
+        courseId: courseId ?? state.selectedCourseId,
+        courseCode: courseCode ?? state.selectedSubject,
+        topicId: topicId ?? state.selectedTopicId,
+        finalElapsedSeconds: elapsed,
+        mode: sessionMode,
+        sessionStartTime: start,
+        sessionEndTime: sessionEndTime,
+      );
 
-    return success;
+      state = state.copyWith(clearActiveSessionId: true);
+      return success;
+    } finally {
+      _isCompletingSession = false;
+    }
   }
 
   /// Automatically launches the earned break clock after session completion:

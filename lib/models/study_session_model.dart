@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/timer_service.dart';
 
 /// Completed Study Session Model inside `/users/{uid}/study_sessions/{sessionId}`
 class StudySession {
   final String id;
   final String courseId;
   final String courseCode;
+  final String? courseTitle;
   final List<String> topicIds;
   final List<String> topicTitles;
   final int durationSeconds;
@@ -18,6 +20,7 @@ class StudySession {
     required this.id,
     required this.courseId,
     required this.courseCode,
+    this.courseTitle,
     this.topicIds = const [],
     this.topicTitles = const [],
     required this.durationSeconds,
@@ -27,6 +30,11 @@ class StudySession {
     this.focusNotes,
     this.focusRating = 5,
   });
+
+  String get cleanTitle => formatCleanSessionTitle(
+        courseCode: courseCode,
+        courseTitle: courseTitle,
+      );
 
   int get totalSeconds => durationSeconds + overtimeSeconds;
   double get durationMinutes => durationSeconds / 60.0;
@@ -94,10 +102,13 @@ class StudySession {
     final notes = map['focusNotes'] as String? ?? map['notes'] as String?;
     final rating = (map['focusRating'] as num?)?.toInt() ?? 5;
 
+    final courseTitle = map['courseTitle'] as String? ?? map['subjectTitle'] as String? ?? map['title'] as String?;
+
     return StudySession(
       id: id,
       courseId: courseId,
       courseCode: courseCode,
+      courseTitle: courseTitle,
       topicIds: tIds,
       topicTitles: tTitles,
       durationSeconds: dur,
@@ -114,6 +125,8 @@ class StudySession {
       'id': id,
       'courseId': courseId,
       'courseCode': courseCode,
+      'courseTitle': courseTitle,
+      'cleanTitle': cleanTitle,
       'topicIds': topicIds,
       'topicTitles': topicTitles,
       'durationSeconds': durationSeconds,

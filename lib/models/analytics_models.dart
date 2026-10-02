@@ -1,3 +1,5 @@
+import '../services/timer_service.dart';
+
 /// Data model for a single completed focus study session
 class StudySessionLog {
   final String id;
@@ -6,6 +8,8 @@ class StudySessionLog {
   final int durationInSeconds;
   final String subjectId;
   final String subjectName;
+  final String? courseCode;
+  final String? courseTitle;
   final DateTime? startTime;
   final DateTime? endTime;
 
@@ -16,15 +20,23 @@ class StudySessionLog {
     this.durationInSeconds = 0,
     required this.subjectId,
     this.subjectName = 'General Study',
+    this.courseCode,
+    this.courseTitle,
     this.startTime,
     this.endTime,
   });
 
   @override
-  String toString() => '$subjectName ($durationInMinutes mins)';
+  String toString() => '$cleanTitle ($durationInMinutes mins)';
 
   int get durationMinutes => durationInMinutes;
   String get subject => subjectName;
+
+  String get cleanTitle => formatCleanSessionTitle(
+        courseCode: courseCode,
+        courseTitle: courseTitle,
+        fallback: subjectName,
+      );
 
   StudySessionLog copyWith({
     String? id,
@@ -33,6 +45,8 @@ class StudySessionLog {
     int? durationInSeconds,
     String? subjectId,
     String? subjectName,
+    String? courseCode,
+    String? courseTitle,
     DateTime? startTime,
     DateTime? endTime,
   }) {
@@ -43,6 +57,8 @@ class StudySessionLog {
       durationInSeconds: durationInSeconds ?? this.durationInSeconds,
       subjectId: subjectId ?? this.subjectId,
       subjectName: subjectName ?? this.subjectName,
+      courseCode: courseCode ?? this.courseCode,
+      courseTitle: courseTitle ?? this.courseTitle,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
     );

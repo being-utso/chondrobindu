@@ -18,13 +18,136 @@ int calculateBreakMinutes(int elapsedSeconds, {double ratio = 5.0}) {
   return breakMinutes;
 }
 
+/// Formats clean course and session titles without repeating codes or redundant prefixes.
+/// E.g.
+/// - ("MATH 157", "Differential Calculus") -> "MATH 157: Differential Calculus"
+/// - ("MATH 157", "MATH 157 - Differential Calculus") -> "MATH 157: Differential Calculus"
+/// - ("MATH 157", "MATH 157") -> "MATH 157"
+/// - ("MATH 157", "") -> "MATH 157"
+/// - ("", "MATH 157 - Calculus") -> "MATH 157: Calculus"
+String formatCleanSessionTitle({
+  String? courseCode,
+  String? courseTitle,
+  String? fallback,
+}) {
+  final code = (courseCode ?? '').trim();
+  var title = (courseTitle ?? '').trim();
+  final fb = (fallback ?? '').trim();
+
+  if (code.isEmpty && title.isEmpty) {
+    if (fb.isNotEmpty) {
+      return formatCleanSessionTitle(courseTitle: fb);
+    }
+    return 'General Study';
+  }
+
+  if (code.isEmpty) {
+    if (title.contains(' - ')) {
+      final parts = title.split(' - ');
+      final c = parts.first.trim();
+      final rest = parts.sublist(1).join(' - ').trim();
+      if (c.isNotEmpty && rest.isNotEmpty) {
+        return '$c: $rest';
+      }
+    } else if (title.contains(': ')) {
+      final parts = title.split(': ');
+      final c = parts.first.trim();
+      final rest = parts.sublist(1).join(': ').trim();
+      if (c.isNotEmpty && rest.isNotEmpty) {
+        return '$c: $rest';
+      }
+    }
+    return title;
+  }
+
+  if (title.isEmpty) {
+    return code;
+  }
+
+  if (title.toLowerCase() == code.toLowerCase()) {
+    return code;
+  }
+
+  // Remove code from title if title starts with code
+  if (title.toLowerCase().startsWith(code.toLowerCase())) {
+    title = title.substring(code.length).trim();
+    if (title.startsWith('-') || title.startsWith(':')) {
+      title = title.substring(1).trim();
+    }
+  }
+
+  if (title.isEmpty) {
+    return code;
+  }
+
+  return '$code: $title';
+}
+
+/// Client-side deduplication filter for study session streams:
+/// 1. Filters out duplicate session/document IDs.
+/// 2. Overlap safeguard: if two sessions for the same user and course start within
+///    90 seconds of each other with identical (or within 5s) durations, collapses
+///    them into a single entry to suppress historical duplicates.
+List<T> deduplicateStudySessions<T>({
+  required List<T> sessions,
+  required String Function(T) getId,
+  required String Function(T) getCourseKey,
+  required DateTime Function(T) getStartTime,
+  required int Function(T) getDurationSeconds,
+}) {
+  if (sessions.isEmpty) return const [];
+
+  final List<T> uniqueById = [];
+  final Set<String> seenIds = {};
+
+  for (final s in sessions) {
+    final id = getId(s).trim();
+    if (id.isNotEmpty) {
+      if (seenIds.contains(id)) continue;
+      seenIds.add(id);
+    }
+    uniqueById.add(s);
+  }
+
+  // Sort chronologically by start time
+  uniqueById.sort((a, b) => getStartTime(a).compareTo(getStartTime(b)));
+
+  final List<T> collapsed = [];
+  for (final s in uniqueById) {
+    if (collapsed.isEmpty) {
+      collapsed.add(s);
+      continue;
+    }
+
+    final prev = collapsed.last;
+    final sameCourse = getCourseKey(prev).toLowerCase().trim() == getCourseKey(s).toLowerCase().trim();
+    final timeDiffSecs = getStartTime(s).difference(getStartTime(prev)).inSeconds.abs();
+    final durDiffSecs = (getDurationSeconds(s) - getDurationSeconds(prev)).abs();
+    final durMinsPrev = (getDurationSeconds(prev) / 60).round();
+    final durMinsCur = (getDurationSeconds(s) / 60).round();
+    final sameDuration = durDiffSecs <= 5 || durMinsPrev == durMinsCur;
+
+    if (sameCourse && timeDiffSecs <= 90 && sameDuration) {
+      // Historical duplicate detected: collapse into single entry
+      continue;
+    }
+
+    collapsed.add(s);
+  }
+
+  return collapsed;
+}
+
 /// Active Session snapshot model from `users/{uid}/active_session/current`
 class ActiveSessionState {
+  final String? sessionId;
   final String status; // "idle" | "running" | "paused"
   final String mode; // "focus" | "stopwatch" | "break"
   final String? courseId;
   final String? courseCode;
+  final String? courseTitle;
   final String? topicId;
+  final String? topicName;
   final int targetDurationSeconds;
   final int elapsedBeforePauseSeconds;
   final DateTime? startedAt;
@@ -32,11 +155,14 @@ class ActiveSessionState {
   final DateTime? lastHeartbeat;
 
   const ActiveSessionState({
+    this.sessionId,
     required this.status,
     this.mode = 'focus',
     this.courseId,
     this.courseCode,
+    this.courseTitle,
     this.topicId,
+    this.topicName,
     this.targetDurationSeconds = 1500,
     this.elapsedBeforePauseSeconds = 0,
     this.startedAt,
@@ -57,11 +183,14 @@ class ActiveSessionState {
     }
 
     return ActiveSessionState(
+      sessionId: data['sessionId'] as String? ?? data['id'] as String?,
       status: (data['status'] as String?)?.toLowerCase() ?? 'idle',
       mode: (data['mode'] as String?)?.toLowerCase() ?? 'focus',
       courseId: data['courseId'] as String?,
       courseCode: data['courseCode'] as String?,
+      courseTitle: data['courseTitle'] as String?,
       topicId: data['topicId'] as String?,
+      topicName: data['topicName'] as String?,
       targetDurationSeconds: (data['targetDurationSeconds'] as num?)?.toInt() ?? 1500,
       elapsedBeforePauseSeconds: (data['elapsedBeforePauseSeconds'] as num?)?.toInt() ?? 0,
       startedAt: parseTimestamp(data['startedAt']),
@@ -72,11 +201,14 @@ class ActiveSessionState {
 
   Map<String, dynamic> toMap() {
     return {
+      'sessionId': sessionId,
       'status': status,
       'mode': mode,
       'courseId': courseId,
       'courseCode': courseCode,
+      'courseTitle': courseTitle,
       'topicId': topicId,
+      'topicName': topicName,
       'targetDurationSeconds': targetDurationSeconds,
       'elapsedBeforePauseSeconds': elapsedBeforePauseSeconds,
       'startedAt': startedAt != null ? Timestamp.fromDate(startedAt!) : null,
@@ -87,16 +219,18 @@ class ActiveSessionState {
 
   @override
   String toString() =>
-      'ActiveSessionState(status: $status, mode: $mode, elapsedBeforePause: $elapsedBeforePauseSeconds, startedAt: $startedAt)';
+      'ActiveSessionState(sessionId: $sessionId, status: $status, mode: $mode, elapsedBeforePause: $elapsedBeforePauseSeconds, startedAt: $startedAt)';
 }
 
 /// TimerService manages:
 /// 1. Real-time cross-device active session sync via `users/{uid}/active_session/current`
 /// 2. Session completion persistence to `users/{uid}/study_sessions` and `users/{uid}/focus_sessions`
-/// 3. User aggregate statistics updates (`totalFocusSeconds`, `lastStudyDate`, `streakDays`)
+/// 3. In-memory concurrency mutex and deterministic idempotent document keys
+/// 4. User aggregate statistics updates (`totalFocusSeconds`, `lastStudyDate`, `streakDays`)
 class TimerService {
   final FirebaseFirestore? _firestore;
   final FirebaseAuth? _auth;
+  bool _isSavingSession = false;
 
   TimerService({
     FirebaseFirestore? firestore,
@@ -146,32 +280,42 @@ class TimerService {
     });
   }
 
-  /// Writes START state transition to Firestore
+  /// Writes START state transition to Firestore with idempotent sessionId
   Future<void> startActiveSession({
     required String uid,
     required String mode, // 'focus' | 'stopwatch' | 'break'
+    String? sessionId,
     String? courseId,
     String? courseCode,
+    String? courseTitle,
     String? topicId,
+    String? topicName,
     int targetDurationSeconds = 1500,
   }) async {
     final docRef = _activeSessionDoc(uid);
     if (docRef == null) return;
 
+    final sId = (sessionId != null && sessionId.isNotEmpty)
+        ? sessionId
+        : 'session_${DateTime.now().millisecondsSinceEpoch}_$uid';
+
     try {
       await docRef.set({
+        'sessionId': sId,
         'status': 'running',
         'mode': mode,
         'courseId': courseId,
         'courseCode': courseCode,
+        'courseTitle': courseTitle,
         'topicId': topicId,
+        'topicName': topicName,
         'targetDurationSeconds': targetDurationSeconds,
         'elapsedBeforePauseSeconds': 0,
         'startedAt': FieldValue.serverTimestamp(),
         'pausedAt': null,
         'lastHeartbeat': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      debugPrint('Active session STARTED in Firestore for user $uid (mode: $mode)');
+      debugPrint('Active session STARTED in Firestore for user $uid (sessionId: $sId, mode: $mode)');
     } catch (e) {
       debugPrint('Error starting active session: $e');
     }
@@ -223,11 +367,14 @@ class TimerService {
 
     try {
       await docRef.set({
+        'sessionId': null,
         'status': 'idle',
         'mode': 'focus',
         'courseId': null,
         'courseCode': null,
+        'courseTitle': null,
         'topicId': null,
+        'topicName': null,
         'targetDurationSeconds': 0,
         'elapsedBeforePauseSeconds': 0,
         'startedAt': null,
@@ -240,36 +387,65 @@ class TimerService {
     }
   }
 
-  /// Persists completed session to `study_sessions`, updates user stats, and resets active session
+  /// Persists completed session to `study_sessions`, updates user stats, and resets active session.
+  ///
+  /// CRITICAL ARCHITECTURAL SAFEGUARDS:
+  /// 1. Save Execution Lock (in-memory mutex `_isSavingSession`) to prevent concurrent saves.
+  /// 2. Deterministic Idempotent Document Key: uses `.doc(sessionId).set(..., SetOptions(merge: true))`
+  ///    instead of `.add()`, guaranteeing exactly ONE document in Firestore across all devices.
   Future<bool> completeSession({
     required String uid,
+    String? sessionId,
     String? courseId,
     String? courseCode,
+    String? courseTitle,
     String? topicId,
+    String? topicName,
     required int finalElapsedSeconds,
     required String mode, // 'focus' or 'stopwatch'
     required DateTime sessionStartTime,
     DateTime? sessionEndTime,
   }) async {
-    final db = firestore;
-    if (db == null || uid.isEmpty) return false;
-
-    // Minimum threshold check: Only persist sessions with duration >= 60 seconds (1 minute)
-    if (finalElapsedSeconds < 60) {
-      debugPrint('Session discarded: duration ($finalElapsedSeconds s) below 60s minimum threshold');
-      await resetActiveSession(uid);
+    if (_isSavingSession) {
+      debugPrint('TimerService: completeSession already in progress, ignoring concurrent save');
       return false;
     }
-
-    final now = sessionEndTime ?? DateTime.now();
-    final mins = (finalElapsedSeconds / 60).round().clamp(1, 100000);
+    _isSavingSession = true;
 
     try {
-      // 1. Add document to users/{uid}/study_sessions
+      final db = firestore;
+      if (db == null || uid.isEmpty) return false;
+
+      // Minimum threshold check: Only persist sessions with duration >= 60 seconds (1 minute)
+      if (finalElapsedSeconds < 60) {
+        debugPrint('Session discarded: duration ($finalElapsedSeconds s) below 60s minimum threshold');
+        await resetActiveSession(uid);
+        return false;
+      }
+
+      final now = sessionEndTime ?? DateTime.now();
+      final mins = (finalElapsedSeconds / 60).round().clamp(1, 100000);
+
+      // Deterministic session ID ensures idempotent writes across devices
+      final resolvedSessionId = (sessionId != null && sessionId.isNotEmpty)
+          ? sessionId
+          : 'session_${sessionStartTime.millisecondsSinceEpoch}_$uid';
+
+      final cleanTitle = formatCleanSessionTitle(
+        courseCode: courseCode,
+        courseTitle: courseTitle,
+      );
+
+      // 1. Idempotently write to users/{uid}/study_sessions/{sessionId}
       final studySessionData = {
+        'sessionId': resolvedSessionId,
+        'id': resolvedSessionId,
         'courseId': courseId ?? '',
         'courseCode': courseCode ?? 'General Study',
+        'courseTitle': courseTitle ?? courseCode ?? 'General Study',
+        'cleanTitle': cleanTitle,
         'topicId': topicId ?? '',
+        'topicName': topicName ?? '',
         'durationSeconds': finalElapsedSeconds,
         'durationMinutes': mins,
         'mode': mode,
@@ -277,6 +453,7 @@ class TimerService {
         'endedAt': Timestamp.fromDate(now),
         'timestamp': Timestamp.fromDate(now),
         'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
         'completed': true,
       };
 
@@ -284,23 +461,34 @@ class TimerService {
           .collection('users')
           .doc(uid)
           .collection('study_sessions')
-          .add(studySessionData);
+          .doc(resolvedSessionId)
+          .set(studySessionData, SetOptions(merge: true));
 
-      // Also add to users/{uid}/focus_sessions for analytics & live Insights stream
+      // Also idempotently write to users/{uid}/focus_sessions/{sessionId} for analytics & live Insights stream
       await db
           .collection('users')
           .doc(uid)
           .collection('focus_sessions')
-          .add({
+          .doc(resolvedSessionId)
+          .set({
+        'sessionId': resolvedSessionId,
+        'id': resolvedSessionId,
         'subject': courseCode ?? 'General Study',
         'subjectName': courseCode ?? 'General Study',
+        'courseId': courseId ?? '',
+        'courseCode': courseCode ?? 'General Study',
+        'courseTitle': courseTitle ?? courseCode ?? 'General Study',
+        'cleanTitle': cleanTitle,
+        'topicId': topicId ?? '',
+        'topicName': topicName ?? '',
         'durationSeconds': finalElapsedSeconds,
         'durationMinutes': mins,
         'startTime': Timestamp.fromDate(sessionStartTime),
         'endTime': Timestamp.fromDate(now),
         'timestamp': Timestamp.fromDate(now),
         'createdAt': FieldValue.serverTimestamp(),
-      });
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
       // 2. Update User Aggregate Stats in users/{uid}
       final userRef = db.collection('users').doc(uid);
@@ -349,12 +537,14 @@ class TimerService {
 
       // 3. Reset users/{uid}/active_session/current to status: 'idle'
       await resetActiveSession(uid);
-      debugPrint('Successfully persisted study session ($mins mins, $finalElapsedSeconds s) for user $uid');
+      debugPrint('Successfully persisted study session ($resolvedSessionId, $mins mins) for user $uid');
       return true;
     } catch (e) {
       debugPrint('Error completing study session: $e');
       await resetActiveSession(uid);
       return false;
+    } finally {
+      _isSavingSession = false;
     }
   }
 }

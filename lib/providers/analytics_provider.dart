@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/analytics_models.dart';
+import '../services/timer_service.dart';
 
 /// StreamProvider listening to live focus session records from Firestore: users/{uid}/focus_sessions
 final focusSessionsStreamProvider = StreamProvider<List<StudySessionLog>>((ref) {
@@ -18,7 +19,7 @@ final focusSessionsStreamProvider = StreamProvider<List<StudySessionLog>>((ref) 
       .orderBy('timestamp', descending: true)
       .snapshots()
       .map((snapshot) {
-    return snapshot.docs.map((doc) {
+    final rawLogs = snapshot.docs.map((doc) {
       final data = doc.data();
 
       DateTime date = DateTime.now();
@@ -46,18 +47,31 @@ final focusSessionsStreamProvider = StreamProvider<List<StudySessionLog>>((ref) 
       }
 
       final subject = data['subjectName'] as String? ?? (data['subject'] as String? ?? 'General Study');
+      final courseCode = data['courseCode'] as String?;
+      final courseTitle = data['courseTitle'] as String?;
+      final sessionId = data['sessionId'] as String? ?? doc.id;
 
       return StudySessionLog(
-        id: doc.id,
+        id: sessionId,
         date: date,
         durationInMinutes: durationMins,
         durationInSeconds: durationSecs,
         subjectId: subject,
         subjectName: subject,
+        courseCode: courseCode,
+        courseTitle: courseTitle,
         startTime: startTime,
         endTime: endTime,
       );
     }).toList();
+
+    return deduplicateStudySessions<StudySessionLog>(
+      sessions: rawLogs,
+      getId: (s) => s.id,
+      getCourseKey: (s) => s.courseCode?.isNotEmpty == true ? s.courseCode! : s.subjectName,
+      getStartTime: (s) => s.startTime ?? s.date,
+      getDurationSeconds: (s) => s.durationInSeconds > 0 ? s.durationInSeconds : s.durationInMinutes * 60,
+    ).reversed.toList();
   });
 });
 

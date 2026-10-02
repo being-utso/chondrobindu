@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../models/study_session_model.dart';
+import '../services/timer_service.dart';
 
 class StudySessionRepository {
   final FirebaseFirestore? _firestore;
@@ -24,8 +25,13 @@ class StudySessionRepository {
           .map((doc) => StudySession.fromFirestore(doc))
           .where((s) => !s.startedAt.isBefore(startOfDay) && s.startedAt.isBefore(endOfDay))
           .toList();
-      list.sort((a, b) => a.startedAt.compareTo(b.startedAt));
-      return list;
+      return deduplicateStudySessions<StudySession>(
+        sessions: list,
+        getId: (s) => s.id,
+        getCourseKey: (s) => s.courseCode.isNotEmpty ? s.courseCode : s.courseId,
+        getStartTime: (s) => s.startedAt,
+        getDurationSeconds: (s) => s.durationSeconds,
+      );
     });
   }
 
@@ -36,8 +42,13 @@ class StudySessionRepository {
           .map((doc) => StudySession.fromFirestore(doc))
           .where((s) => !s.startedAt.isBefore(start) && !s.startedAt.isAfter(end))
           .toList();
-      list.sort((a, b) => a.startedAt.compareTo(b.startedAt));
-      return list;
+      return deduplicateStudySessions<StudySession>(
+        sessions: list,
+        getId: (s) => s.id,
+        getCourseKey: (s) => s.courseCode.isNotEmpty ? s.courseCode : s.courseId,
+        getStartTime: (s) => s.startedAt,
+        getDurationSeconds: (s) => s.durationSeconds,
+      );
     });
   }
 
@@ -45,8 +56,15 @@ class StudySessionRepository {
     if (_firestore == null || uid.isEmpty) return Stream.value([]);
     return _sessionsRef(uid)!.snapshots().map((snapshot) {
       final list = snapshot.docs.map((doc) => StudySession.fromFirestore(doc)).toList();
-      list.sort((a, b) => b.startedAt.compareTo(a.startedAt));
-      return list.take(limit).toList();
+      final deduplicated = deduplicateStudySessions<StudySession>(
+        sessions: list,
+        getId: (s) => s.id,
+        getCourseKey: (s) => s.courseCode.isNotEmpty ? s.courseCode : s.courseId,
+        getStartTime: (s) => s.startedAt,
+        getDurationSeconds: (s) => s.durationSeconds,
+      );
+      deduplicated.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+      return deduplicated.take(limit).toList();
     });
   }
 

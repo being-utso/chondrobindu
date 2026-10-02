@@ -27,6 +27,7 @@ import 'package:chondrobindu/utils/safe_haptics.dart';
 
 import 'package:intl/intl.dart';
 import '../models/study_session_model.dart';
+import '../services/timer_service.dart';
 
 /// Period selector for analytics and study sessions
 enum InsightPeriod { day, week, month, trend }
@@ -1175,7 +1176,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  session.subjectName,
+                                  session.cleanTitle,
                                   style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -2586,7 +2587,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     for (final s in daySessions) {
       final sStart = s.startTime ?? s.date.subtract(Duration(minutes: s.durationMinutes));
       final sEnd = s.endTime ?? s.date;
-      final courseName = s.subjectName.isNotEmpty ? s.subjectName : (s.subject.isNotEmpty ? s.subject : 'Course Study');
+      final courseName = s.cleanTitle;
 
       StudyJournalEntry? matchedJournal;
       for (final j in dayJournals) {
@@ -2601,13 +2602,19 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         }
       }
 
+      final resolvedTitle = matchedJournal != null && matchedJournal.title.isNotEmpty
+          ? formatCleanSessionTitle(
+              courseCode: s.courseCode,
+              courseTitle: matchedJournal.title.replaceFirst('Study Log: ', ''),
+              fallback: courseName,
+            )
+          : courseName;
+
       sessionItems.add(_TimelineSessionItem(
         id: s.id,
         sessionId: s.id,
         journalId: matchedJournal?.id,
-        courseName: matchedJournal != null && matchedJournal.title.isNotEmpty
-            ? matchedJournal.title.replaceFirst('Study Log: ', '')
-            : courseName,
+        courseName: resolvedTitle,
         topics: matchedJournal?.topicsCovered,
         content: matchedJournal?.content,
         startTime: sStart.isBefore(sEnd) ? sStart : sEnd.subtract(Duration(minutes: s.durationMinutes)),
@@ -2637,6 +2644,18 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
     // Sort chronologically by startTime
     sessionItems.sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    // Deduplicate any overlapping / multi-listener duplicated sessions
+    final dedupedItems = deduplicateStudySessions<_TimelineSessionItem>(
+      sessions: sessionItems,
+      getId: (it) => it.sessionId ?? it.id,
+      getCourseKey: (it) => it.courseName,
+      getStartTime: (it) => it.startTime,
+      getDurationSeconds: (it) => it.durationMinutes * 60,
+    );
+    sessionItems
+      ..clear()
+      ..addAll(dedupedItems);
 
     // 2. Build Chronological Timeline with unlogged Gap Slots ("No Log")
     final List<dynamic> timelineItems = [];
@@ -5282,7 +5301,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       segments.add(Expanded(
         flex: durMin,
         child: Tooltip(
-          message: '${s.courseCode}: ${s.startedAt.hour.toString().padLeft(2, '0')}:${s.startedAt.minute.toString().padLeft(2, '0')} - ${s.endedAt.hour.toString().padLeft(2, '0')}:${s.endedAt.minute.toString().padLeft(2, '0')} (${durMin}m)',
+          message: '${s.cleanTitle}: ${s.startedAt.hour.toString().padLeft(2, '0')}:${s.startedAt.minute.toString().padLeft(2, '0')} - ${s.endedAt.hour.toString().padLeft(2, '0')}:${s.endedAt.minute.toString().padLeft(2, '0')} (${durMin}m)',
           child: Container(
             decoration: BoxDecoration(
               color: const Color(0xFFF2B78A),
