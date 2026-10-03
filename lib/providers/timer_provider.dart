@@ -7,6 +7,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/session_metadata.dart';
 import '../services/notification_service.dart';
 import '../services/timer_service.dart';
+import '../utils/client_identity.dart';
 import 'timer_subjects_provider.dart';
 
 export '../models/session_metadata.dart';
@@ -732,8 +733,8 @@ class TimerNotifier extends StateNotifier<TimerState> {
     final isInitial = state.status == TimerStatus.initial;
     final uid = _auth?.currentUser?.uid ?? '';
     final currentSessionId = isInitial
-        ? 'session_${DateTime.now().millisecondsSinceEpoch}_${uid.isNotEmpty ? uid : "local"}'
-        : (state.activeSessionId ?? 'session_${DateTime.now().millisecondsSinceEpoch}_${uid.isNotEmpty ? uid : "local"}');
+        ? ClientIdentity.newSessionId()
+        : (state.activeSessionId ?? ClientIdentity.newSessionId());
 
     if (isInitial) {
       _sessionStartTime = DateTime.now();
@@ -787,6 +788,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
         unawaited(_timerService.startActiveSession(
           uid: uid,
           sessionId: currentSessionId,
+          leadClientId: ClientIdentity.instanceId,
           mode: state.isBreak ? 'break' : (state.timerType == TimerType.stopwatch ? 'stopwatch' : 'focus'),
           courseId: state.selectedCourseId,
           courseCode: state.selectedSubject,

@@ -233,7 +233,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final streak = ref.watch(currentStreakProvider);
     final totalHours = ref.watch(totalStudyHoursProvider);
     final focusSessionsAsync = ref.watch(focusSessionsStreamProvider);
-    final focusSessions = focusSessionsAsync.asData?.value ?? [];
+    final focusSessions = deduplicateSessionLogs(focusSessionsAsync.asData?.value ?? []);
     final journalAsync = ref.watch(journalStreamProvider);
     final journalEntries = journalAsync.asData?.value ?? [];
 
@@ -4436,7 +4436,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
   Widget _buildDesktopInsightsScreen(BuildContext context) {
     final sessionsAsync = ref.watch(studySessionsRangeStreamProvider(DateRangeParam(_rangeStart, _rangeEnd)));
-    final sessions = sessionsAsync.value ?? [];
+    final sessions = deduplicateSessions(sessionsAsync.value ?? []);
     final profile = ref.watch(liveUserProfileProvider).value ?? ref.watch(userProfileProvider);
     final isUni = profile?.isUniversityStudent == true || profile?.institutionType == InstitutionType.university;
     final effectiveCategoryTab = (isUni && _desktopCategoryTab == 'Performance') ? 'Overview' : _desktopCategoryTab;

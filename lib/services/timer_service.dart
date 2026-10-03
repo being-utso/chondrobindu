@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import '../models/study_session_model.dart';
+import '../models/analytics_models.dart';
+import '../utils/client_identity.dart';
 
 /// Top-level Break Time Calculator
 /// Dynamically computes break duration based on ACTUAL elapsed focus time
@@ -138,9 +141,81 @@ List<T> deduplicateStudySessions<T>({
   return collapsed;
 }
 
+/// Client-side timeline aggregation & historical merge for StudySession:
+/// 1. Sorts by startedAt descending
+/// 2. Collapses entries with identical non-empty sessionId
+/// 3. Overlap safeguard: collapses sessions of the same course starting within 90s
+///    with duration difference <= 60s into a single clean tile.
+List<StudySession> deduplicateSessions(List<StudySession> sessions) {
+  if (sessions.isEmpty) return [];
+
+  // Sort by startedAt descending
+  final sorted = List<StudySession>.from(sessions)
+    ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
+
+  final List<StudySession> clean = [];
+
+  for (final current in sorted) {
+    final hasDuplicate = clean.any((existing) {
+      // Same sessionId match
+      if (existing.sessionId.isNotEmpty && existing.sessionId == current.sessionId) {
+        return true;
+      }
+      // Overlapping timeframe match (within 90 seconds start-time drift)
+      final timeDiff = existing.startedAt.difference(current.startedAt).inSeconds.abs();
+      final durationDiff = (existing.durationSeconds - current.durationSeconds).abs();
+      final sameCourse = (existing.courseCode.isNotEmpty && current.courseCode.isNotEmpty && existing.courseCode == current.courseCode) ||
+          (existing.courseId.isNotEmpty && current.courseId.isNotEmpty && existing.courseId == current.courseId);
+
+      return sameCourse && timeDiff <= 90 && durationDiff <= 60;
+    });
+
+    if (!hasDuplicate) {
+      clean.add(current);
+    }
+  }
+  return clean;
+}
+
+/// Client-side timeline aggregation & historical merge for StudySessionLog:
+List<StudySessionLog> deduplicateSessionLogs(List<StudySessionLog> sessions) {
+  if (sessions.isEmpty) return [];
+
+  final sorted = List<StudySessionLog>.from(sessions)
+    ..sort((a, b) => (b.startTime ?? b.date).compareTo(a.startTime ?? a.date));
+
+  final List<StudySessionLog> clean = [];
+
+  for (final current in sorted) {
+    final currentStart = current.startTime ?? current.date;
+    final currentDur = current.durationInSeconds > 0 ? current.durationInSeconds : current.durationInMinutes * 60;
+
+    final hasDuplicate = clean.any((existing) {
+      if (existing.id.isNotEmpty && existing.id == current.id) {
+        return true;
+      }
+      final existingStart = existing.startTime ?? existing.date;
+      final existingDur = existing.durationInSeconds > 0 ? existing.durationInSeconds : existing.durationInMinutes * 60;
+
+      final timeDiff = existingStart.difference(currentStart).inSeconds.abs();
+      final durationDiff = (existingDur - currentDur).abs();
+      final sameCourse = (existing.courseCode != null && current.courseCode != null && existing.courseCode == current.courseCode) ||
+          existing.subjectName.toLowerCase().trim() == current.subjectName.toLowerCase().trim();
+
+      return sameCourse && timeDiff <= 90 && durationDiff <= 60;
+    });
+
+    if (!hasDuplicate) {
+      clean.add(current);
+    }
+  }
+  return clean;
+}
+
 /// Active Session snapshot model from `users/{uid}/active_session/current`
 class ActiveSessionState {
   final String? sessionId;
+  final String? leadClientId;
   final String status; // "idle" | "running" | "paused"
   final String mode; // "focus" | "stopwatch" | "break"
   final String? courseId;
@@ -150,12 +225,15 @@ class ActiveSessionState {
   final String? topicName;
   final int targetDurationSeconds;
   final int elapsedBeforePauseSeconds;
+  final bool isFinalized;
   final DateTime? startedAt;
   final DateTime? pausedAt;
+  final DateTime? endedAt;
   final DateTime? lastHeartbeat;
 
   const ActiveSessionState({
     this.sessionId,
+    this.leadClientId,
     required this.status,
     this.mode = 'focus',
     this.courseId,
@@ -165,14 +243,18 @@ class ActiveSessionState {
     this.topicName,
     this.targetDurationSeconds = 1500,
     this.elapsedBeforePauseSeconds = 0,
+    this.isFinalized = false,
     this.startedAt,
     this.pausedAt,
+    this.endedAt,
     this.lastHeartbeat,
   });
 
-  bool get isRunning => status == 'running';
-  bool get isPaused => status == 'paused';
-  bool get isIdle => status == 'idle';
+  int get targetSeconds => targetDurationSeconds;
+  int get elapsedSeconds => elapsedBeforePauseSeconds;
+  bool get isRunning => status == 'running' && !isFinalized;
+  bool get isPaused => status == 'paused' && !isFinalized;
+  bool get isIdle => status == 'idle' || isFinalized;
 
   factory ActiveSessionState.fromMap(Map<String, dynamic> data) {
     DateTime? parseTimestamp(dynamic val) {
@@ -182,8 +264,12 @@ class ActiveSessionState {
       return null;
     }
 
+    final rawTarget = data['targetSeconds'] ?? data['targetDurationSeconds'];
+    final rawElapsed = data['elapsedSeconds'] ?? data['elapsedBeforePauseSeconds'];
+
     return ActiveSessionState(
       sessionId: data['sessionId'] as String? ?? data['id'] as String?,
+      leadClientId: data['leadClientId'] as String?,
       status: (data['status'] as String?)?.toLowerCase() ?? 'idle',
       mode: (data['mode'] as String?)?.toLowerCase() ?? 'focus',
       courseId: data['courseId'] as String?,
@@ -191,10 +277,12 @@ class ActiveSessionState {
       courseTitle: data['courseTitle'] as String?,
       topicId: data['topicId'] as String?,
       topicName: data['topicName'] as String?,
-      targetDurationSeconds: (data['targetDurationSeconds'] as num?)?.toInt() ?? 1500,
-      elapsedBeforePauseSeconds: (data['elapsedBeforePauseSeconds'] as num?)?.toInt() ?? 0,
+      targetDurationSeconds: (rawTarget as num?)?.toInt() ?? 1500,
+      elapsedBeforePauseSeconds: (rawElapsed as num?)?.toInt() ?? 0,
+      isFinalized: data['isFinalized'] == true,
       startedAt: parseTimestamp(data['startedAt']),
       pausedAt: parseTimestamp(data['pausedAt']),
+      endedAt: parseTimestamp(data['endedAt']),
       lastHeartbeat: parseTimestamp(data['lastHeartbeat']),
     );
   }
@@ -202,6 +290,7 @@ class ActiveSessionState {
   Map<String, dynamic> toMap() {
     return {
       'sessionId': sessionId,
+      'leadClientId': leadClientId,
       'status': status,
       'mode': mode,
       'courseId': courseId,
@@ -209,17 +298,21 @@ class ActiveSessionState {
       'courseTitle': courseTitle,
       'topicId': topicId,
       'topicName': topicName,
+      'targetSeconds': targetDurationSeconds,
       'targetDurationSeconds': targetDurationSeconds,
+      'elapsedSeconds': elapsedBeforePauseSeconds,
       'elapsedBeforePauseSeconds': elapsedBeforePauseSeconds,
+      'isFinalized': isFinalized,
       'startedAt': startedAt != null ? Timestamp.fromDate(startedAt!) : null,
       'pausedAt': pausedAt != null ? Timestamp.fromDate(pausedAt!) : null,
+      'endedAt': endedAt != null ? Timestamp.fromDate(endedAt!) : null,
       'lastHeartbeat': lastHeartbeat != null ? Timestamp.fromDate(lastHeartbeat!) : null,
     };
   }
 
   @override
   String toString() =>
-      'ActiveSessionState(sessionId: $sessionId, status: $status, mode: $mode, elapsedBeforePause: $elapsedBeforePauseSeconds, startedAt: $startedAt)';
+      'ActiveSessionState(sessionId: $sessionId, leader: $leadClientId, status: $status, mode: $mode, elapsedBeforePause: $elapsedBeforePauseSeconds, startedAt: $startedAt)';
 }
 
 /// TimerService manages:
@@ -280,11 +373,12 @@ class TimerService {
     });
   }
 
-  /// Writes START state transition to Firestore with idempotent sessionId
+  /// Writes START state transition to Firestore with idempotent sessionId and leadClientId
   Future<void> startActiveSession({
     required String uid,
     required String mode, // 'focus' | 'stopwatch' | 'break'
     String? sessionId,
+    String? leadClientId,
     String? courseId,
     String? courseCode,
     String? courseTitle,
@@ -297,25 +391,33 @@ class TimerService {
 
     final sId = (sessionId != null && sessionId.isNotEmpty)
         ? sessionId
-        : 'session_${DateTime.now().millisecondsSinceEpoch}_$uid';
+        : ClientIdentity.newSessionId();
+    final clientId = (leadClientId != null && leadClientId.isNotEmpty)
+        ? leadClientId
+        : ClientIdentity.instanceId;
 
     try {
       await docRef.set({
         'sessionId': sId,
+        'leadClientId': clientId,
+        'courseId': courseId ?? '',
+        'courseCode': courseCode ?? 'General Study',
+        'courseTitle': courseTitle ?? courseCode ?? 'General Study',
+        'topicId': topicId ?? '',
+        'topicName': topicName ?? '',
         'status': 'running',
         'mode': mode,
-        'courseId': courseId,
-        'courseCode': courseCode,
-        'courseTitle': courseTitle,
-        'topicId': topicId,
-        'topicName': topicName,
-        'targetDurationSeconds': targetDurationSeconds,
-        'elapsedBeforePauseSeconds': 0,
         'startedAt': FieldValue.serverTimestamp(),
+        'targetSeconds': targetDurationSeconds,
+        'targetDurationSeconds': targetDurationSeconds,
+        'elapsedSeconds': 0,
+        'elapsedBeforePauseSeconds': 0,
+        'isFinalized': false,
         'pausedAt': null,
+        'endedAt': null,
         'lastHeartbeat': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-      debugPrint('Active session STARTED in Firestore for user $uid (sessionId: $sId, mode: $mode)');
+      });
+      debugPrint('Active session STARTED in Firestore for user $uid (sessionId: $sId, leader: $clientId, mode: $mode)');
     } catch (e) {
       debugPrint('Error starting active session: $e');
     }
@@ -332,6 +434,7 @@ class TimerService {
     try {
       await docRef.set({
         'status': 'paused',
+        'elapsedSeconds': currentElapsedSeconds,
         'elapsedBeforePauseSeconds': currentElapsedSeconds,
         'pausedAt': FieldValue.serverTimestamp(),
         'lastHeartbeat': FieldValue.serverTimestamp(),
@@ -360,7 +463,7 @@ class TimerService {
     }
   }
 
-  /// Resets active session document to status 'idle'
+  /// Resets active session document to status 'idle' and marks finalized
   Future<void> resetActiveSession(String uid) async {
     final docRef = _activeSessionDoc(uid);
     if (docRef == null) return;
@@ -368,6 +471,7 @@ class TimerService {
     try {
       await docRef.set({
         'sessionId': null,
+        'leadClientId': null,
         'status': 'idle',
         'mode': 'focus',
         'courseId': null,
@@ -375,10 +479,14 @@ class TimerService {
         'courseTitle': null,
         'topicId': null,
         'topicName': null,
+        'targetSeconds': 0,
         'targetDurationSeconds': 0,
+        'elapsedSeconds': 0,
         'elapsedBeforePauseSeconds': 0,
+        'isFinalized': true,
         'startedAt': null,
         'pausedAt': null,
+        'endedAt': null,
         'lastHeartbeat': FieldValue.serverTimestamp(),
       });
       debugPrint('Active session reset to IDLE in Firestore for user $uid');
@@ -390,9 +498,11 @@ class TimerService {
   /// Persists completed session to `study_sessions`, updates user stats, and resets active session.
   ///
   /// CRITICAL ARCHITECTURAL SAFEGUARDS:
-  /// 1. Save Execution Lock (in-memory mutex `_isSavingSession`) to prevent concurrent saves.
-  /// 2. Deterministic Idempotent Document Key: uses `.doc(sessionId).set(..., SetOptions(merge: true))`
-  ///    instead of `.add()`, guaranteeing exactly ONE document in Firestore across all devices.
+  /// 1. Single Persistence Leader via Atomic Firestore Transaction on `users/{uid}/active_session/current`:
+  ///    Ensures that when both Android and Web attempt to stop/complete at the same time,
+  ///    only ONE client wins the transaction and executes the write.
+  /// 2. Deterministic Idempotent Document Key: uses `.doc(finalSessionId).set(..., SetOptions(merge: true))`
+  ///    guaranteeing exactly ONE document in Firestore across all devices.
   Future<bool> completeSession({
     required String uid,
     String? sessionId,
@@ -423,80 +533,212 @@ class TimerService {
         return false;
       }
 
-      final now = sessionEndTime ?? DateTime.now();
-      final mins = (finalElapsedSeconds / 60).round().clamp(1, 100000);
+      final docRef = _activeSessionDoc(uid);
+      if (docRef == null) return false;
 
-      // Deterministic session ID ensures idempotent writes across devices
-      final resolvedSessionId = (sessionId != null && sessionId.isNotEmpty)
-          ? sessionId
-          : 'session_${sessionStartTime.millisecondsSinceEpoch}_$uid';
+      bool transactionCommitted = false;
+      int committedDurationSeconds = finalElapsedSeconds;
+      String committedSessionId = sessionId ?? '';
 
-      final cleanTitle = formatCleanSessionTitle(
-        courseCode: courseCode,
-        courseTitle: courseTitle,
-      );
+      try {
+        await db.runTransaction((transaction) async {
+          final snapshot = await transaction.get(docRef);
 
-      // 1. Idempotently write to users/{uid}/study_sessions/{sessionId}
-      final studySessionData = {
-        'sessionId': resolvedSessionId,
-        'id': resolvedSessionId,
-        'courseId': courseId ?? '',
-        'courseCode': courseCode ?? 'General Study',
-        'courseTitle': courseTitle ?? courseCode ?? 'General Study',
-        'cleanTitle': cleanTitle,
-        'topicId': topicId ?? '',
-        'topicName': topicName ?? '',
-        'durationSeconds': finalElapsedSeconds,
-        'durationMinutes': mins,
-        'mode': mode,
-        'startedAt': Timestamp.fromDate(sessionStartTime),
-        'endedAt': Timestamp.fromDate(now),
-        'timestamp': Timestamp.fromDate(now),
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'completed': true,
-      };
+          if (!snapshot.exists || snapshot.data() == null) {
+            // No active session doc in Firestore; skip transaction and allow fallback write
+            return;
+          }
 
-      await db
-          .collection('users')
-          .doc(uid)
-          .collection('study_sessions')
-          .doc(resolvedSessionId)
-          .set(studySessionData, SetOptions(merge: true));
+          final data = snapshot.data()!;
+          if (data['isFinalized'] == true || data['status'] == 'idle') {
+            debugPrint('Transaction: Session already finalized by another leader client, skipping duplicate write');
+            return; // Already processed by the other device
+          }
 
-      // Also idempotently write to users/{uid}/focus_sessions/{sessionId} for analytics & live Insights stream
-      await db
-          .collection('users')
-          .doc(uid)
-          .collection('focus_sessions')
-          .doc(resolvedSessionId)
-          .set({
-        'sessionId': resolvedSessionId,
-        'id': resolvedSessionId,
-        'subject': courseCode ?? 'General Study',
-        'subjectName': courseCode ?? 'General Study',
-        'courseId': courseId ?? '',
-        'courseCode': courseCode ?? 'General Study',
-        'courseTitle': courseTitle ?? courseCode ?? 'General Study',
-        'cleanTitle': cleanTitle,
-        'topicId': topicId ?? '',
-        'topicName': topicName ?? '',
-        'durationSeconds': finalElapsedSeconds,
-        'durationMinutes': mins,
-        'startTime': Timestamp.fromDate(sessionStartTime),
-        'endTime': Timestamp.fromDate(now),
-        'timestamp': Timestamp.fromDate(now),
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+          // Mark finalized immediately within the transaction
+          transaction.update(docRef, {
+            'isFinalized': true,
+            'status': 'idle',
+            'endedAt': FieldValue.serverTimestamp(),
+            'lastHeartbeat': FieldValue.serverTimestamp(),
+          });
 
-      // 2. Update User Aggregate Stats in users/{uid}
+          final String finalSessionId = (data['sessionId'] as String?)?.isNotEmpty == true
+              ? (data['sessionId'] as String)
+              : ((sessionId != null && sessionId.isNotEmpty)
+                  ? sessionId
+                  : ClientIdentity.newSessionId());
+          committedSessionId = finalSessionId;
+
+          // Calculate final duration:
+          int finalCalculatedSeconds = finalElapsedSeconds;
+          DateTime resolvedStartTime = sessionStartTime;
+          final startedAtRaw = data['startedAt'];
+          if (startedAtRaw is Timestamp) {
+            resolvedStartTime = startedAtRaw.toDate();
+            final diff = DateTime.now().difference(resolvedStartTime).inSeconds;
+            if (diff > 0 && finalCalculatedSeconds <= 0) {
+              finalCalculatedSeconds = diff;
+            }
+          }
+          if (finalCalculatedSeconds < 60) {
+            finalCalculatedSeconds = finalElapsedSeconds >= 60 ? finalElapsedSeconds : 60;
+          }
+          committedDurationSeconds = finalCalculatedSeconds;
+
+          final resolvedCourseCode = (data['courseCode'] as String?) ?? courseCode ?? 'General Study';
+          final resolvedCourseTitle = (data['courseTitle'] as String?) ?? courseTitle ?? resolvedCourseCode;
+
+          final cleanTitle = formatCleanSessionTitle(
+            courseCode: resolvedCourseCode,
+            courseTitle: resolvedCourseTitle,
+          );
+
+          final mins = (finalCalculatedSeconds / 60).round().clamp(1, 100000);
+
+          final sessionRef = db
+              .collection('users')
+              .doc(uid)
+              .collection('study_sessions')
+              .doc(finalSessionId);
+
+          // Write the one single completed study_session using the deterministic ID
+          transaction.set(sessionRef, {
+            'sessionId': finalSessionId,
+            'id': finalSessionId,
+            'courseId': data['courseId'] ?? courseId ?? '',
+            'courseCode': resolvedCourseCode,
+            'courseTitle': resolvedCourseTitle,
+            'cleanTitle': cleanTitle,
+            'topicId': data['topicId'] ?? topicId ?? '',
+            'topicName': data['topicName'] ?? topicName ?? '',
+            'durationSeconds': finalCalculatedSeconds,
+            'durationMinutes': mins,
+            'mode': data['mode'] ?? mode,
+            'startedAt': data['startedAt'] ?? Timestamp.fromDate(resolvedStartTime),
+            'endedAt': FieldValue.serverTimestamp(),
+            'completedAt': DateTime.now().toIso8601String(),
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+            'completed': true,
+          }, SetOptions(merge: true));
+
+          // Also idempotently write to focus_sessions for analytics stream
+          final focusRef = db
+              .collection('users')
+              .doc(uid)
+              .collection('focus_sessions')
+              .doc(finalSessionId);
+
+          transaction.set(focusRef, {
+            'sessionId': finalSessionId,
+            'id': finalSessionId,
+            'subject': resolvedCourseCode,
+            'subjectName': resolvedCourseCode,
+            'courseId': data['courseId'] ?? courseId ?? '',
+            'courseCode': resolvedCourseCode,
+            'courseTitle': resolvedCourseTitle,
+            'cleanTitle': cleanTitle,
+            'topicId': data['topicId'] ?? topicId ?? '',
+            'topicName': data['topicName'] ?? topicName ?? '',
+            'durationSeconds': finalCalculatedSeconds,
+            'durationMinutes': mins,
+            'startTime': data['startedAt'] ?? Timestamp.fromDate(resolvedStartTime),
+            'endTime': FieldValue.serverTimestamp(),
+            'timestamp': FieldValue.serverTimestamp(),
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+          transactionCommitted = true;
+        });
+      } catch (txErr) {
+        debugPrint('Transaction execution warning: $txErr');
+      }
+
+      if (!transactionCommitted) {
+        // Check if doc exists and was already finalized by other device
+        try {
+          final snap = await docRef.get();
+          if (snap.exists && snap.data()?['isFinalized'] == true) {
+            debugPrint('TimerService: Confirmed session was finalized by other device, skipping local duplicate write.');
+            return true;
+          }
+        } catch (_) {}
+
+        // Fallback for offline / direct completion without active session doc:
+        final fallbackSessionId = (sessionId != null && sessionId.isNotEmpty)
+            ? sessionId
+            : ClientIdentity.newSessionId();
+        committedSessionId = fallbackSessionId;
+        final cleanTitle = formatCleanSessionTitle(
+          courseCode: courseCode,
+          courseTitle: courseTitle,
+        );
+        final mins = (finalElapsedSeconds / 60).round().clamp(1, 100000);
+        final now = sessionEndTime ?? DateTime.now();
+
+        await db
+            .collection('users')
+            .doc(uid)
+            .collection('study_sessions')
+            .doc(fallbackSessionId)
+            .set({
+          'sessionId': fallbackSessionId,
+          'id': fallbackSessionId,
+          'courseId': courseId ?? '',
+          'courseCode': courseCode ?? 'General Study',
+          'courseTitle': courseTitle ?? courseCode ?? 'General Study',
+          'cleanTitle': cleanTitle,
+          'topicId': topicId ?? '',
+          'topicName': topicName ?? '',
+          'durationSeconds': finalElapsedSeconds,
+          'durationMinutes': mins,
+          'mode': mode,
+          'startedAt': Timestamp.fromDate(sessionStartTime),
+          'endedAt': Timestamp.fromDate(now),
+          'completedAt': DateTime.now().toIso8601String(),
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'completed': true,
+        }, SetOptions(merge: true));
+
+        await db
+            .collection('users')
+            .doc(uid)
+            .collection('focus_sessions')
+            .doc(fallbackSessionId)
+            .set({
+          'sessionId': fallbackSessionId,
+          'id': fallbackSessionId,
+          'subject': courseCode ?? 'General Study',
+          'subjectName': courseCode ?? 'General Study',
+          'courseId': courseId ?? '',
+          'courseCode': courseCode ?? 'General Study',
+          'courseTitle': courseTitle ?? courseCode ?? 'General Study',
+          'cleanTitle': cleanTitle,
+          'topicId': topicId ?? '',
+          'topicName': topicName ?? '',
+          'durationSeconds': finalElapsedSeconds,
+          'durationMinutes': mins,
+          'startTime': Timestamp.fromDate(sessionStartTime),
+          'endTime': Timestamp.fromDate(now),
+          'timestamp': Timestamp.fromDate(now),
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        await resetActiveSession(uid);
+      }
+
+      // Update User Aggregate Stats in users/{uid}
       final userRef = db.collection('users').doc(uid);
       try {
+        final now = sessionEndTime ?? DateTime.now();
+        final mins = (committedDurationSeconds / 60).round().clamp(1, 100000);
         final userSnap = await userRef.get();
         final userData = userSnap.data() ?? {};
 
-        // Calculate Streak
         DateTime? lastStudied;
         final lastStudiedRaw = userData['lastStudyDate'] ?? userData['lastStudiedAt'];
         if (lastStudiedRaw is Timestamp) {
@@ -523,21 +765,19 @@ class TimerService {
         }
 
         await userRef.set({
-          'totalFocusSeconds': FieldValue.increment(finalElapsedSeconds),
+          'totalFocusSeconds': FieldValue.increment(committedDurationSeconds),
           'totalFocusMinutes': FieldValue.increment(mins),
           'todaysFocusMinutes': FieldValue.increment(mins),
           'lastStudyDate': Timestamp.fromDate(today),
           'lastStudiedAt': Timestamp.fromDate(now),
           'streakDays': currentStreak,
         }, SetOptions(merge: true));
-        debugPrint('Updated user aggregate stats: +$finalElapsedSeconds s, streak: $currentStreak');
+        debugPrint('Updated user aggregate stats: +$committedDurationSeconds s, streak: $currentStreak');
       } catch (e) {
         debugPrint('Error updating user aggregate stats: $e');
       }
 
-      // 3. Reset users/{uid}/active_session/current to status: 'idle'
-      await resetActiveSession(uid);
-      debugPrint('Successfully persisted study session ($resolvedSessionId, $mins mins) for user $uid');
+      debugPrint('Successfully persisted study session ($committedSessionId) via leader transaction for user $uid');
       return true;
     } catch (e) {
       debugPrint('Error completing study session: $e');

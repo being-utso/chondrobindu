@@ -65,13 +65,7 @@ final focusSessionsStreamProvider = StreamProvider<List<StudySessionLog>>((ref) 
       );
     }).toList();
 
-    return deduplicateStudySessions<StudySessionLog>(
-      sessions: rawLogs,
-      getId: (s) => s.id,
-      getCourseKey: (s) => s.courseCode?.isNotEmpty == true ? s.courseCode! : s.subjectName,
-      getStartTime: (s) => s.startTime ?? s.date,
-      getDurationSeconds: (s) => s.durationInSeconds > 0 ? s.durationInSeconds : s.durationInMinutes * 60,
-    ).reversed.toList();
+    return deduplicateSessionLogs(rawLogs);
   });
 });
 

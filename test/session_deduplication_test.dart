@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:chondrobindu/services/timer_service.dart';
 import 'package:chondrobindu/models/study_session_model.dart';
 import 'package:chondrobindu/models/analytics_models.dart';
+import 'package:chondrobindu/utils/client_identity.dart';
 
 void main() {
   group('formatCleanSessionTitle', () {
@@ -193,4 +194,139 @@ void main() {
       expect(log.cleanTitle, 'EEE 102: Electrical Circuits');
     });
   });
+
+  group('ClientIdentity & Session ID tests', () {
+    test('ClientIdentity provides non-empty instanceId and valid UUID v4 session IDs', () {
+      expect(ClientIdentity.instanceId.isNotEmpty, isTrue);
+      final sessionId1 = ClientIdentity.newSessionId();
+      final sessionId2 = ClientIdentity.newSessionId();
+      expect(sessionId1, isNot(equals(sessionId2)));
+      // RFC 4122 v4 pattern: 8-4-4-4-12 hex digits with 4 at digit 13 and [89ab] at digit 17
+      final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$');
+      expect(uuidRegex.hasMatch(sessionId1), isTrue);
+      expect(uuidRegex.hasMatch(sessionId2), isTrue);
+    });
+  });
+
+  group('deduplicateSessions (StudySession timeline merger)', () {
+    test('collapses duplicate sessionIds', () {
+      final now = DateTime(2026, 9, 27, 10, 0, 0);
+      final sessions = [
+        StudySession(
+          id: 'doc_1',
+          sessionId: 'session_unique_123',
+          courseId: 'c1',
+          courseCode: 'MATH 157',
+          durationSeconds: 1800,
+          startedAt: now,
+          endedAt: now.add(const Duration(minutes: 30)),
+        ),
+        StudySession(
+          id: 'doc_2',
+          sessionId: 'session_unique_123', // Same session ID
+          courseId: 'c1',
+          courseCode: 'MATH 157',
+          durationSeconds: 1800,
+          startedAt: now,
+          endedAt: now.add(const Duration(minutes: 30)),
+        ),
+      ];
+
+      final result = deduplicateSessions(sessions);
+      expect(result.length, 1);
+      expect(result.first.sessionId, 'session_unique_123');
+    });
+
+    test('collapses overlapping sessions starting within 90s with duration diff <= 60s for same course', () {
+      final base = DateTime(2026, 9, 27, 1, 25, 0);
+      final sessions = [
+        StudySession(
+          id: 'doc_a',
+          courseId: 'c1',
+          courseCode: 'MATH 157',
+          durationSeconds: 2760, // 46 mins
+          startedAt: base,
+          endedAt: base.add(const Duration(seconds: 2760)),
+        ),
+        StudySession(
+          id: 'doc_b',
+          courseId: 'c1',
+          courseCode: 'MATH 157',
+          durationSeconds: 2761, // 1s diff
+          startedAt: base.add(const Duration(seconds: 5)), // 5s diff <= 90s
+          endedAt: base.add(const Duration(seconds: 2766)),
+        ),
+      ];
+
+      final result = deduplicateSessions(sessions);
+      expect(result.length, 1);
+    });
+
+    test('retains distinct sessions beyond 90s drift or diff courses', () {
+      final base = DateTime(2026, 9, 27, 1, 25, 0);
+      final sessions = [
+        StudySession(
+          id: 'doc_math',
+          courseId: 'c1',
+          courseCode: 'MATH 157',
+          durationSeconds: 2760,
+          startedAt: base,
+          endedAt: base.add(const Duration(seconds: 2760)),
+        ),
+        StudySession(
+          id: 'doc_phy',
+          courseId: 'c2',
+          courseCode: 'PHY 121',
+          durationSeconds: 2760,
+          startedAt: base.add(const Duration(seconds: 10)),
+          endedAt: base.add(const Duration(seconds: 2770)),
+        ),
+        StudySession(
+          id: 'doc_math_later',
+          courseId: 'c1',
+          courseCode: 'MATH 157',
+          durationSeconds: 2760,
+          startedAt: base.add(const Duration(minutes: 60)),
+          endedAt: base.add(const Duration(minutes: 106)),
+        ),
+      ];
+
+      final result = deduplicateSessions(sessions);
+      expect(result.length, 3);
+    });
+  });
+
+  group('deduplicateSessionLogs (StudySessionLog timeline merger)', () {
+    test('collapses duplicate session logs within 90s and 60s duration diff', () {
+      final base = DateTime(2026, 9, 27, 10, 0, 0);
+      final logs = [
+        StudySessionLog(
+          id: 'log_1',
+          subjectId: 's1',
+          courseCode: 'MATH 157',
+          subjectName: 'Calculus',
+          durationInMinutes: 45,
+          durationInSeconds: 2700,
+          date: base,
+          startTime: base,
+          endTime: base.add(const Duration(minutes: 45)),
+        ),
+        StudySessionLog(
+          id: 'log_2',
+          subjectId: 's1',
+          courseCode: 'MATH 157',
+          subjectName: 'Calculus',
+          durationInMinutes: 45,
+          durationInSeconds: 2701,
+          date: base.add(const Duration(seconds: 2)),
+          startTime: base.add(const Duration(seconds: 2)),
+          endTime: base.add(const Duration(minutes: 45)),
+        ),
+      ];
+
+      final result = deduplicateSessionLogs(logs);
+      expect(result.length, 1);
+    });
+  });
 }
+

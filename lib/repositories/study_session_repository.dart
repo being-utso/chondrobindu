@@ -25,13 +25,7 @@ class StudySessionRepository {
           .map((doc) => StudySession.fromFirestore(doc))
           .where((s) => !s.startedAt.isBefore(startOfDay) && s.startedAt.isBefore(endOfDay))
           .toList();
-      return deduplicateStudySessions<StudySession>(
-        sessions: list,
-        getId: (s) => s.id,
-        getCourseKey: (s) => s.courseCode.isNotEmpty ? s.courseCode : s.courseId,
-        getStartTime: (s) => s.startedAt,
-        getDurationSeconds: (s) => s.durationSeconds,
-      );
+      return deduplicateSessions(list);
     });
   }
 
@@ -42,13 +36,7 @@ class StudySessionRepository {
           .map((doc) => StudySession.fromFirestore(doc))
           .where((s) => !s.startedAt.isBefore(start) && !s.startedAt.isAfter(end))
           .toList();
-      return deduplicateStudySessions<StudySession>(
-        sessions: list,
-        getId: (s) => s.id,
-        getCourseKey: (s) => s.courseCode.isNotEmpty ? s.courseCode : s.courseId,
-        getStartTime: (s) => s.startedAt,
-        getDurationSeconds: (s) => s.durationSeconds,
-      );
+      return deduplicateSessions(list);
     });
   }
 
@@ -56,14 +44,7 @@ class StudySessionRepository {
     if (_firestore == null || uid.isEmpty) return Stream.value([]);
     return _sessionsRef(uid)!.snapshots().map((snapshot) {
       final list = snapshot.docs.map((doc) => StudySession.fromFirestore(doc)).toList();
-      final deduplicated = deduplicateStudySessions<StudySession>(
-        sessions: list,
-        getId: (s) => s.id,
-        getCourseKey: (s) => s.courseCode.isNotEmpty ? s.courseCode : s.courseId,
-        getStartTime: (s) => s.startedAt,
-        getDurationSeconds: (s) => s.durationSeconds,
-      );
-      deduplicated.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+      final deduplicated = deduplicateSessions(list);
       return deduplicated.take(limit).toList();
     });
   }

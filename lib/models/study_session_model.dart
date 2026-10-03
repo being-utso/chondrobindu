@@ -4,6 +4,8 @@ import '../services/timer_service.dart';
 /// Completed Study Session Model inside `/users/{uid}/study_sessions/{sessionId}`
 class StudySession {
   final String id;
+  final String? _sessionId;
+  String get sessionId => _sessionId?.isNotEmpty == true ? _sessionId! : id;
   final String courseId;
   final String courseCode;
   final String? courseTitle;
@@ -18,6 +20,7 @@ class StudySession {
 
   const StudySession({
     required this.id,
+    String? sessionId,
     required this.courseId,
     required this.courseCode,
     this.courseTitle,
@@ -29,7 +32,7 @@ class StudySession {
     required this.endedAt,
     this.focusNotes,
     this.focusRating = 5,
-  });
+  }) : _sessionId = sessionId;
 
   String get cleanTitle => formatCleanSessionTitle(
         courseCode: courseCode,
@@ -47,6 +50,7 @@ class StudySession {
 
   factory StudySession.fromMap(Map<String, dynamic> map, [String? docId]) {
     final id = docId ?? map['id'] as String? ?? '';
+    final sessionId = map['sessionId'] as String? ?? id;
     final courseId = map['courseId'] as String? ?? map['subjectId'] as String? ?? '';
     final courseCode = map['courseCode'] as String? ?? map['subjectName'] as String? ?? '';
 
@@ -106,6 +110,7 @@ class StudySession {
 
     return StudySession(
       id: id,
+      sessionId: sessionId,
       courseId: courseId,
       courseCode: courseCode,
       courseTitle: courseTitle,
@@ -123,6 +128,7 @@ class StudySession {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'sessionId': sessionId,
       'courseId': courseId,
       'courseCode': courseCode,
       'courseTitle': courseTitle,
@@ -150,8 +156,10 @@ class StudySession {
 
   StudySession copyWith({
     String? id,
+    String? sessionId,
     String? courseId,
     String? courseCode,
+    String? courseTitle,
     List<String>? topicIds,
     List<String>? topicTitles,
     int? durationSeconds,
@@ -163,8 +171,10 @@ class StudySession {
   }) {
     return StudySession(
       id: id ?? this.id,
+      sessionId: sessionId ?? this.sessionId,
       courseId: courseId ?? this.courseId,
       courseCode: courseCode ?? this.courseCode,
+      courseTitle: courseTitle ?? this.courseTitle,
       topicIds: topicIds ?? this.topicIds,
       topicTitles: topicTitles ?? this.topicTitles,
       durationSeconds: durationSeconds ?? this.durationSeconds,
