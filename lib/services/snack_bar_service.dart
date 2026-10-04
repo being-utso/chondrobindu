@@ -38,7 +38,8 @@ class SnackBarService {
     VoidCallback? onViewPressed,
   }) {
     hideCurrent(context);
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
       SnackBar(
         backgroundColor: const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
@@ -58,7 +59,7 @@ class SnackBarService {
         ),
         action: SnackBarAction(
           label: 'View',
-          textColor: Colors.black,
+          textColor: Colors.white,
           onPressed: onViewPressed ?? () {
             Navigator.of(context).pushNamed('/journal');
           },

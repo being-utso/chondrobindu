@@ -186,6 +186,281 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
   set _uniSelectedInsightDate(DateTime val) => _selectedDay = val;
   DateTime _uniHeatmapMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
 
+  // Period Selector Modal State & Compare Mode
+  bool _periodCompareMode = false;
+  String _selectedPeriodOption = 'Last 28 Days'; // 'Custom', 'Last 28 Days', 'Last 90 Days', 'Last 12 Months'
+  DateTimeRange? _customDateRange;
+
+  DateTimeRange _resolveActivePeriodRange() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    switch (_selectedPeriodOption) {
+      case 'Last 28 Days':
+        final start = today.subtract(const Duration(days: 28)).add(const Duration(seconds: 1));
+        return DateTimeRange(start: DateTime(start.year, start.month, start.day), end: today);
+      case 'Last 90 Days':
+        final start = today.subtract(const Duration(days: 90)).add(const Duration(seconds: 1));
+        return DateTimeRange(start: DateTime(start.year, start.month, start.day), end: today);
+      case 'Last 12 Months':
+        final start = DateTime(now.year - 1, now.month, now.day);
+        return DateTimeRange(start: start, end: today);
+      case 'Custom':
+      default:
+        return _customDateRange ??
+            DateTimeRange(start: today.subtract(const Duration(days: 28)), end: today);
+    }
+  }
+
+  DateTimeRange _resolvePrecedingPeriodRange(DateTimeRange currentRange) {
+    final duration = currentRange.duration;
+    final precedingEnd = currentRange.start.subtract(const Duration(seconds: 1));
+    final precedingStart = precedingEnd.subtract(duration);
+    return DateTimeRange(start: precedingStart, end: precedingEnd);
+  }
+
+  void _openPeriodSelectionModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1C1412),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        side: BorderSide(color: Color(0xFF4A3830)),
+      ),
+      builder: (ctx) {
+        bool tempCompare = _periodCompareMode;
+        String tempOption = _selectedPeriodOption;
+        DateTimeRange? tempRange = _customDateRange;
+
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            final now = DateTime.now();
+            final last28DaysStr = '${now.subtract(const Duration(days: 28)).month}/${now.subtract(const Duration(days: 28)).day} - ${now.month}/${now.day}';
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Select Period',
+                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.white54, size: 20),
+                        onPressed: () => Navigator.pop(modalCtx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Compare Mode Switch Tile
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF110D0C),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.compare_arrows_rounded, color: Color(0xFFF2B78A), size: 20),
+                            SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Compare Mode',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                                Text(
+                                  'Display +/- % vs preceding timeframe',
+                                  style: TextStyle(color: Colors.white54, fontSize: 10.5),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Switch(
+                          value: tempCompare,
+                          activeThumbColor: const Color(0xFFF2B78A),
+                          onChanged: (val) {
+                            setModalState(() => tempCompare = val);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Options list
+                  const Text('TIME HORIZON', style: TextStyle(color: Color(0xFFF2B78A), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                  const SizedBox(height: 8),
+
+                  _buildPeriodRadioOption(
+                    title: 'Last 28 Days',
+                    subtitle: last28DaysStr,
+                    isSelected: tempOption == 'Last 28 Days',
+                    onTap: () => setModalState(() => tempOption = 'Last 28 Days'),
+                  ),
+                  _buildPeriodRadioOption(
+                    title: 'Last 90 Days',
+                    subtitle: 'Previous quarter overview',
+                    isSelected: tempOption == 'Last 90 Days',
+                    onTap: () => setModalState(() => tempOption = 'Last 90 Days'),
+                  ),
+                  _buildPeriodRadioOption(
+                    title: 'Last 12 Months',
+                    subtitle: 'Annual progression & term summary',
+                    isSelected: tempOption == 'Last 12 Months',
+                    onTap: () => setModalState(() => tempOption = 'Last 12 Months'),
+                  ),
+                  _buildPeriodRadioOption(
+                    title: 'Select Custom Period',
+                    subtitle: tempRange != null
+                        ? '${tempRange!.start.month}/${tempRange!.start.day}/${tempRange!.start.year} - ${tempRange!.end.month}/${tempRange!.end.day}/${tempRange!.end.year}'
+                        : 'Custom calendar date range picker',
+                    isSelected: tempOption == 'Custom',
+                    onTap: () async {
+                      final picked = await showDateRangePicker(
+                        context: modalCtx,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                        initialDateRange: tempRange ?? DateTimeRange(
+                          start: DateTime.now().subtract(const Duration(days: 14)),
+                          end: DateTime.now(),
+                        ),
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: const ColorScheme.dark(
+                                primary: Color(0xFFF2B78A),
+                                onPrimary: Color(0xFF191514),
+                                surface: Color(0xFF241C1A),
+                                onSurface: Color(0xFFF5EBE6),
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setModalState(() {
+                          tempOption = 'Custom';
+                          tempRange = picked;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Action Buttons: Cancel and Ok
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white70,
+                            side: const BorderSide(color: Color(0xFF4A3830)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () => Navigator.pop(modalCtx),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFF2B78A),
+                            foregroundColor: const Color(0xFF110D0C),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _periodCompareMode = tempCompare;
+                              _selectedPeriodOption = tempOption;
+                              if (tempRange != null) {
+                                _customDateRange = tempRange;
+                              }
+                            });
+                            Navigator.pop(modalCtx);
+                          },
+                          child: const Text('Ok', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildPeriodRadioOption({
+    required String title,
+    required String subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFF2B78A).withValues(alpha: 0.12) : const Color(0xFF110D0C),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isSelected ? const Color(0xFFF2B78A).withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.05)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+              size: 18,
+              color: isSelected ? const Color(0xFFF2B78A) : Colors.white38,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: isSelected ? const Color(0xFFF2B78A) : Colors.white,
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    ),
+                  ),
+                  Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 10.5)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _loadDayInsights(DateTime day) {
     setState(() {
       _selectedDay = DateTime(day.year, day.month, day.day);
@@ -1462,6 +1737,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     required IconData icon,
     required Color iconColor,
     required Color cardColor,
+    String? deltaText,
+    bool deltaIsPositive = true,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1484,13 +1761,37 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 19,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (deltaText != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: (deltaIsPositive ? const Color(0xFF10B981) : Colors.redAccent).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    deltaText,
+                    style: TextStyle(
+                      color: deltaIsPositive ? const Color(0xFF10B981) : Colors.redAccent,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 4),
           Text(
@@ -1949,6 +2250,36 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     journals: journalEntries,
                   );
 
+                  // TASK 4: Period range calculation and delta % comparison
+                  final activeRange = _resolveActivePeriodRange();
+                  final precedingRange = _resolvePrecedingPeriodRange(activeRange);
+
+                  final periodSessions = universitySessions.where((s) {
+                    final sessionTime = s.startTime ?? s.date;
+                    return !sessionTime.isBefore(activeRange.start) && !sessionTime.isAfter(activeRange.end);
+                  }).toList();
+
+                  final precedingSessions = universitySessions.where((s) {
+                    final sessionTime = s.startTime ?? s.date;
+                    return !sessionTime.isBefore(precedingRange.start) && !sessionTime.isAfter(precedingRange.end);
+                  }).toList();
+
+                  final periodHours = periodSessions.fold<int>(0, (acc, s) => acc + s.durationInMinutes) / 60.0;
+                  final precedingHours = precedingSessions.fold<int>(0, (acc, s) => acc + s.durationInMinutes) / 60.0;
+
+                  String? periodDeltaText;
+                  bool periodDeltaIsPositive = true;
+                  if (_periodCompareMode) {
+                    if (precedingHours > 0) {
+                      final deltaPct = (((periodHours - precedingHours) / precedingHours) * 100).round();
+                      periodDeltaIsPositive = deltaPct >= 0;
+                      periodDeltaText = '${deltaPct >= 0 ? '+' : ''}$deltaPct% vs prev';
+                    } else if (periodHours > 0) {
+                      periodDeltaText = '+100% vs prev';
+                      periodDeltaIsPositive = true;
+                    }
+                  }
+
                   return SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
@@ -2051,12 +2382,18 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: _buildSummaryCard(
-                                title: 'Total Study Time',
-                                value: '${universityHours.toStringAsFixed(1)}h',
-                                subtitle: '${universitySessions.length} University Sessions',
+                                title: _uniStudyPeriodTab == 'Period' ? 'Period Focus Time' : 'Total Study Time',
+                                value: _uniStudyPeriodTab == 'Period'
+                                    ? '${periodHours.toStringAsFixed(1)}h'
+                                    : '${universityHours.toStringAsFixed(1)}h',
+                                subtitle: _uniStudyPeriodTab == 'Period'
+                                    ? '${periodSessions.length} sessions ($_selectedPeriodOption)'
+                                    : '${universitySessions.length} University Sessions',
                                 icon: Icons.access_time_rounded,
                                 iconColor: accentColor,
                                 cardColor: cardColor,
+                                deltaText: _uniStudyPeriodTab == 'Period' ? periodDeltaText : null,
+                                deltaIsPositive: periodDeltaIsPositive,
                               ),
                             ),
                           ],
@@ -2068,9 +2405,16 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                           segments: const ['Period', 'Day', 'Week', 'Month', 'Trend'],
                           selectedSegment: _uniStudyPeriodTab,
                           onSegmentSelected: (tab) {
-                            setState(() {
-                              _uniStudyPeriodTab = tab;
-                            });
+                            if (tab == 'Period') {
+                              setState(() {
+                                _uniStudyPeriodTab = 'Period';
+                              });
+                              _openPeriodSelectionModal(context);
+                            } else {
+                              setState(() {
+                                _uniStudyPeriodTab = tab;
+                              });
+                            }
                           },
                         ),
                         const SizedBox(height: 16),
@@ -2135,8 +2479,26 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                             availableCourses: availableCourses,
                             courseColorMap: courseColorMap,
                           ),
+                        ] else if (_uniStudyPeriodTab == 'Period') ...[
+                          _buildUniversityCourseDistributionSection(
+                            cardColor,
+                            periodSessions,
+                            courseColorMap,
+                            periodTitle: 'Course Distribution ($_selectedPeriodOption)',
+                          ),
+                          const SizedBox(height: 16),
+                          _buildSelectedDateDetailCard(
+                            cardColor,
+                            accentColor,
+                            periodSessions,
+                            journalEntries,
+                            availableCourses: availableCourses,
+                            courseColorMap: courseColorMap,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildRecentActivityCard(cardColor, accentColor, periodSessions),
                         ] else ...[
-                          // 'Month' and 'Period'
+                          // 'Month'
                           _buildUniversityHeatmapCard(cardColor, accentColor, universitySessions),
                           const SizedBox(height: 16),
                           _buildUniversityCourseDistributionSection(
@@ -2550,15 +2912,6 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               (!s.date.isBefore(startOfDay) && !s.date.isAfter(endOfDay)))
           .toList(),
     );
-    final totalSecs = daySessions.fold<int>(
-      0,
-      (acc, s) => acc + (s.durationInSeconds > 0 ? s.durationInSeconds : s.durationInMinutes * 60),
-    );
-    final maxSecs = daySessions.isEmpty
-        ? 0
-        : daySessions
-            .map((s) => s.durationInSeconds > 0 ? s.durationInSeconds : s.durationInMinutes * 60)
-            .reduce((a, b) => a > b ? a : b);
 
     DateTime? earliestStart;
     DateTime? latestEnd;
@@ -2658,6 +3011,13 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     sessionItems
       ..clear()
       ..addAll(dedupedItems);
+
+    // TASK 2: Recompute totalSecs and maxSecs directly from the final deduplicated sessionItems
+    // ensuring perfect alignment between the displayed Total Focus Time and the rendered timeline cards
+    final totalSecs = sessionItems.fold<int>(0, (sum, it) => sum + (it.durationMinutes * 60));
+    final maxSecs = sessionItems.isEmpty
+        ? 0
+        : sessionItems.map((it) => it.durationMinutes * 60).reduce((a, b) => a > b ? a : b);
 
     // 2. Build Chronological Timeline with unlogged Gap Slots ("No Log")
     final List<dynamic> timelineItems = [];
@@ -3491,25 +3851,61 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        // Start Time (Prepopulated to Gap boundary)
+                        // Start Time (Interactive)
                         Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF110D0C),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Start Time', style: TextStyle(color: Colors.white54, fontSize: 10)),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _formatTimeWithPeriodPrefix(startTime),
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                                ),
-                              ],
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: TimeOfDay.fromDateTime(startTime),
+                              );
+                              if (picked != null) {
+                                setModalState(() {
+                                  startTime = DateTime(
+                                    startTime.year,
+                                    startTime.month,
+                                    startTime.day,
+                                    picked.hour,
+                                    picked.minute,
+                                  );
+                                  // If end time is now on or before start time, roll end time to next day if within 12h
+                                  if (!endTime.isAfter(startTime)) {
+                                    endTime = DateTime(
+                                      startTime.year,
+                                      startTime.month,
+                                      startTime.day + 1,
+                                      endTime.hour,
+                                      endTime.minute,
+                                    );
+                                  }
+                                });
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF110D0C),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: const Color(0xFFF2B78A).withValues(alpha: 0.4)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Start Time (Tap)', style: TextStyle(color: Color(0xFFF2B78A), fontSize: 10)),
+                                      Icon(Icons.edit_outlined, size: 12, color: Color(0xFFF2B78A)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _formatTimeWithPeriodPrefix(startTime),
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -3524,13 +3920,18 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                               );
                               if (picked != null) {
                                 setModalState(() {
-                                  endTime = DateTime(
+                                  DateTime newEnd = DateTime(
                                     startTime.year,
                                     startTime.month,
                                     startTime.day,
                                     picked.hour,
                                     picked.minute,
                                   );
+                                  // If newEnd is <= startTime, treat as crossing midnight into next day
+                                  if (!newEnd.isAfter(startTime)) {
+                                    newEnd = newEnd.add(const Duration(days: 1));
+                                  }
+                                  endTime = newEnd;
                                 });
                               }
                             },
@@ -3575,7 +3976,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          isEndTimeValid ? 'Duration: ${_formatDurationShort(durationMins)} ($durationMins mins)' : 'End time must be after start time',
+                          isEndTimeValid
+                              ? 'Duration: ${_formatDurationShort(durationMins)} ($durationMins mins)${endTime.day != startTime.day ? ' • Crosses Midnight' : ''}'
+                              : 'End time must be after start time',
                           style: TextStyle(
                             color: isEndTimeValid ? const Color(0xFF10B981) : Colors.redAccent,
                             fontSize: 11.5,
@@ -3606,46 +4009,148 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                 if (courseToSave.isEmpty) return;
 
                                 final uid = FirebaseAuth.instance.currentUser?.uid;
+                                final firestore = FirebaseFirestore.instance;
                                 if (uid == null) return;
 
                                 final topicsText = topicsController.text.trim();
-                                final durationSecs = durationMins * 60;
+
+                                // Check if session crosses midnight (spans two calendar dates)
+                                final bool crossesMidnight = endTime.day != startTime.day ||
+                                    endTime.difference(startTime).inHours >= 24;
+
+                                String action = 'single';
+                                if (crossesMidnight) {
+                                  final choice = await showDialog<String>(
+                                    context: context,
+                                    barrierDismissible: false,
+                                    builder: (dialogCtx) => AlertDialog(
+                                      backgroundColor: const Color(0xFF1C1412),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        side: const BorderSide(color: Color(0xFF4A3830)),
+                                      ),
+                                      title: const Row(
+                                        children: [
+                                          Icon(Icons.nightlight_round, color: Color(0xFFF2B78A), size: 22),
+                                          SizedBox(width: 8),
+                                          Text('Session Crosses Midnight', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                      content: const Text(
+                                        'This study session spans across two calendar dates (ends tomorrow). Would you like to split this log into two consecutive daily entries so your daily analytics remain accurate?',
+                                        style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(dialogCtx, 'cancel'),
+                                          child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(dialogCtx, 'single'),
+                                          child: const Text('Save as Single Log', style: TextStyle(color: Colors.white70)),
+                                        ),
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFFF2B78A),
+                                            foregroundColor: const Color(0xFF110D0C),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          ),
+                                          onPressed: () => Navigator.pop(dialogCtx, 'split'),
+                                          child: const Text('Split Across Both Days', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (choice == null || choice == 'cancel') return;
+                                  action = choice;
+                                }
 
                                 try {
-                                  // Save to focus_sessions
-                                  final docRef = await FirebaseFirestore.instance
-                                      .collection('users')
-                                      .doc(uid)
-                                      .collection('focus_sessions')
-                                      .add({
-                                    'subject': courseToSave,
-                                    'subjectName': courseToSave,
-                                    'durationSeconds': durationSecs,
-                                    'durationMinutes': durationMins,
-                                    'startTime': Timestamp.fromDate(startTime),
-                                    'endTime': Timestamp.fromDate(endTime),
-                                    'timestamp': Timestamp.fromDate(endTime),
-                                    'createdAt': FieldValue.serverTimestamp(),
-                                    'topicsCovered': topicsText,
-                                  });
+                                  if (action == 'split') {
+                                    // Part 1: startTime to 23:59:59 on Day 1
+                                    final endOfDay1 = DateTime(startTime.year, startTime.month, startTime.day, 23, 59, 59);
+                                    final durationPart1Secs = endOfDay1.difference(startTime).inSeconds;
+                                    final durationPart1Mins = (durationPart1Secs / 60).round().clamp(1, 1440);
 
-                                  // Also save to journal
-                                  await FirebaseFirestore.instance
-                                      .collection('users')
-                                      .doc(uid)
-                                      .collection('journal')
-                                      .doc(docRef.id)
-                                      .set({
-                                    'id': docRef.id,
-                                    'type': 'study_session',
-                                    'title': 'Study Log: $courseToSave',
-                                    'content': topicsText.isNotEmpty ? 'Topics: $topicsText' : 'Study session completed.',
-                                    'topicsCovered': topicsText.isNotEmpty ? topicsText : null,
-                                    'durationMinutes': durationMins,
-                                    'subjectOrCourseId': courseToSave,
-                                    'timestamp': Timestamp.fromDate(endTime),
-                                    'mode': 'university',
-                                  });
+                                    final docRef1 = await firestore.collection('users').doc(uid).collection('focus_sessions').add({
+                                      'subject': courseToSave,
+                                      'subjectName': courseToSave,
+                                      'durationSeconds': durationPart1Secs,
+                                      'durationMinutes': durationPart1Mins,
+                                      'startTime': Timestamp.fromDate(startTime),
+                                      'endTime': Timestamp.fromDate(endOfDay1),
+                                      'timestamp': Timestamp.fromDate(endOfDay1),
+                                      'createdAt': FieldValue.serverTimestamp(),
+                                      'topicsCovered': topicsText,
+                                    });
+
+                                    await firestore.collection('users').doc(uid).collection('journal').doc(docRef1.id).set({
+                                      'id': docRef1.id,
+                                      'type': 'study_session',
+                                      'title': 'Study Log: $courseToSave (Part 1)',
+                                      'content': topicsText.isNotEmpty ? 'Topics: $topicsText' : 'Study session completed.',
+                                      'topicsCovered': topicsText.isNotEmpty ? topicsText : null,
+                                      'durationMinutes': durationPart1Mins,
+                                      'subjectOrCourseId': courseToSave,
+                                      'timestamp': Timestamp.fromDate(endOfDay1),
+                                      'mode': 'university',
+                                    });
+
+                                    // Part 2: 00:00:00 to endTime on Day 2
+                                    final startOfDay2 = DateTime(endTime.year, endTime.month, endTime.day, 0, 0, 0);
+                                    final durationPart2Secs = endTime.difference(startOfDay2).inSeconds;
+                                    final durationPart2Mins = (durationPart2Secs / 60).round().clamp(1, 1440);
+
+                                    final docRef2 = await firestore.collection('users').doc(uid).collection('focus_sessions').add({
+                                      'subject': courseToSave,
+                                      'subjectName': courseToSave,
+                                      'durationSeconds': durationPart2Secs,
+                                      'durationMinutes': durationPart2Mins,
+                                      'startTime': Timestamp.fromDate(startOfDay2),
+                                      'endTime': Timestamp.fromDate(endTime),
+                                      'timestamp': Timestamp.fromDate(endTime),
+                                      'createdAt': FieldValue.serverTimestamp(),
+                                      'topicsCovered': topicsText,
+                                    });
+
+                                    await firestore.collection('users').doc(uid).collection('journal').doc(docRef2.id).set({
+                                      'id': docRef2.id,
+                                      'type': 'study_session',
+                                      'title': 'Study Log: $courseToSave (Part 2)',
+                                      'content': topicsText.isNotEmpty ? 'Topics: $topicsText' : 'Study session completed.',
+                                      'topicsCovered': topicsText.isNotEmpty ? topicsText : null,
+                                      'durationMinutes': durationPart2Mins,
+                                      'subjectOrCourseId': courseToSave,
+                                      'timestamp': Timestamp.fromDate(endTime),
+                                      'mode': 'university',
+                                    });
+                                  } else {
+                                    final durationSecs = durationMins * 60;
+                                    final docRef = await firestore.collection('users').doc(uid).collection('focus_sessions').add({
+                                      'subject': courseToSave,
+                                      'subjectName': courseToSave,
+                                      'durationSeconds': durationSecs,
+                                      'durationMinutes': durationMins,
+                                      'startTime': Timestamp.fromDate(startTime),
+                                      'endTime': Timestamp.fromDate(endTime),
+                                      'timestamp': Timestamp.fromDate(endTime),
+                                      'createdAt': FieldValue.serverTimestamp(),
+                                      'topicsCovered': topicsText,
+                                    });
+
+                                    await firestore.collection('users').doc(uid).collection('journal').doc(docRef.id).set({
+                                      'id': docRef.id,
+                                      'type': 'study_session',
+                                      'title': 'Study Log: $courseToSave',
+                                      'content': topicsText.isNotEmpty ? 'Topics: $topicsText' : 'Study session completed.',
+                                      'topicsCovered': topicsText.isNotEmpty ? topicsText : null,
+                                      'durationMinutes': durationMins,
+                                      'subjectOrCourseId': courseToSave,
+                                      'timestamp': Timestamp.fromDate(endTime),
+                                      'mode': 'university',
+                                    });
+                                  }
 
                                   if (ctx.mounted) Navigator.pop(ctx);
                                   if (context.mounted) {
@@ -3699,7 +4204,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final customCourseController = TextEditingController(text: isCustomCourse ? session.courseName : '');
     final topicsController = TextEditingController(text: session.topics ?? '');
 
-    final startTime = session.startTime; // STRICTLY FIXED / READ-ONLY
+    DateTime startTime = session.startTime;
     DateTime endTime = session.endTime;
 
     showModalBottomSheet(
@@ -3855,31 +4360,60 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        // Start Time (Strictly FIXED / READ-ONLY)
+                        // Start Time (Interactive)
                         Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF110D0C),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Row(
-                                  children: [
-                                    Icon(Icons.lock_outline_rounded, color: Colors.white38, size: 12),
-                                    SizedBox(width: 4),
-                                    Text('Start Time (Fixed)', style: TextStyle(color: Colors.white38, fontSize: 10)),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _formatTimeWithPeriodPrefix(startTime),
-                                  style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 13),
-                                ),
-                              ],
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: TimeOfDay.fromDateTime(startTime),
+                              );
+                              if (picked != null) {
+                                setModalState(() {
+                                  startTime = DateTime(
+                                    startTime.year,
+                                    startTime.month,
+                                    startTime.day,
+                                    picked.hour,
+                                    picked.minute,
+                                  );
+                                  if (!endTime.isAfter(startTime)) {
+                                    endTime = DateTime(
+                                      startTime.year,
+                                      startTime.month,
+                                      startTime.day + 1,
+                                      endTime.hour,
+                                      endTime.minute,
+                                    );
+                                  }
+                                });
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF110D0C),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: const Color(0xFFF2B78A).withValues(alpha: 0.4)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Start Time (Tap)', style: TextStyle(color: Color(0xFFF2B78A), fontSize: 10)),
+                                      Icon(Icons.edit_outlined, size: 12, color: Color(0xFFF2B78A)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _formatTimeWithPeriodPrefix(startTime),
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -3991,12 +4525,32 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                         .update({
                                       'subject': courseToSave,
                                       'subjectName': courseToSave,
+                                      'startTime': Timestamp.fromDate(startTime),
                                       'endTime': Timestamp.fromDate(endTime),
                                       'timestamp': Timestamp.fromDate(endTime),
                                       'durationMinutes': durationMins,
                                       'durationSeconds': durationSecs,
                                       'topicsCovered': topicsText,
                                     });
+
+                                    // Also update study_sessions if present
+                                    try {
+                                      await FirebaseFirestore.instance
+                                          .collection('users')
+                                          .doc(uid)
+                                          .collection('study_sessions')
+                                          .doc(session.sessionId)
+                                          .update({
+                                        'courseCode': courseToSave,
+                                        'courseTitle': courseToSave,
+                                        'cleanTitle': courseToSave,
+                                        'startedAt': Timestamp.fromDate(startTime),
+                                        'endedAt': Timestamp.fromDate(endTime),
+                                        'durationMinutes': durationMins,
+                                        'durationSeconds': durationSecs,
+                                        'topicName': topicsText,
+                                      });
+                                    } catch (_) {}
                                   }
 
                                   if (session.journalId != null) {

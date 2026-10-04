@@ -1050,6 +1050,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
 
     final metadata = SessionMetadata.fromSubject(
       state.selectedSubject,
+      sessionId: state.activeSessionId,
       totalDurationSeconds: totalSecs,
       sessionStartTime: startTime,
       sessionEndTime: now,

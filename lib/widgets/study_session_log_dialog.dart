@@ -10,6 +10,7 @@ import '../models/syllabus_node.dart';
 import '../repositories/study_session_repository.dart';
 import '../services/journal_service.dart';
 import '../services/notification_service.dart';
+import '../services/snack_bar_service.dart';
 import 'package:chondrobindu/utils/safe_haptics.dart';
 
 export '../models/session_metadata.dart';
@@ -162,7 +163,6 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
   Future<void> _handleSave() async {
     SafeHaptics.mediumImpact();
 
-    final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
     final effectiveMins = effectiveDurationMinutes;
 
@@ -178,34 +178,11 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
       debugPrint('Error canceling timer notification: $e');
     }
 
-    // TASK: Floating 3-second SnackBar with 'View' action & hideCurrentSnackBar
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFF10B981),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Session notes saved to Journal (${effectiveMins}m)',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        action: SnackBarAction(
-          label: 'View',
-          textColor: Colors.white,
-          onPressed: () {
-            nav.pushNamed('/journal');
-          },
-        ),
-      ),
+    // TASK 5: Floating 4-second SnackBar with auto-dismissal safeguard on web
+    SnackBarService.showStudySessionSaved(
+      context,
+      durationMinutes: effectiveMins,
+      onViewPressed: () => nav.pushNamed('/journal'),
     );
 
     String? uid;
@@ -227,11 +204,18 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
     }
     final combinedTopics = allTopicsList.join(', ');
 
-    // 1. Save to Journal in background
+    // UNIFY TIMER COMPLETION & JOURNAL LOGGING:
+    // Obtain deterministic session ID to prevent creating a second duplicate document
+    final String finalSessionId = (widget.metadata?.sessionId?.isNotEmpty == true)
+        ? widget.metadata!.sessionId!
+        : DateTime.now().millisecondsSinceEpoch.toString();
+
+    // 1. Save / Merge to Journal in background using deterministic ID
     try {
       final service = JournalService();
       await service.saveStudySessionJournal(
         uid: uid,
+        entryId: finalSessionId,
         subjectOrCourse: effectiveCourseName,
         subjectOrCourseId: effectiveCourseId,
         durationMinutes: effectiveMins,
@@ -243,24 +227,61 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
       debugPrint('Error saving study session journal: $e');
     }
 
-    // 1b. Save to StudySessionRepository for dual-track metrics and streak
+    // 1b. Update existing study_sessions & focus_sessions with notes and topics
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final updateData = <String, dynamic>{
+        'topicName': combinedTopics.isNotEmpty ? combinedTopics : 'General Study',
+        'topicTitles': selectedTitles,
+        if (_selectedTopicIds.isNotEmpty) 'topicIds': _selectedTopicIds.toList(),
+        if (reflections.isNotEmpty) 'notes': reflections,
+        if (reflections.isNotEmpty) 'focusNotes': reflections,
+        'syllabusMarked': _syncToMainSyllabus && _selectedTopicIds.isNotEmpty,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      await firestore
+          .collection('users')
+          .doc(uid)
+          .collection('study_sessions')
+          .doc(finalSessionId)
+          .set(updateData, SetOptions(merge: true));
+
+      await firestore
+          .collection('users')
+          .doc(uid)
+          .collection('focus_sessions')
+          .doc(finalSessionId)
+          .set({
+            ...updateData,
+            'topicsCovered': combinedTopics.isNotEmpty ? combinedTopics : null,
+          }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Error updating session document in study_sessions/focus_sessions: $e');
+    }
+
+    // 1c. Also update StudySessionRepository for metrics & streak using finalSessionId
     try {
       final now = DateTime.now();
+      final sessionStart = widget.metadata?.sessionStartTime ?? now.subtract(Duration(minutes: effectiveMins));
+      final sessionEnd = widget.metadata?.sessionEndTime ?? now;
       final session = StudySession(
-        id: now.millisecondsSinceEpoch.toString(),
+        id: finalSessionId,
         courseId: _courseDocId ?? effectiveCourseId,
         courseCode: effectiveCourseCode.isNotEmpty ? effectiveCourseCode : effectiveCourseName,
+        courseTitle: effectiveCourseName,
+        topicName: combinedTopics.isNotEmpty ? combinedTopics : 'General Study',
         topicIds: _selectedTopicIds.toList(),
         topicTitles: selectedTitles,
         durationSeconds: effectiveMins * 60,
-        startedAt: now.subtract(Duration(minutes: effectiveMins)),
-        endedAt: now,
+        startedAt: sessionStart,
+        endedAt: sessionEnd,
         focusNotes: reflections.isNotEmpty ? reflections : null,
         focusRating: 5,
       );
       await StudySessionRepository().logCompletedSession(uid, session);
     } catch (e) {
-      debugPrint('Error logging study session: $e');
+      debugPrint('Error logging study session via repository: $e');
     }
 
     // 2. If sync toggle is ON and syllabus nodes were selected, update syllabus in Firestore

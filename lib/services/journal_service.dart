@@ -17,6 +17,7 @@ class JournalService {
   /// and synchronizes it to `users/{uid}/notes` for full cross-view visibility.
   Future<String> saveStudySessionJournal({
     required String uid,
+    String? entryId,
     required String subjectOrCourse,
     required String subjectOrCourseId,
     required int durationMinutes,
@@ -26,7 +27,9 @@ class JournalService {
   }) async {
     if (uid.isEmpty) return '';
 
-    final docRef = _userJournalRef(uid).doc();
+    final docRef = (entryId != null && entryId.isNotEmpty)
+        ? _userJournalRef(uid).doc(entryId)
+        : _userJournalRef(uid).doc();
     final title = 'Study Log: $subjectOrCourse';
 
     // Combine topics and reflections into content
@@ -54,7 +57,7 @@ class JournalService {
       mode: mode,
     );
 
-    await docRef.set(entry.toMap());
+    await docRef.set(entry.toMap(), SetOptions(merge: true));
 
     // Also sync to notes collection with 'Study Session' tag so it appears wherever notes are queried
     try {

@@ -1,5 +1,6 @@
 /// Immutable snapshot of session context ensuring strict course context isolation
 class SessionMetadata {
+  final String? sessionId;
   final String courseId;
   final String courseCode;
   final String courseTitle;
@@ -8,6 +9,7 @@ class SessionMetadata {
   final DateTime sessionEndTime;
 
   const SessionMetadata({
+    this.sessionId,
     required this.courseId,
     required this.courseCode,
     required this.courseTitle,
@@ -24,6 +26,7 @@ class SessionMetadata {
 
   Map<String, dynamic> toMap() {
     return {
+      if (sessionId != null) 'sessionId': sessionId,
       'courseId': courseId,
       'courseCode': courseCode,
       'courseTitle': courseTitle,
@@ -35,6 +38,7 @@ class SessionMetadata {
 
   factory SessionMetadata.fromMap(Map<String, dynamic> map) {
     return SessionMetadata(
+      sessionId: map['sessionId'] as String?,
       courseId: map['courseId'] as String? ?? '',
       courseCode: map['courseCode'] as String? ?? '',
       courseTitle: map['courseTitle'] as String? ?? '',
@@ -50,6 +54,7 @@ class SessionMetadata {
 
   factory SessionMetadata.fromSubject(
     String subject, {
+    String? sessionId,
     required int totalDurationSeconds,
     DateTime? sessionStartTime,
     DateTime? sessionEndTime,
@@ -76,6 +81,7 @@ class SessionMetadata {
     final start = sessionStartTime ?? end.subtract(Duration(seconds: totalDurationSeconds));
 
     return SessionMetadata(
+      sessionId: sessionId,
       courseId: resolvedId.isNotEmpty ? resolvedId : 'general_study',
       courseCode: code,
       courseTitle: title.isNotEmpty ? title : code,
