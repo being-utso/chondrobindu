@@ -50,6 +50,7 @@ final focusSessionsStreamProvider = StreamProvider<List<StudySessionLog>>((ref) 
       final courseCode = data['courseCode'] as String?;
       final courseTitle = data['courseTitle'] as String?;
       final sessionId = data['sessionId'] as String? ?? doc.id;
+      final topicName = data['topicName'] as String?;
 
       return StudySessionLog(
         id: sessionId,
@@ -60,6 +61,7 @@ final focusSessionsStreamProvider = StreamProvider<List<StudySessionLog>>((ref) 
         subjectName: subject,
         courseCode: courseCode,
         courseTitle: courseTitle,
+        topicName: topicName,
         startTime: startTime,
         endTime: endTime,
       );

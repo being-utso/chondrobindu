@@ -2542,12 +2542,14 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final startOfDay = DateTime(date.year, date.month, date.day, 0, 0, 0);
     final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
 
-    final daySessions = universitySessions
-        .where((s) =>
-            isSameDay(s.date, date) ||
-            (s.startTime != null && isSameDay(s.startTime!, date)) ||
-            (!s.date.isBefore(startOfDay) && !s.date.isAfter(endOfDay)))
-        .toList();
+    final daySessions = collapseDuplicateSessionLogs(
+      universitySessions
+          .where((s) =>
+              isSameDay(s.date, date) ||
+              (s.startTime != null && isSameDay(s.startTime!, date)) ||
+              (!s.date.isBefore(startOfDay) && !s.date.isAfter(endOfDay)))
+          .toList(),
+    );
     final totalSecs = daySessions.fold<int>(
       0,
       (acc, s) => acc + (s.durationInSeconds > 0 ? s.durationInSeconds : s.durationInMinutes * 60),

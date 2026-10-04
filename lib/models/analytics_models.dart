@@ -10,6 +10,7 @@ class StudySessionLog {
   final String subjectName;
   final String? courseCode;
   final String? courseTitle;
+  final String? topicName;
   final DateTime? startTime;
   final DateTime? endTime;
 
@@ -22,6 +23,7 @@ class StudySessionLog {
     this.subjectName = 'General Study',
     this.courseCode,
     this.courseTitle,
+    this.topicName,
     this.startTime,
     this.endTime,
   });
@@ -47,6 +49,7 @@ class StudySessionLog {
     String? subjectName,
     String? courseCode,
     String? courseTitle,
+    String? topicName,
     DateTime? startTime,
     DateTime? endTime,
   }) {
@@ -59,6 +62,7 @@ class StudySessionLog {
       subjectName: subjectName ?? this.subjectName,
       courseCode: courseCode ?? this.courseCode,
       courseTitle: courseTitle ?? this.courseTitle,
+      topicName: topicName ?? this.topicName,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
     );

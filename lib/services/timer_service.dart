@@ -141,75 +141,219 @@ List<T> deduplicateStudySessions<T>({
   return collapsed;
 }
 
-/// Client-side timeline aggregation & historical merge for StudySession:
-/// 1. Sorts by startedAt descending
-/// 2. Collapses entries with identical non-empty sessionId
-/// 3. Overlap safeguard: collapses sessions of the same course starting within 90s
-///    with duration difference <= 60s into a single clean tile.
-List<StudySession> deduplicateSessions(List<StudySession> sessions) {
+/// Bulletproof UI deduplication filter (Inspection & Collapse):
+/// Does NOT rely solely on string equality. Checks for TIME OVERLAP (within 180s and duration within 120s)
+/// and cross-matches courseCode and courseTitle.
+List<StudySession> collapseDuplicateSessions(List<StudySession> sessions) {
   if (sessions.isEmpty) return [];
 
-  // Sort by startedAt descending
+  // Sort chronologically descending
   final sorted = List<StudySession>.from(sessions)
     ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
 
-  final List<StudySession> clean = [];
+  final List<StudySession> merged = [];
 
-  for (final current in sorted) {
-    final hasDuplicate = clean.any((existing) {
-      // Same sessionId match
-      if (existing.sessionId.isNotEmpty && existing.sessionId == current.sessionId) {
-        return true;
+  for (final candidate in sorted) {
+    int existingIndex = -1;
+
+    for (int i = 0; i < merged.length; i++) {
+      final existing = merged[i];
+
+      // 1. Same explicit ID or sessionId
+      if ((candidate.id.isNotEmpty && candidate.id == existing.id) ||
+          (candidate.sessionId.isNotEmpty && candidate.sessionId == existing.sessionId)) {
+        existingIndex = i;
+        break;
       }
-      // Overlapping timeframe match (within 90 seconds start-time drift)
-      final timeDiff = existing.startedAt.difference(current.startedAt).inSeconds.abs();
-      final durationDiff = (existing.durationSeconds - current.durationSeconds).abs();
-      final sameCourse = (existing.courseCode.isNotEmpty && current.courseCode.isNotEmpty && existing.courseCode == current.courseCode) ||
-          (existing.courseId.isNotEmpty && current.courseId.isNotEmpty && existing.courseId == current.courseId);
 
-      return sameCourse && timeDiff <= 90 && durationDiff <= 60;
-    });
+      // 2. Overlapping time intervals (started within 3 minutes of each other OR identical duration)
+      final startDiff = (candidate.startedAt.difference(existing.startedAt).inSeconds).abs();
+      final durationDiff = (candidate.durationSeconds - existing.durationSeconds).abs();
 
-    if (!hasDuplicate) {
-      clean.add(current);
+      // Check if course matches via code OR title cross-match
+      final cCode1 = candidate.courseCode.toLowerCase().replaceAll(' ', '');
+      final cCode2 = existing.courseCode.toLowerCase().replaceAll(' ', '');
+      final cTitle1 = candidate.courseTitle?.toLowerCase() ?? '';
+      final cTitle2 = existing.courseTitle?.toLowerCase() ?? '';
+
+      final bool isSameCourse = (cCode1.isNotEmpty && (cCode1 == cCode2 || (cTitle2.isNotEmpty && cTitle2.contains(cCode1)))) ||
+                                (cCode2.isNotEmpty && (cCode2 == cCode1 || (cTitle1.isNotEmpty && cTitle1.contains(cCode2)))) ||
+                                (cTitle1.isNotEmpty && cTitle1 == cTitle2) ||
+                                (candidate.courseId.isNotEmpty && candidate.courseId == existing.courseId);
+
+      // If intervals overlap or start within 180 seconds with matching course
+      if (isSameCourse && startDiff <= 180 && durationDiff <= 120) {
+        existingIndex = i;
+        break;
+      }
+    }
+
+    if (existingIndex != -1) {
+      // Keep the version that has more complete details (e.g. topic tags or detailed notes)
+      final existing = merged[existingIndex];
+      final bool candidateHasMoreInfo = (candidate.topicName.isNotEmpty && existing.topicName.isEmpty) ||
+                                       ((candidate.courseTitle?.length ?? 0) > (existing.courseTitle?.length ?? 0)) ||
+                                       (candidate.topicIds.length > existing.topicIds.length);
+      if (candidateHasMoreInfo) {
+        merged[existingIndex] = candidate;
+      }
+    } else {
+      merged.add(candidate);
     }
   }
-  return clean;
+
+  return merged;
 }
 
-/// Client-side timeline aggregation & historical merge for StudySessionLog:
-List<StudySessionLog> deduplicateSessionLogs(List<StudySessionLog> sessions) {
+/// Backward compatibility alias for collapseDuplicateSessions
+List<StudySession> deduplicateSessions(List<StudySession> sessions) => collapseDuplicateSessions(sessions);
+
+/// Bulletproof UI deduplication filter for StudySessionLog / FocusSession:
+List<StudySessionLog> collapseDuplicateSessionLogs(List<StudySessionLog> sessions) {
   if (sessions.isEmpty) return [];
 
   final sorted = List<StudySessionLog>.from(sessions)
     ..sort((a, b) => (b.startTime ?? b.date).compareTo(a.startTime ?? a.date));
 
-  final List<StudySessionLog> clean = [];
+  final List<StudySessionLog> merged = [];
 
-  for (final current in sorted) {
-    final currentStart = current.startTime ?? current.date;
-    final currentDur = current.durationInSeconds > 0 ? current.durationInSeconds : current.durationInMinutes * 60;
+  for (final candidate in sorted) {
+    int existingIndex = -1;
 
-    final hasDuplicate = clean.any((existing) {
-      if (existing.id.isNotEmpty && existing.id == current.id) {
-        return true;
+    final candidateStart = candidate.startTime ?? candidate.date;
+    final candidateDur = candidate.durationInSeconds > 0 ? candidate.durationInSeconds : candidate.durationInMinutes * 60;
+
+    for (int i = 0; i < merged.length; i++) {
+      final existing = merged[i];
+
+      if (candidate.id.isNotEmpty && candidate.id == existing.id) {
+        existingIndex = i;
+        break;
       }
+
       final existingStart = existing.startTime ?? existing.date;
       final existingDur = existing.durationInSeconds > 0 ? existing.durationInSeconds : existing.durationInMinutes * 60;
 
-      final timeDiff = existingStart.difference(currentStart).inSeconds.abs();
-      final durationDiff = (existingDur - currentDur).abs();
-      final sameCourse = (existing.courseCode != null && current.courseCode != null && existing.courseCode == current.courseCode) ||
-          existing.subjectName.toLowerCase().trim() == current.subjectName.toLowerCase().trim();
+      final startDiff = candidateStart.difference(existingStart).inSeconds.abs();
+      final durationDiff = (candidateDur - existingDur).abs();
 
-      return sameCourse && timeDiff <= 90 && durationDiff <= 60;
-    });
+      final cCode1 = (candidate.courseCode ?? candidate.subjectName).toLowerCase().replaceAll(' ', '');
+      final cCode2 = (existing.courseCode ?? existing.subjectName).toLowerCase().replaceAll(' ', '');
+      final cTitle1 = (candidate.courseTitle ?? candidate.subjectName).toLowerCase();
+      final cTitle2 = (existing.courseTitle ?? existing.subjectName).toLowerCase();
 
-    if (!hasDuplicate) {
-      clean.add(current);
+      final bool isSameCourse = (cCode1.isNotEmpty && (cCode1 == cCode2 || (cTitle2.isNotEmpty && cTitle2.contains(cCode1)))) ||
+                                (cCode2.isNotEmpty && (cCode2 == cCode1 || (cTitle1.isNotEmpty && cTitle1.contains(cCode2)))) ||
+                                (cTitle1.isNotEmpty && cTitle1 == cTitle2) ||
+                                (candidate.subjectId.isNotEmpty && candidate.subjectId == existing.subjectId);
+
+      if (isSameCourse && startDiff <= 180 && durationDiff <= 120) {
+        existingIndex = i;
+        break;
+      }
+    }
+
+    if (existingIndex != -1) {
+      final existing = merged[existingIndex];
+      final bool candidateHasMoreInfo = ((candidate.topicName?.isNotEmpty ?? false) && (existing.topicName?.isEmpty ?? true)) ||
+                                       ((candidate.courseTitle?.length ?? 0) > (existing.courseTitle?.length ?? 0));
+      if (candidateHasMoreInfo) {
+        merged[existingIndex] = candidate;
+      }
+    } else {
+      merged.add(candidate);
     }
   }
-  return clean;
+
+  return merged;
+}
+
+/// Backward compatibility alias for collapseDuplicateSessionLogs
+List<StudySessionLog> deduplicateSessionLogs(List<StudySessionLog> sessions) => collapseDuplicateSessionLogs(sessions);
+
+/// One-time historical database purge and merge utility:
+/// Fetches all documents in users/{uid}/study_sessions and users/{uid}/focus_sessions.
+/// Groups documents that share overlapping start/end times (+/- 3 minutes) and the same course.
+/// Keeps the document with the most metadata and deletes duplicate documents via WriteBatch.
+Future<int> purgeHistoricalSessionDuplicates(String uid) async {
+  if (uid.isEmpty) return 0;
+  final db = FirebaseFirestore.instance;
+  int totalDeleted = 0;
+
+  try {
+    // 1. Purge study_sessions collection
+    final studySnap = await db.collection('users').doc(uid).collection('study_sessions').get();
+    if (studySnap.docs.isNotEmpty) {
+      final sessions = studySnap.docs.map((d) => StudySession.fromFirestore(d)).toList();
+
+      // Group overlapping documents
+      final List<StudySession> survivors = [];
+      final Set<String> idsToDelete = {};
+
+      for (final s in sessions) {
+        int matchIdx = -1;
+        for (int i = 0; i < survivors.length; i++) {
+          final ex = survivors[i];
+          final startDiff = s.startedAt.difference(ex.startedAt).inSeconds.abs();
+          final durationDiff = (s.durationSeconds - ex.durationSeconds).abs();
+
+          final cCode1 = s.courseCode.toLowerCase().replaceAll(' ', '');
+          final cCode2 = ex.courseCode.toLowerCase().replaceAll(' ', '');
+          final cTitle1 = s.courseTitle?.toLowerCase() ?? '';
+          final cTitle2 = ex.courseTitle?.toLowerCase() ?? '';
+
+          final bool sameCourse = (cCode1.isNotEmpty && (cCode1 == cCode2 || (cTitle2.isNotEmpty && cTitle2.contains(cCode1)))) ||
+                                  (cCode2.isNotEmpty && (cCode2 == cCode1 || (cTitle1.isNotEmpty && cTitle1.contains(cCode2)))) ||
+                                  (cTitle1.isNotEmpty && cTitle1 == cTitle2) ||
+                                  (s.courseId.isNotEmpty && s.courseId == ex.courseId);
+
+          if (sameCourse && startDiff <= 180 && durationDiff <= 120) {
+            matchIdx = i;
+            break;
+          }
+        }
+
+        if (matchIdx != -1) {
+          final ex = survivors[matchIdx];
+          final bool sHasMoreInfo = (s.topicName.isNotEmpty && ex.topicName.isEmpty) ||
+                                    ((s.courseTitle?.length ?? 0) > (ex.courseTitle?.length ?? 0)) ||
+                                    (s.topicIds.length > ex.topicIds.length);
+          if (sHasMoreInfo) {
+            idsToDelete.add(ex.id);
+            survivors[matchIdx] = s;
+          } else {
+            idsToDelete.add(s.id);
+          }
+        } else {
+          survivors.add(s);
+        }
+      }
+
+      if (idsToDelete.isNotEmpty) {
+        // Firestore batch max size is 500
+        final batches = <List<String>>[];
+        final idList = idsToDelete.toList();
+        for (var i = 0; i < idList.length; i += 400) {
+          batches.add(idList.sublist(i, (i + 400 > idList.length) ? idList.length : i + 400));
+        }
+
+        for (final chunk in batches) {
+          final batch = db.batch();
+          for (final id in chunk) {
+            batch.delete(db.collection('users').doc(uid).collection('study_sessions').doc(id));
+            batch.delete(db.collection('users').doc(uid).collection('focus_sessions').doc(id));
+          }
+          await batch.commit();
+        }
+        totalDeleted = idsToDelete.length;
+        debugPrint('purgeHistoricalSessionDuplicates: deleted $totalDeleted duplicate records for user $uid');
+      }
+    }
+  } catch (e) {
+    debugPrint('purgeHistoricalSessionDuplicates error: $e');
+  }
+
+  return totalDeleted;
 }
 
 /// Active Session snapshot model from `users/{uid}/active_session/current`

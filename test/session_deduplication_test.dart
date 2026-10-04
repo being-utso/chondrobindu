@@ -327,6 +327,82 @@ void main() {
       final result = deduplicateSessionLogs(logs);
       expect(result.length, 1);
     });
+
+    test('cross-matches courseCode and courseTitle with variations ("Calculus I" vs "MATH 157: Calculus I")', () {
+      final base = DateTime(2026, 9, 27, 3, 7, 0);
+      final sessions = [
+        StudySession(
+          id: 'sess_variant_1',
+          courseId: 'c_math',
+          courseCode: '',
+          courseTitle: 'Calculus I',
+          durationSeconds: 1680,
+          startedAt: base,
+          endedAt: base.add(const Duration(minutes: 28)),
+        ),
+        StudySession(
+          id: 'sess_variant_2',
+          courseId: 'c_math',
+          courseCode: 'MATH 157',
+          courseTitle: '',
+          durationSeconds: 1680,
+          startedAt: base.add(const Duration(seconds: 1)),
+          endedAt: base.add(const Duration(minutes: 28, seconds: 1)),
+        ),
+        StudySession(
+          id: 'sess_variant_3',
+          courseId: 'c_math',
+          courseCode: 'MATH 157',
+          courseTitle: 'MATH 157: Calculus I',
+          topicName: 'Integration Techniques',
+          durationSeconds: 1680,
+          startedAt: base.add(const Duration(seconds: 2)),
+          endedAt: base.add(const Duration(minutes: 28, seconds: 2)),
+        ),
+      ];
+
+      final collapsed = collapseDuplicateSessions(sessions);
+      expect(collapsed.length, 1);
+      // Ensures candidate with most metadata (topicName and detailed title) is retained
+      expect(collapsed.first.topicName, 'Integration Techniques');
+      expect(collapsed.first.cleanTitle, 'MATH 157: Calculus I');
+    });
+
+    test('collapses duplicate StudySessionLogs with courseTitle cross-matching and retains topicName', () {
+      final base = DateTime(2026, 9, 27, 3, 7, 0);
+      final logs = [
+        StudySessionLog(
+          id: 'log_var_1',
+          subjectId: 's1',
+          courseCode: '',
+          courseTitle: 'Calculus I',
+          subjectName: 'Calculus I',
+          durationInMinutes: 28,
+          durationInSeconds: 1680,
+          date: base,
+          startTime: base,
+          endTime: base.add(const Duration(minutes: 28)),
+        ),
+        StudySessionLog(
+          id: 'log_var_2',
+          subjectId: 's1',
+          courseCode: 'MATH 157',
+          courseTitle: 'MATH 157: Calculus I',
+          subjectName: 'MATH 157',
+          topicName: 'Derivatives & Limits',
+          durationInMinutes: 28,
+          durationInSeconds: 1680,
+          date: base.add(const Duration(seconds: 1)),
+          startTime: base.add(const Duration(seconds: 1)),
+          endTime: base.add(const Duration(minutes: 28, seconds: 1)),
+        ),
+      ];
+
+      final collapsed = collapseDuplicateSessionLogs(logs);
+      expect(collapsed.length, 1);
+      expect(collapsed.first.topicName, 'Derivatives & Limits');
+      expect(collapsed.first.cleanTitle, 'MATH 157: Calculus I');
+    });
   });
 }
 

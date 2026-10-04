@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
+import '../services/timer_service.dart';
 import '../services/tour_service.dart';
 import '../widgets/app_loading_screen.dart';
 import '../widgets/app_preloader.dart';
@@ -80,6 +81,9 @@ class AuthWrapper extends ConsumerWidget {
 
         // Sync onboarding tour state asynchronously from Firestore
         unawaited(TourService().syncFromFirestore(user.uid));
+
+        // Asynchronously purge any historical session duplicates in Firestore
+        unawaited(purgeHistoricalSessionDuplicates(user.uid));
 
         // Authenticated & verified user -> Route to Main Navigation
         return const MainNavigationScreen();

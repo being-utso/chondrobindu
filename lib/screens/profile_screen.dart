@@ -20,6 +20,7 @@ import '../services/archive_service.dart';
 import '../services/auth_service.dart';
 import '../services/pdf_report_service.dart';
 import '../services/syllabus_factory.dart';
+import '../services/timer_service.dart';
 import '../services/tour_service.dart';
 import 'admission_archive_screen.dart';
 import 'archived_terms_screen.dart';
@@ -1395,6 +1396,95 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           'Export Academic Progress Report (PDF)',
                           style: TextStyle(
                             color: Color(0xFFF2B78A),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // Clean Duplicate Sessions Utility Button
+              Padding(
+                padding: const EdgeInsets.only(top: 14.0),
+                child: InkWell(
+                  onTap: () async {
+                    final uid = FirebaseAuth.instance.currentUser?.uid;
+                    if (uid == null) return;
+
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: cardColor,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        title: const Text('Clean Duplicate Sessions', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        content: Text(
+                          'This will inspect all your study and focus sessions, merge multi-device duplicates, and preserve all your completed study time and notes. Proceed?',
+                          style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 13.5),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: Text('Cancel', style: TextStyle(color: Colors.blueGrey.shade400)),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF3B82F6),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Clean Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm == true) {
+                      if (!mounted) return;
+                      final scaffoldMessenger = ScaffoldMessenger.of(context);
+                      scaffoldMessenger.showSnackBar(
+                        const SnackBar(
+                          content: Text('Cleaning duplicate sessions across cloud records...'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+
+                      final removedCount = await purgeHistoricalSessionDuplicates(uid);
+
+                      if (mounted) {
+                        scaffoldMessenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              removedCount > 0
+                                  ? 'Cleaned up $removedCount duplicate session records successfully!'
+                                  : 'No duplicate sessions found. All records are clean!',
+                            ),
+                            backgroundColor: removedCount > 0 ? const Color(0xFF10B981) : const Color(0xFF3B82F6),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(16.0),
+                  child: Container(
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3B82F6).withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(16.0),
+                      border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.35)),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.cleaning_services_rounded, color: Color(0xFF60A5FA), size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'Clean Duplicate Sessions',
+                          style: TextStyle(
+                            color: Color(0xFF60A5FA),
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),

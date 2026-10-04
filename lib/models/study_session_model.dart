@@ -9,6 +9,10 @@ class StudySession {
   final String courseId;
   final String courseCode;
   final String? courseTitle;
+  final String? _topicName;
+  String get topicName => _topicName?.isNotEmpty == true
+      ? _topicName!
+      : (topicTitles.isNotEmpty ? topicTitles.first : '');
   final List<String> topicIds;
   final List<String> topicTitles;
   final int durationSeconds;
@@ -24,6 +28,7 @@ class StudySession {
     required this.courseId,
     required this.courseCode,
     this.courseTitle,
+    String? topicName,
     this.topicIds = const [],
     this.topicTitles = const [],
     required this.durationSeconds,
@@ -32,7 +37,8 @@ class StudySession {
     required this.endedAt,
     this.focusNotes,
     this.focusRating = 5,
-  }) : _sessionId = sessionId;
+  })  : _sessionId = sessionId,
+        _topicName = topicName;
 
   String get cleanTitle => formatCleanSessionTitle(
         courseCode: courseCode,
@@ -107,6 +113,7 @@ class StudySession {
     final rating = (map['focusRating'] as num?)?.toInt() ?? 5;
 
     final courseTitle = map['courseTitle'] as String? ?? map['subjectTitle'] as String? ?? map['title'] as String?;
+    final topicName = map['topicName'] as String? ?? (tTitles.isNotEmpty ? tTitles.first : null);
 
     return StudySession(
       id: id,
@@ -114,6 +121,7 @@ class StudySession {
       courseId: courseId,
       courseCode: courseCode,
       courseTitle: courseTitle,
+      topicName: topicName,
       topicIds: tIds,
       topicTitles: tTitles,
       durationSeconds: dur,
@@ -133,6 +141,7 @@ class StudySession {
       'courseCode': courseCode,
       'courseTitle': courseTitle,
       'cleanTitle': cleanTitle,
+      'topicName': topicName,
       'topicIds': topicIds,
       'topicTitles': topicTitles,
       'durationSeconds': durationSeconds,
@@ -160,6 +169,7 @@ class StudySession {
     String? courseId,
     String? courseCode,
     String? courseTitle,
+    String? topicName,
     List<String>? topicIds,
     List<String>? topicTitles,
     int? durationSeconds,
@@ -175,6 +185,7 @@ class StudySession {
       courseId: courseId ?? this.courseId,
       courseCode: courseCode ?? this.courseCode,
       courseTitle: courseTitle ?? this.courseTitle,
+      topicName: topicName ?? this.topicName,
       topicIds: topicIds ?? this.topicIds,
       topicTitles: topicTitles ?? this.topicTitles,
       durationSeconds: durationSeconds ?? this.durationSeconds,
