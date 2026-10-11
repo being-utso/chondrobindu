@@ -1490,6 +1490,47 @@ void main() {
       notifier2.dispose();
     });
 
+    test('Stopwatch wall-clock resilience: pause/resume and syncUi do not double elapsed time', () {
+      final notifier = TimerNotifier();
+      notifier.setTimerType(TimerType.stopwatch);
+      expect(notifier.state.timerType, TimerType.stopwatch);
+      expect(notifier.state.totalLoggedSeconds, 0);
+
+      // Start fresh
+      notifier.startTimer();
+      expect(notifier.state.status, TimerStatus.running);
+
+      // Simulate 60s of active study
+      notifier.catchUp(60);
+      expect(notifier.state.currentElapsedSeconds, 60);
+      expect(notifier.state.totalLoggedSeconds, 60);
+
+      // Calling syncUi() repeatedly (e.g. browser tab wakeups / ticks) must NOT compound or increment time
+      notifier.syncUi();
+      notifier.syncUi();
+      expect(notifier.state.currentElapsedSeconds, 60);
+
+      // Pause timer after 60s
+      notifier.pauseTimer();
+      expect(notifier.state.status, TimerStatus.paused);
+      expect(notifier.state.baseElapsedSeconds, 60);
+      expect(notifier.state.currentElapsedSeconds, 60);
+
+      // Resume timer
+      notifier.startTimer();
+      expect(notifier.state.status, TimerStatus.running);
+      expect(notifier.state.baseElapsedSeconds, 60);
+
+      // Run another 60s
+      notifier.catchUp(60);
+      // Total elapsed must be exactly 120s (2m), NOT 180s or 240s!
+      expect(notifier.state.currentElapsedSeconds, 120);
+      expect(notifier.state.totalLoggedSeconds, 120);
+      expect(notifier.state.formattedTime, '00:02:00');
+
+      notifier.dispose();
+    });
+
     test('SessionMetadata snapshots active course context and isolates from subject changes', () {
       final start = DateTime.now().subtract(const Duration(minutes: 30));
       final end = DateTime.now();

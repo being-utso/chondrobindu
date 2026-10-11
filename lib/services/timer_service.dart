@@ -369,6 +369,7 @@ class ActiveSessionState {
   final String? topicName;
   final int targetDurationSeconds;
   final int elapsedBeforePauseSeconds;
+  final int baseElapsedSeconds;
   final bool isFinalized;
   final DateTime? startedAt;
   final DateTime? pausedAt;
@@ -387,6 +388,7 @@ class ActiveSessionState {
     this.topicName,
     this.targetDurationSeconds = 1500,
     this.elapsedBeforePauseSeconds = 0,
+    this.baseElapsedSeconds = 0,
     this.isFinalized = false,
     this.startedAt,
     this.pausedAt,
@@ -395,7 +397,7 @@ class ActiveSessionState {
   });
 
   int get targetSeconds => targetDurationSeconds;
-  int get elapsedSeconds => elapsedBeforePauseSeconds;
+  int get elapsedSeconds => baseElapsedSeconds > 0 ? baseElapsedSeconds : elapsedBeforePauseSeconds;
   bool get isRunning => status == 'running' && !isFinalized;
   bool get isPaused => status == 'paused' && !isFinalized;
   bool get isIdle => status == 'idle' || isFinalized;
@@ -409,7 +411,8 @@ class ActiveSessionState {
     }
 
     final rawTarget = data['targetSeconds'] ?? data['targetDurationSeconds'];
-    final rawElapsed = data['elapsedSeconds'] ?? data['elapsedBeforePauseSeconds'];
+    final rawElapsed = data['baseElapsedSeconds'] ?? data['elapsedBeforePauseSeconds'] ?? data['elapsedSeconds'];
+    final baseElapsed = (rawElapsed as num?)?.toInt() ?? 0;
 
     return ActiveSessionState(
       sessionId: data['sessionId'] as String? ?? data['id'] as String?,
@@ -422,7 +425,8 @@ class ActiveSessionState {
       topicId: data['topicId'] as String?,
       topicName: data['topicName'] as String?,
       targetDurationSeconds: (rawTarget as num?)?.toInt() ?? 1500,
-      elapsedBeforePauseSeconds: (rawElapsed as num?)?.toInt() ?? 0,
+      elapsedBeforePauseSeconds: baseElapsed,
+      baseElapsedSeconds: baseElapsed,
       isFinalized: data['isFinalized'] == true,
       startedAt: parseTimestamp(data['startedAt']),
       pausedAt: parseTimestamp(data['pausedAt']),
@@ -444,8 +448,9 @@ class ActiveSessionState {
       'topicName': topicName,
       'targetSeconds': targetDurationSeconds,
       'targetDurationSeconds': targetDurationSeconds,
-      'elapsedSeconds': elapsedBeforePauseSeconds,
-      'elapsedBeforePauseSeconds': elapsedBeforePauseSeconds,
+      'baseElapsedSeconds': baseElapsedSeconds,
+      'elapsedSeconds': baseElapsedSeconds,
+      'elapsedBeforePauseSeconds': baseElapsedSeconds,
       'isFinalized': isFinalized,
       'startedAt': startedAt != null ? Timestamp.fromDate(startedAt!) : null,
       'pausedAt': pausedAt != null ? Timestamp.fromDate(pausedAt!) : null,
@@ -554,6 +559,7 @@ class TimerService {
         'startedAt': FieldValue.serverTimestamp(),
         'targetSeconds': targetDurationSeconds,
         'targetDurationSeconds': targetDurationSeconds,
+        'baseElapsedSeconds': 0,
         'elapsedSeconds': 0,
         'elapsedBeforePauseSeconds': 0,
         'isFinalized': false,
@@ -578,6 +584,7 @@ class TimerService {
     try {
       await docRef.set({
         'status': 'paused',
+        'baseElapsedSeconds': currentElapsedSeconds,
         'elapsedSeconds': currentElapsedSeconds,
         'elapsedBeforePauseSeconds': currentElapsedSeconds,
         'pausedAt': FieldValue.serverTimestamp(),
@@ -625,6 +632,7 @@ class TimerService {
         'topicName': null,
         'targetSeconds': 0,
         'targetDurationSeconds': 0,
+        'baseElapsedSeconds': 0,
         'elapsedSeconds': 0,
         'elapsedBeforePauseSeconds': 0,
         'isFinalized': true,

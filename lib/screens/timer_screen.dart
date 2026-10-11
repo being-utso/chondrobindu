@@ -52,7 +52,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
   late AnimationController _pulseController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _glowAnimation;
-  DateTime? _backgroundedTime;
   bool _isPostSessionDialogOpen = false;
 
   @override
@@ -85,34 +84,20 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     super.dispose();
   }
 
-  /// Task 2: Lifecycle observation to catch up on missed time when locked/backgrounded
+  /// Lifecycle observation: Authoritative wall-clock sync when tab wakes or app resumes
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     final timerState = ref.read(timerProvider);
 
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.hidden) {
-      // Record exact timestamp when phone is locked or app minimized while running
+    if (state == AppLifecycleState.resumed) {
       if (timerState.status == TimerStatus.running) {
-        _backgroundedTime = DateTime.now();
-        debugPrint('Timer backgrounded/locked at: $_backgroundedTime');
-      }
-    } else if (state == AppLifecycleState.resumed) {
-      // Catch up on time passed while phone was locked or app was in background
-      if (_backgroundedTime != null && timerState.status == TimerStatus.running) {
-        final now = DateTime.now();
-        final missedSeconds = now.difference(_backgroundedTime!).inSeconds;
-        debugPrint('Timer resumed. Catching up missed duration: $missedSeconds seconds');
-
-        if (missedSeconds > 0) {
-          ref.read(timerProvider.notifier).catchUp(missedSeconds);
-          if (mounted) {
-            setState(() {});
-          }
+        // Authoritative wall-clock calculation automatically computes exact duration
+        // via DateTime.now().difference(startedAt). Simply sync the UI and tick.
+        ref.read(timerProvider.notifier).syncUi();
+        if (mounted) {
+          setState(() {});
         }
-        _backgroundedTime = null;
       }
     }
   }

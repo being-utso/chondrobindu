@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/session_metadata.dart';
@@ -46,37 +46,95 @@ class TimerState {
   final TimerStatus status;
   final FocusTimerMode focusMode;
   final TimerType timerType;
-  final int elapsedSeconds;
+  final int baseElapsedSeconds;
+  final DateTime? startedAt;
   final int targetSeconds;
-  final int overtimeSeconds;
+  final int baseOvertimeSeconds;
   final int breakDurationSeconds;
-  final int breakElapsedSeconds;
+  final int baseBreakElapsedSeconds;
   final int extraElapsedSeconds;
   final String selectedSubject;
   final String? selectedCourseId;
   final String? selectedTopicId;
   final String? activeSessionId;
-  final int currentSubjectElapsedSeconds;
+  final int baseSubjectElapsedSeconds;
   final SessionMetadata? sessionMetadata;
+  final DateTime? lastTickTime;
 
   const TimerState({
     required this.mode,
     required this.status,
     this.focusMode = FocusTimerMode.idle,
     this.timerType = TimerType.target,
-    required this.elapsedSeconds,
+    int elapsedSeconds = 0,
+    int? baseElapsedSeconds,
+    this.startedAt,
     required this.targetSeconds,
-    this.overtimeSeconds = 0,
+    int overtimeSeconds = 0,
+    int? baseOvertimeSeconds,
     this.breakDurationSeconds = 300,
-    this.breakElapsedSeconds = 0,
+    int breakElapsedSeconds = 0,
+    int? baseBreakElapsedSeconds,
     this.extraElapsedSeconds = 0,
     this.selectedSubject = 'General Study',
     this.selectedCourseId,
     this.selectedTopicId,
     this.activeSessionId,
-    this.currentSubjectElapsedSeconds = 0,
+    int currentSubjectElapsedSeconds = 0,
+    int? baseSubjectElapsedSeconds,
     this.sessionMetadata,
-  });
+    this.lastTickTime,
+  })  : baseElapsedSeconds = baseElapsedSeconds ?? elapsedSeconds,
+        baseOvertimeSeconds = baseOvertimeSeconds ?? overtimeSeconds,
+        baseBreakElapsedSeconds = baseBreakElapsedSeconds ?? breakElapsedSeconds,
+        baseSubjectElapsedSeconds = baseSubjectElapsedSeconds ?? currentSubjectElapsedSeconds;
+
+  /// Running wall-clock delta since current uninterrupted run started
+  int get runningDelta {
+    if (status != TimerStatus.running || startedAt == null) return 0;
+    final delta = DateTime.now().difference(startedAt!).inSeconds;
+    return delta > 0 ? delta : 0;
+  }
+
+  /// Authoritative single-source-of-truth wall-clock elapsed focus calculation
+  int get currentElapsedSeconds {
+    if (status != TimerStatus.running || startedAt == null) {
+      return baseElapsedSeconds;
+    }
+    return baseElapsedSeconds + runningDelta;
+  }
+
+  /// Elapsed focus seconds for the current session (capped at targetSeconds during target countdown)
+  int get elapsedSeconds {
+    if (timerType == TimerType.target && currentElapsedSeconds >= targetSeconds) {
+      return targetSeconds;
+    }
+    return currentElapsedSeconds;
+  }
+
+  /// Overtime seconds counting UP beyond target focus duration
+  int get overtimeSeconds {
+    if (timerType == TimerType.target && currentElapsedSeconds > targetSeconds) {
+      return currentElapsedSeconds - targetSeconds;
+    }
+    return baseOvertimeSeconds;
+  }
+
+  /// Elapsed break seconds (capped at breakDurationSeconds)
+  int get breakElapsedSeconds {
+    if (status != TimerStatus.running || startedAt == null) {
+      return baseBreakElapsedSeconds.clamp(0, breakDurationSeconds);
+    }
+    return (baseBreakElapsedSeconds + runningDelta).clamp(0, breakDurationSeconds);
+  }
+
+  /// Elapsed seconds dedicated to the currently selected subject
+  int get currentSubjectElapsedSeconds {
+    if (status != TimerStatus.running || startedAt == null) {
+      return baseSubjectElapsedSeconds;
+    }
+    return baseSubjectElapsedSeconds + runningDelta;
+  }
 
   /// Total logged focus seconds across target and overtime (or elapsed for stopwatch)
   int get totalLoggedSeconds {
@@ -86,7 +144,7 @@ class TimerState {
       }
       return elapsedSeconds;
     }
-    return elapsedSeconds;
+    return currentElapsedSeconds;
   }
 
   /// Calculates earned break time: 5:1 focus ratio using canonical calculateBreakMinutes
@@ -101,8 +159,12 @@ class TimerState {
   }
 
   /// Helper boolean getters
-  bool get isOvertime => focusMode == FocusTimerMode.overtimeRunning || overtimeSeconds > 0;
-  bool get isBreak => mode == TimerMode.breakTime ||
+  bool get isOvertime =>
+      focusMode == FocusTimerMode.overtimeRunning ||
+      overtimeSeconds > 0 ||
+      (timerType == TimerType.target && currentElapsedSeconds > targetSeconds);
+  bool get isBreak =>
+      mode == TimerMode.breakTime ||
       focusMode == FocusTimerMode.breakRunning ||
       focusMode == FocusTimerMode.breakPaused;
   bool get isBreakRunning => focusMode == FocusTimerMode.breakRunning;
@@ -116,20 +178,22 @@ class TimerState {
   /// 4. Stopwatch Mode: HH:MM:SS or MM:SS (open-ended study count-up)
   /// 5. Target Mode: MM:SS or HH:MM:SS strictly counting DOWN the target focus time.
   String get formattedTime {
-    if (focusMode == FocusTimerMode.overtimeRunning || (mode == TimerMode.extraTime && overtimeSeconds > 0)) {
+    if (isBreak) {
+      final remainingBreak = (breakDurationSeconds - breakElapsedSeconds).clamp(0, breakDurationSeconds);
+      final minutes = (remainingBreak ~/ 60).toString().padLeft(2, '0');
+      final seconds = (remainingBreak % 60).toString().padLeft(2, '0');
+      return '$minutes:$seconds';
+    }
+
+    if (focusMode == FocusTimerMode.overtimeRunning ||
+        overtimeSeconds > 0 ||
+        (mode == TimerMode.extraTime && overtimeSeconds > 0)) {
       final displaySecs = overtimeSeconds;
       final hours = displaySecs ~/ 3600;
       final minutes = ((displaySecs % 3600) ~/ 60).toString().padLeft(2, '0');
       final seconds = (displaySecs % 60).toString().padLeft(2, '0');
       final baseTime = hours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
       return '+$baseTime';
-    }
-
-    if (isBreak) {
-      final remainingBreak = (breakDurationSeconds - breakElapsedSeconds).clamp(0, breakDurationSeconds);
-      final minutes = (remainingBreak ~/ 60).toString().padLeft(2, '0');
-      final seconds = (remainingBreak % 60).toString().padLeft(2, '0');
-      return '$minutes:$seconds';
     }
 
     if (mode == TimerMode.extraTime) {
@@ -163,7 +227,7 @@ class TimerState {
       if (breakDurationSeconds <= 0) return 0.0;
       return (breakElapsedSeconds / breakDurationSeconds).clamp(0.0, 1.0);
     }
-    if (focusMode == FocusTimerMode.overtimeRunning) {
+    if (focusMode == FocusTimerMode.overtimeRunning || isOvertime) {
       return 1.0;
     }
     if (mode == TimerMode.extraTime) return 1.0;
@@ -181,10 +245,15 @@ class TimerState {
     FocusTimerMode? focusMode,
     TimerType? timerType,
     int? elapsedSeconds,
+    int? baseElapsedSeconds,
+    DateTime? startedAt,
+    bool clearStartedAt = false,
     int? targetSeconds,
     int? overtimeSeconds,
+    int? baseOvertimeSeconds,
     int? breakDurationSeconds,
     int? breakElapsedSeconds,
+    int? baseBreakElapsedSeconds,
     int? extraElapsedSeconds,
     String? selectedSubject,
     String? selectedCourseId,
@@ -192,25 +261,29 @@ class TimerState {
     String? activeSessionId,
     bool clearActiveSessionId = false,
     int? currentSubjectElapsedSeconds,
+    int? baseSubjectElapsedSeconds,
     SessionMetadata? sessionMetadata,
+    DateTime? lastTickTime,
   }) {
     return TimerState(
       mode: mode ?? this.mode,
       status: status ?? this.status,
       focusMode: focusMode ?? this.focusMode,
       timerType: timerType ?? this.timerType,
-      elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
+      baseElapsedSeconds: baseElapsedSeconds ?? elapsedSeconds ?? this.baseElapsedSeconds,
+      startedAt: clearStartedAt ? null : (startedAt ?? this.startedAt),
       targetSeconds: targetSeconds ?? this.targetSeconds,
-      overtimeSeconds: overtimeSeconds ?? this.overtimeSeconds,
+      baseOvertimeSeconds: baseOvertimeSeconds ?? overtimeSeconds ?? this.baseOvertimeSeconds,
       breakDurationSeconds: breakDurationSeconds ?? this.breakDurationSeconds,
-      breakElapsedSeconds: breakElapsedSeconds ?? this.breakElapsedSeconds,
+      baseBreakElapsedSeconds: baseBreakElapsedSeconds ?? breakElapsedSeconds ?? this.baseBreakElapsedSeconds,
       extraElapsedSeconds: extraElapsedSeconds ?? this.extraElapsedSeconds,
       selectedSubject: selectedSubject ?? this.selectedSubject,
       selectedCourseId: selectedCourseId ?? this.selectedCourseId,
       selectedTopicId: selectedTopicId ?? this.selectedTopicId,
       activeSessionId: clearActiveSessionId ? null : (activeSessionId ?? this.activeSessionId),
-      currentSubjectElapsedSeconds: currentSubjectElapsedSeconds ?? this.currentSubjectElapsedSeconds,
+      baseSubjectElapsedSeconds: baseSubjectElapsedSeconds ?? currentSubjectElapsedSeconds ?? this.baseSubjectElapsedSeconds,
       sessionMetadata: sessionMetadata ?? this.sessionMetadata,
+      lastTickTime: lastTickTime ?? this.lastTickTime,
     );
   }
 }
@@ -227,7 +300,7 @@ final timerProvider = StateNotifierProvider<TimerNotifier, TimerState>((ref) {
   return notifier;
 });
 
-class TimerNotifier extends StateNotifier<TimerState> {
+class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserver {
   final FirebaseFirestore? _customFirestore;
   final FirebaseAuth? _customAuth;
   final NotificationService? _customNotificationService;
@@ -239,7 +312,6 @@ class TimerNotifier extends StateNotifier<TimerState> {
 
   Timer? _ticker;
   Timer? _abandonedPauseTimer;
-  DateTime? _lastTickTime;
   String? _lastBurnoutAlertDate;
 
   FirebaseFirestore? get _firestore {
@@ -278,16 +350,35 @@ class TimerNotifier extends StateNotifier<TimerState> {
         super(TimerState(
           mode: TimerMode.focus,
           status: TimerStatus.initial,
-          elapsedSeconds: 0,
+          baseElapsedSeconds: 0,
           targetSeconds: 1500, // Default 25 minutes
           breakDurationSeconds: 300,
-          breakElapsedSeconds: 0,
+          baseBreakElapsedSeconds: 0,
           selectedSubject: initialSubject ?? 'General Study',
           selectedCourseId: initialCourseId,
           selectedTopicId: initialTopicId,
-          currentSubjectElapsedSeconds: 0,
+          baseSubjectElapsedSeconds: 0,
         )) {
+    try {
+      WidgetsBinding.instance.addObserver(this);
+    } catch (_) {}
     _initActiveSessionSync();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      syncUi();
+    }
+  }
+
+  /// Web Browser Tab Backgrounding (Page Visibility API) & Lifecycle Resumed:
+  /// Cancels zombie tickers, ensures clean ticker instance, and forces authoritative wall-clock sync.
+  void syncUi() {
+    if (state.status == TimerStatus.running) {
+      _startLocalTicker();
+      _onTick();
+    }
   }
 
   void _initActiveSessionSync() {
@@ -330,22 +421,22 @@ class TimerNotifier extends StateNotifier<TimerState> {
     }
 
     if (remoteSession.isRunning) {
-      final startedAt = remoteSession.startedAt ?? DateTime.now();
-      final diffSeconds = DateTime.now().difference(startedAt).inSeconds;
-      final currentElapsed = remoteSession.elapsedBeforePauseSeconds + (diffSeconds > 0 ? diffSeconds : 0);
+      // Authoritative wall-clock: Do NOT compound or add snapshot delta to baseElapsedSeconds!
+      final remoteStartedAt = remoteSession.startedAt ?? DateTime.now();
+      final remoteBaseElapsed = remoteSession.baseElapsedSeconds;
 
       final isStopwatch = remoteSession.mode == 'stopwatch';
       final isBreak = remoteSession.mode == 'break';
 
       if (isBreak) {
         final breakDur = remoteSession.targetDurationSeconds > 0 ? remoteSession.targetDurationSeconds : 300;
-        final nextBreakElapsed = currentElapsed.clamp(0, breakDur);
         state = state.copyWith(
           mode: TimerMode.breakTime,
           status: TimerStatus.running,
           focusMode: FocusTimerMode.breakRunning,
           breakDurationSeconds: breakDur,
-          breakElapsedSeconds: nextBreakElapsed,
+          baseBreakElapsedSeconds: remoteBaseElapsed,
+          startedAt: remoteStartedAt,
           activeSessionId: remoteSession.sessionId,
           selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
           selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
@@ -357,7 +448,8 @@ class TimerNotifier extends StateNotifier<TimerState> {
           timerType: TimerType.stopwatch,
           status: TimerStatus.running,
           focusMode: FocusTimerMode.focusRunning,
-          elapsedSeconds: currentElapsed,
+          baseElapsedSeconds: remoteBaseElapsed,
+          startedAt: remoteStartedAt,
           activeSessionId: remoteSession.sessionId,
           selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
           selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
@@ -365,54 +457,29 @@ class TimerNotifier extends StateNotifier<TimerState> {
         );
       } else {
         final target = remoteSession.targetDurationSeconds > 0 ? remoteSession.targetDurationSeconds : state.targetSeconds;
-        if (currentElapsed >= target) {
-          final overtime = currentElapsed - target;
-          state = state.copyWith(
-            mode: TimerMode.focus,
-            timerType: TimerType.target,
-            status: TimerStatus.running,
-            focusMode: FocusTimerMode.overtimeRunning,
-            targetSeconds: target,
-            elapsedSeconds: target,
-            overtimeSeconds: overtime,
-            activeSessionId: remoteSession.sessionId,
-            selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
-            selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
-            selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
-          );
-        } else {
-          state = state.copyWith(
-            mode: TimerMode.focus,
-            timerType: TimerType.target,
-            status: TimerStatus.running,
-            focusMode: FocusTimerMode.focusRunning,
-            targetSeconds: target,
-            elapsedSeconds: currentElapsed,
-            overtimeSeconds: 0,
-            activeSessionId: remoteSession.sessionId,
-            selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
-            selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
-            selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
-          );
-        }
+        state = state.copyWith(
+          mode: TimerMode.focus,
+          timerType: TimerType.target,
+          status: TimerStatus.running,
+          focusMode: (remoteBaseElapsed >= target) ? FocusTimerMode.overtimeRunning : FocusTimerMode.focusRunning,
+          targetSeconds: target,
+          baseElapsedSeconds: remoteBaseElapsed,
+          startedAt: remoteStartedAt,
+          activeSessionId: remoteSession.sessionId,
+          selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
+          selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
+          selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
+        );
       }
 
-      _lastTickTime = DateTime.now();
       _enableWakelock();
       _startLocalTicker();
-      _notificationService.showTimerNotification(
-        timeRemaining: state.formattedTime,
-        subject: state.isBreak
-            ? 'Break Time ☕'
-            : (state.isOvertime ? '${state.selectedSubject} (Overtime)' : state.selectedSubject),
-        isRunning: true,
-        isBreakMode: state.isBreak,
-      );
+      _onTick();
     } else if (remoteSession.isPaused) {
-      final currentElapsed = remoteSession.elapsedBeforePauseSeconds;
       _stopLocalTicker();
       _disableWakelock();
 
+      final remoteBaseElapsed = remoteSession.baseElapsedSeconds;
       final isStopwatch = remoteSession.mode == 'stopwatch';
       final isBreak = remoteSession.mode == 'break';
 
@@ -421,7 +488,8 @@ class TimerNotifier extends StateNotifier<TimerState> {
           mode: TimerMode.breakTime,
           status: TimerStatus.paused,
           focusMode: FocusTimerMode.breakPaused,
-          breakElapsedSeconds: currentElapsed,
+          baseBreakElapsedSeconds: remoteBaseElapsed,
+          clearStartedAt: true,
           activeSessionId: remoteSession.sessionId,
           selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
           selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
@@ -433,7 +501,8 @@ class TimerNotifier extends StateNotifier<TimerState> {
           timerType: TimerType.stopwatch,
           status: TimerStatus.paused,
           focusMode: FocusTimerMode.focusPaused,
-          elapsedSeconds: currentElapsed,
+          baseElapsedSeconds: remoteBaseElapsed,
+          clearStartedAt: true,
           activeSessionId: remoteSession.sessionId,
           selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
           selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
@@ -441,38 +510,20 @@ class TimerNotifier extends StateNotifier<TimerState> {
         );
       } else {
         final target = remoteSession.targetDurationSeconds > 0 ? remoteSession.targetDurationSeconds : state.targetSeconds;
-        if (currentElapsed >= target) {
-          final overtime = currentElapsed - target;
-          state = state.copyWith(
-            mode: TimerMode.focus,
-            timerType: TimerType.target,
-            status: TimerStatus.paused,
-            focusMode: FocusTimerMode.focusPaused,
-            targetSeconds: target,
-            elapsedSeconds: target,
-            overtimeSeconds: overtime,
-            activeSessionId: remoteSession.sessionId,
-            selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
-            selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
-            selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
-          );
-        } else {
-          state = state.copyWith(
-            mode: TimerMode.focus,
-            timerType: TimerType.target,
-            status: TimerStatus.paused,
-            focusMode: FocusTimerMode.focusPaused,
-            targetSeconds: target,
-            elapsedSeconds: currentElapsed,
-            overtimeSeconds: 0,
-            activeSessionId: remoteSession.sessionId,
-            selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
-            selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
-            selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
-          );
-        }
+        state = state.copyWith(
+          mode: TimerMode.focus,
+          timerType: TimerType.target,
+          status: TimerStatus.paused,
+          focusMode: (remoteBaseElapsed >= target) ? FocusTimerMode.overtimeRunning : FocusTimerMode.focusPaused,
+          targetSeconds: target,
+          baseElapsedSeconds: remoteBaseElapsed,
+          clearStartedAt: true,
+          activeSessionId: remoteSession.sessionId,
+          selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
+          selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
+          selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
+        );
       }
-
       _notificationService.showTimerNotification(
         timeRemaining: state.formattedTime,
         subject: state.isBreak
@@ -517,7 +568,6 @@ class TimerNotifier extends StateNotifier<TimerState> {
   void _stopLocalTicker() {
     _ticker?.cancel();
     _ticker = null;
-    _lastTickTime = null;
   }
 
   /// Sets target duration in minutes and resets timer state to focus countdown
@@ -743,14 +793,22 @@ class TimerNotifier extends StateNotifier<TimerState> {
         mode: TimerMode.focus,
         focusMode: FocusTimerMode.focusRunning,
         status: TimerStatus.running,
-        elapsedSeconds: 0,
+        baseElapsedSeconds: 0,
+        baseBreakElapsedSeconds: 0,
+        baseSubjectElapsedSeconds: 0,
+        startedAt: _sessionStartTime,
         overtimeSeconds: 0,
         breakDurationSeconds: breakDur,
         breakElapsedSeconds: 0,
         extraElapsedSeconds: 0,
+        currentSubjectElapsedSeconds: 0,
         activeSessionId: currentSessionId,
       );
     } else {
+      // RESUMING:
+      // Crucial: Reset anchor point so past time is only in baseElapsedSeconds!
+      final resumeNow = DateTime.now();
+      _sessionStartTime ??= resumeNow.subtract(Duration(seconds: state.currentElapsedSeconds));
       final newFocusMode = state.isBreak
           ? FocusTimerMode.breakRunning
           : (state.overtimeSeconds > 0
@@ -759,10 +817,10 @@ class TimerNotifier extends StateNotifier<TimerState> {
       state = state.copyWith(
         status: TimerStatus.running,
         focusMode: newFocusMode,
+        startedAt: resumeNow,
         activeSessionId: currentSessionId,
       );
     }
-    _lastTickTime = DateTime.now();
 
     _enableWakelock();
 
@@ -776,10 +834,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
       isBreakMode: state.isBreak,
     );
 
-    _ticker?.cancel();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
-      _onTick();
-    });
+    _startLocalTicker();
 
     // Cross-Device Sync State Transition to Firestore
     if (uid.isNotEmpty) {
@@ -803,163 +858,57 @@ class TimerNotifier extends StateNotifier<TimerState> {
     }
   }
 
-  /// Catches up missed time when returning from background or screen-off
+  /// Catches up missed time when returning from background or in unit test simulation
   void catchUp(int additionalSeconds) {
     if (state.status != TimerStatus.running || additionalSeconds <= 0) return;
 
-    _lastTickTime = DateTime.now();
-
     if (state.isBreak) {
-      final nextBreak = (state.breakElapsedSeconds + additionalSeconds).clamp(0, state.breakDurationSeconds);
-      state = state.copyWith(breakElapsedSeconds: nextBreak);
-      _notificationService.showTimerNotification(
-        timeRemaining: state.formattedTime,
-        subject: 'Break Time ☕',
-        isRunning: true,
-        isBreakMode: true,
+      final curStarted = state.startedAt ?? DateTime.now();
+      state = state.copyWith(
+        startedAt: curStarted.subtract(Duration(seconds: additionalSeconds)),
       );
+      _onTick();
       return;
     }
 
-    if (state.focusMode == FocusTimerMode.overtimeRunning || state.overtimeSeconds > 0) {
-      final nextOvertime = state.overtimeSeconds + additionalSeconds;
-      final nextSubjElapsed = state.currentSubjectElapsedSeconds + additionalSeconds;
-      state = state.copyWith(
-        overtimeSeconds: nextOvertime,
-        currentSubjectElapsedSeconds: nextSubjElapsed,
-        focusMode: FocusTimerMode.overtimeRunning,
-      );
-      _notificationService.showTimerNotification(
-        timeRemaining: state.formattedTime,
-        subject: '${state.selectedSubject} (Overtime)',
-        isRunning: true,
-        isBreakMode: false,
-      );
-      return;
-    }
+    _sessionStartTime = _sessionStartTime?.subtract(Duration(seconds: additionalSeconds));
+    final curStarted = state.startedAt ?? DateTime.now();
+    state = state.copyWith(
+      startedAt: curStarted.subtract(Duration(seconds: additionalSeconds)),
+    );
 
-    final nextElapsed = state.elapsedSeconds + additionalSeconds;
-    final nextSubjElapsed = state.currentSubjectElapsedSeconds + additionalSeconds;
-
-    if (state.timerType == TimerType.target && nextElapsed >= state.targetSeconds) {
-      // Reached 00:00:00 countdown! Do NOT auto-switch to break.
-      // Transition immediately to FocusTimerMode.overtimeRunning and count up.
-      final excessSeconds = nextElapsed - state.targetSeconds;
-      state = state.copyWith(
-        elapsedSeconds: state.targetSeconds,
-        overtimeSeconds: excessSeconds,
-        currentSubjectElapsedSeconds: nextSubjElapsed,
-        focusMode: FocusTimerMode.overtimeRunning,
-      );
-
-      _notificationService.showTimerNotification(
-        timeRemaining: state.formattedTime,
-        subject: '${state.selectedSubject} (Overtime)',
-        isRunning: true,
-        isBreakMode: false,
-      );
-    } else {
-      state = state.copyWith(
-        elapsedSeconds: nextElapsed,
-        currentSubjectElapsedSeconds: nextSubjElapsed,
-      );
-
-      _notificationService.showTimerNotification(
-        timeRemaining: state.formattedTime,
-        subject: state.selectedSubject,
-        isRunning: true,
-        isBreakMode: false,
-      );
-    }
+    _onTick();
   }
 
   /// Finite State Machine Tick execution:
-  /// - Break countdown ticks towards 0
-  /// - Overtime ticks UP (+00:01, +00:02...)
-  /// - Countdown ticks DOWN to 0, then immediately transitions to Overtime without stopping
+  /// Uses pure wall-clock truth. Does NOT increment an accumulator counter!
   void _onTick() {
     if (state.status != TimerStatus.running) return;
 
-    final now = DateTime.now();
-    final deltaSeconds = _lastTickTime != null ? now.difference(_lastTickTime!).inSeconds : 1;
+    final currentElapsed = state.currentElapsedSeconds;
+    FocusTimerMode currentFocusMode = state.focusMode;
 
-    if (deltaSeconds <= 0) return;
-    _lastTickTime = now;
-
-    // 1. Break countdown mode
     if (state.isBreak) {
-      final nextBreak = state.breakElapsedSeconds + deltaSeconds;
-      if (nextBreak >= state.breakDurationSeconds) {
-        state = state.copyWith(breakElapsedSeconds: state.breakDurationSeconds);
-      } else {
-        state = state.copyWith(breakElapsedSeconds: nextBreak);
+      // Break mode running
+    } else if (state.timerType == TimerType.target) {
+      if (currentElapsed >= state.targetSeconds) {
+        currentFocusMode = FocusTimerMode.overtimeRunning;
       }
-
-      _notificationService.showTimerNotification(
-        timeRemaining: state.formattedTime,
-        subject: 'Break Time ☕',
-        isRunning: true,
-        isBreakMode: true,
-      );
-      return;
     }
 
-    // 2. Overtime Running mode
-    if (state.focusMode == FocusTimerMode.overtimeRunning || state.overtimeSeconds > 0) {
-      final nextOvertime = state.overtimeSeconds + deltaSeconds;
-      final nextSubjElapsed = state.currentSubjectElapsedSeconds + deltaSeconds;
+    state = state.copyWith(
+      lastTickTime: DateTime.now(),
+      focusMode: currentFocusMode,
+    );
 
-      state = state.copyWith(
-        overtimeSeconds: nextOvertime,
-        currentSubjectElapsedSeconds: nextSubjElapsed,
-        focusMode: FocusTimerMode.overtimeRunning,
-      );
-
-      _notificationService.showTimerNotification(
-        timeRemaining: state.formattedTime,
-        subject: '${state.selectedSubject} (Overtime)',
-        isRunning: true,
-        isBreakMode: false,
-      );
-      return;
-    }
-
-    // 3. Focus countdown / stopwatch mode
-    final nextElapsed = state.elapsedSeconds + deltaSeconds;
-    final nextSubjElapsed = state.currentSubjectElapsedSeconds + deltaSeconds;
-
-    if (state.timerType == TimerType.target && nextElapsed >= state.targetSeconds) {
-      // Countdown reached 00:00:00!
-      // Do NOT stop and do NOT auto-switch to break mode.
-      // Transition immediately to FocusTimerMode.overtimeRunning and count UP.
-      final excess = nextElapsed - state.targetSeconds;
-      state = state.copyWith(
-        elapsedSeconds: state.targetSeconds,
-        overtimeSeconds: excess,
-        currentSubjectElapsedSeconds: nextSubjElapsed,
-        focusMode: FocusTimerMode.overtimeRunning,
-      );
-
-      _notificationService.showTimerNotification(
-        timeRemaining: state.formattedTime,
-        subject: '${state.selectedSubject} (Overtime)',
-        isRunning: true,
-        isBreakMode: false,
-      );
-    } else {
-      state = state.copyWith(
-        elapsedSeconds: nextElapsed,
-        currentSubjectElapsedSeconds: nextSubjElapsed,
-        focusMode: FocusTimerMode.focusRunning,
-      );
-
-      _notificationService.showTimerNotification(
-        timeRemaining: state.formattedTime,
-        subject: state.selectedSubject,
-        isRunning: true,
-        isBreakMode: false,
-      );
-    }
+    _notificationService.showTimerNotification(
+      timeRemaining: state.formattedTime,
+      subject: state.isBreak
+          ? 'Break Time ☕'
+          : (state.isOvertime ? '${state.selectedSubject} (Overtime)' : state.selectedSubject),
+      isRunning: true,
+      isBreakMode: state.isBreak,
+    );
   }
 
   /// Skip break and immediately transition to Extra Time countup or idle
@@ -978,19 +927,23 @@ class TimerNotifier extends StateNotifier<TimerState> {
       timerType: type,
       mode: TimerMode.focus,
       focusMode: FocusTimerMode.idle,
-      elapsedSeconds: 0,
+      baseElapsedSeconds: 0,
+      clearStartedAt: true,
       overtimeSeconds: 0,
-      breakElapsedSeconds: 0,
+      baseBreakElapsedSeconds: 0,
       extraElapsedSeconds: 0,
-      currentSubjectElapsedSeconds: 0,
+      baseSubjectElapsedSeconds: 0,
     );
   }
 
   /// Pauses the running timer and starts a 15-minute background timer for the "Abandoned Pause" nudge
   void pauseTimer() {
     if (state.status == TimerStatus.running) {
-      _ticker?.cancel();
-      _lastTickTime = null;
+      _stopLocalTicker();
+
+      final currentElapsed = state.currentElapsedSeconds;
+      final currentSubjElapsed = state.currentSubjectElapsedSeconds;
+      final currentBreakElapsed = state.breakElapsedSeconds;
 
       final newFocusMode = state.isBreak
           ? FocusTimerMode.breakPaused
@@ -999,6 +952,10 @@ class TimerNotifier extends StateNotifier<TimerState> {
       state = state.copyWith(
         status: TimerStatus.paused,
         focusMode: newFocusMode,
+        baseElapsedSeconds: currentElapsed,
+        baseSubjectElapsedSeconds: currentSubjElapsed,
+        baseBreakElapsedSeconds: currentBreakElapsed,
+        clearStartedAt: true,
       );
 
       _disableWakelock();
@@ -1037,8 +994,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
   /// 2. Sets state to FocusTimerMode.sessionCompleted.
   /// 3. Builds immutable SessionMetadata snapshot for course isolation.
   SessionMetadata prepareSessionCompletion() {
-    _ticker?.cancel();
-    _lastTickTime = null;
+    _stopLocalTicker();
     _abandonedPauseTimer?.cancel();
     _abandonedPauseTimer = null;
     _notificationService.cancelAbandonedPauseNudge();
@@ -1046,6 +1002,9 @@ class TimerNotifier extends StateNotifier<TimerState> {
 
     final now = DateTime.now();
     final totalSecs = state.totalLoggedSeconds;
+    final currentElapsed = state.currentElapsedSeconds;
+    final currentSubjElapsed = state.currentSubjectElapsedSeconds;
+    final currentBreakElapsed = state.breakElapsedSeconds;
     final startTime = _sessionStartTime ?? now.subtract(Duration(seconds: totalSecs));
 
     final metadata = SessionMetadata.fromSubject(
@@ -1061,6 +1020,10 @@ class TimerNotifier extends StateNotifier<TimerState> {
       status: TimerStatus.paused,
       focusMode: FocusTimerMode.sessionCompleted,
       sessionMetadata: metadata,
+      baseElapsedSeconds: currentElapsed,
+      baseSubjectElapsedSeconds: currentSubjElapsed,
+      baseBreakElapsedSeconds: currentBreakElapsed,
+      clearStartedAt: true,
     );
 
     return metadata;
@@ -1081,7 +1044,6 @@ class TimerNotifier extends StateNotifier<TimerState> {
     _isCompletingSession = true;
     try {
       _ticker?.cancel();
-      _lastTickTime = null;
       _abandonedPauseTimer?.cancel();
       _abandonedPauseTimer = null;
       _notificationService.cancelAbandonedPauseNudge();
@@ -1133,15 +1095,18 @@ class TimerNotifier extends StateNotifier<TimerState> {
           : state.earnedBreakSeconds.clamp(60, 7200);
     }
 
+    final breakNow = DateTime.now();
     state = state.copyWith(
       mode: TimerMode.breakTime,
       focusMode: FocusTimerMode.breakRunning,
       status: TimerStatus.running,
       breakDurationSeconds: earnedBreak,
-      breakElapsedSeconds: 0,
+      baseBreakElapsedSeconds: 0,
+      startedAt: breakNow,
       overtimeSeconds: 0,
       extraElapsedSeconds: 0,
       currentSubjectElapsedSeconds: 0,
+      baseSubjectElapsedSeconds: 0,
     );
 
     _enableWakelock();
@@ -1153,11 +1118,7 @@ class TimerNotifier extends StateNotifier<TimerState> {
       isBreakMode: true,
     );
 
-    _lastTickTime = DateTime.now();
-    _ticker?.cancel();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
-      _onTick();
-    });
+    _startLocalTicker();
 
     final uid = _auth?.currentUser?.uid ?? '';
     if (uid.isNotEmpty) {
@@ -1188,10 +1149,9 @@ class TimerNotifier extends StateNotifier<TimerState> {
 
   /// End Break Time and return to initial Focus mode (cancels notification)
   void endBreak() {
-    _ticker?.cancel();
+    _stopLocalTicker();
     _abandonedPauseTimer?.cancel();
     _abandonedPauseTimer = null;
-    _lastTickTime = null;
     _sessionStartTime = null;
     _notificationService.cancelTimerNotification();
     _notificationService.cancelAbandonedPauseNudge();
@@ -1209,16 +1169,14 @@ class TimerNotifier extends StateNotifier<TimerState> {
       focusMode: FocusTimerMode.idle,
       status: TimerStatus.initial,
       timerType: state.timerType,
-      elapsedSeconds: 0,
+      baseElapsedSeconds: 0,
       targetSeconds: state.targetSeconds > 0 ? state.targetSeconds : 1500,
       breakDurationSeconds: calculateBreakMinutes(state.targetSeconds > 0 ? state.targetSeconds : 1500) * 60,
-      breakElapsedSeconds: 0,
-      overtimeSeconds: 0,
-      extraElapsedSeconds: 0,
+      baseBreakElapsedSeconds: 0,
       selectedSubject: state.selectedSubject,
       selectedCourseId: state.selectedCourseId,
       selectedTopicId: state.selectedTopicId,
-      currentSubjectElapsedSeconds: 0,
+      baseSubjectElapsedSeconds: 0,
     );
   }
 
@@ -1229,10 +1187,9 @@ class TimerNotifier extends StateNotifier<TimerState> {
 
   /// End current session completely without logging extra time (cancels timers and notifications)
   void endSession() {
-    _ticker?.cancel();
+    _stopLocalTicker();
     _abandonedPauseTimer?.cancel();
     _abandonedPauseTimer = null;
-    _lastTickTime = null;
     _sessionStartTime = null;
     _notificationService.cancelTimerNotification();
     _notificationService.cancelAbandonedPauseNudge();
@@ -1250,25 +1207,22 @@ class TimerNotifier extends StateNotifier<TimerState> {
       focusMode: FocusTimerMode.idle,
       status: TimerStatus.initial,
       timerType: state.timerType,
-      elapsedSeconds: 0,
+      baseElapsedSeconds: 0,
       targetSeconds: state.targetSeconds > 0 ? state.targetSeconds : 1500,
       breakDurationSeconds: calculateBreakMinutes(state.targetSeconds > 0 ? state.targetSeconds : 1500) * 60,
-      breakElapsedSeconds: 0,
-      overtimeSeconds: 0,
-      extraElapsedSeconds: 0,
+      baseBreakElapsedSeconds: 0,
       selectedSubject: state.selectedSubject,
       selectedCourseId: state.selectedCourseId,
       selectedTopicId: state.selectedTopicId,
-      currentSubjectElapsedSeconds: 0,
+      baseSubjectElapsedSeconds: 0,
     );
   }
 
   /// Resets timer to initial focus state (cancels notification)
   void resetTimer() {
-    _ticker?.cancel();
+    _stopLocalTicker();
     _abandonedPauseTimer?.cancel();
     _abandonedPauseTimer = null;
-    _lastTickTime = null;
     _sessionStartTime = null;
     _notificationService.cancelTimerNotification();
     _notificationService.cancelAbandonedPauseNudge();
@@ -1286,27 +1240,27 @@ class TimerNotifier extends StateNotifier<TimerState> {
       focusMode: FocusTimerMode.idle,
       status: TimerStatus.initial,
       timerType: state.timerType,
-      elapsedSeconds: 0,
+      baseElapsedSeconds: 0,
       targetSeconds: state.targetSeconds,
       breakDurationSeconds: calculateBreakMinutes(state.targetSeconds) * 60,
-      breakElapsedSeconds: 0,
-      overtimeSeconds: 0,
-      extraElapsedSeconds: 0,
+      baseBreakElapsedSeconds: 0,
       selectedSubject: state.selectedSubject,
       selectedCourseId: state.selectedCourseId,
       selectedTopicId: state.selectedTopicId,
-      currentSubjectElapsedSeconds: 0,
+      baseSubjectElapsedSeconds: 0,
     );
   }
 
   @override
   void dispose() {
+    try {
+      WidgetsBinding.instance.removeObserver(this);
+    } catch (_) {}
     _activeSessionSub?.cancel();
     _authSub?.cancel();
-    _ticker?.cancel();
+    _stopLocalTicker();
     _abandonedPauseTimer?.cancel();
     _abandonedPauseTimer = null;
-    _lastTickTime = null;
     _notificationService.cancelTimerNotification();
     _notificationService.cancelAbandonedPauseNudge();
 
