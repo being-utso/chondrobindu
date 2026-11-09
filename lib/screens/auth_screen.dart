@@ -526,7 +526,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   border: Border.all(color: const Color(0xFFDCD7C8)),
                 ),
                 padding: const EdgeInsets.all(8),
-                child: const AppLogo(size: 36, showContainer: false),
+                child: const AppLogo(size: 36, showContainer: false, isDark: false),
               ),
               const SizedBox(height: 20),
 

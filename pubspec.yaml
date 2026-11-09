@@ -64,15 +64,19 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/images/logo.png"
-  adaptive_icon_background: "#110D0C"
+  adaptive_icon_background: "#171C24"
   adaptive_icon_foreground: "assets/images/logo_foreground.png"
 
 flutter_native_splash:
-  color: "#110D0C"
-  image: assets/icons/logo_ember.png
+  color: "#EDEAE0"
+  color_dark: "#171C24"
+  image: assets/images/logo_chondrobindu_w.png
+  image_dark: assets/images/logo_chondrobindu_d.png
   android_12:
-    color: "#110D0C"
-    image: assets/icons/logo_ember.png
+    color: "#EDEAE0"
+    color_dark: "#171C24"
+    image: assets/images/logo_chondrobindu_w.png
+    image_dark: assets/images/logo_chondrobindu_d.png
 
 # -------------------------------------------------------------
 # APP EXTERNAL LINKS CONFIGURATION

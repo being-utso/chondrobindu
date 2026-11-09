@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 595.28 595.28">
+  <defs>
+    <style>
+      .cls-1, .cls-2 {
+        fill: none;
+      }
+
+      .cls-3 {
+        fill: url(#linear-gradient-2);
+      }
+
+      .cls-3, .cls-4, .cls-5, .cls-6, .cls-7 {
+        fill-rule: evenodd;
+      }
+
+      .cls-4 {
+        fill: url(#radial-gradient);
+      }
+
+      .cls-8 {
+        clip-path: url(#clippath-1);
+      }
+
+      .cls-9 {
+        clip-path: url(#clippath-4);
+      }
+
+      .cls-10 {
+        clip-path: url(#clippath-2);
+      }
+
+      .cls-11 {
+        clip-path: url(#clippath-5);
+      }
+
+      .cls-2 {
+        clip-rule: evenodd;
+      }
+
+      .cls-5 {
+        fill: url(#linear-gradient);
+      }
+
+      .cls-6 {
+        fill: url(#radial-gradient-2);
+      }
+
+      .cls-7 {
+        fill: #ece9df;
+      }
+    </style>
+    <radialGradient id="radial-gradient" cx="221.37" cy="166.18" fx="221.37" fy="166.18" r="111.1" gradientUnits="userSpaceOnUse">
+      <stop offset=".04" stop-color="#2e486c"/>
+      <stop offset=".33" stop-color="#2f4a6e"/>
+      <stop offset=".75" stop-color="#466084"/>
+      <stop offset="1" stop-color="#5f799e"/>
+    </radialGradient>
+    <clipPath id="clippath-1">
+      <path class="cls-2" d="M99.51,238.66s36.96,122.52,177.15,180.82c-2.2,1.24,52.48-38.67,68.26-56.62,0,0,100.72-96.92,159.74-175.92,0,0-81.92,175.35-108.42,217.89,0,0-22.64,32.14-47.44,49.92,0,0-94.34,60.32-191.31-21.11,0,0-99.48-79.34-57.97-194.97Z"/>
+    </clipPath>
+    <clipPath id="clippath-2">
+      <polygon class="cls-2" points="594.28 0 594.28 595.28 -1 595.28 -1 0 594.28 0 594.28 0"/>
+    </clipPath>
+    <linearGradient id="linear-gradient" x1="308.68" y1="446.9" x2="505.57" y2="192.46" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#466084"/>
+      <stop offset=".01" stop-color="#4a6488"/>
+      <stop offset=".05" stop-color="#567095"/>
+      <stop offset=".11" stop-color="#5d779c"/>
+      <stop offset=".25" stop-color="#5f799e"/>
+      <stop offset="1" stop-color="#7892ba"/>
+    </linearGradient>
+    <clipPath id="clippath-4">
+      <ellipse class="cls-1" cx="268.13" cy="319.12" rx="160.24" ry="156.92"/>
+    </clipPath>
+    <radialGradient id="radial-gradient-2" cx="159.66" cy="434.96" fx="159.66" fy="434.96" r="168.07" gradientUnits="userSpaceOnUse">
+      <stop offset=".02" stop-color="#2f4a6e"/>
+      <stop offset=".37" stop-color="#3a5579"/>
+      <stop offset=".61" stop-color="#466084"/>
+      <stop offset="1" stop-color="#5f799e"/>
+    </radialGradient>
+    <clipPath id="clippath-5">
+      <path class="cls-1" d="M416,297.64c0,91.1-73.26,164.95-163.63,164.95s-163.63-73.85-163.63-164.95c0-5.53-.89-30.02,10.77-58.98,22.38-55.58,81.58-106.32,152.86-105.98,84.1.4,163.63,71.82,163.63,164.95Z"/>
+    </clipPath>
+    <linearGradient id="linear-gradient-2" x1="64.1" y1="265.42" x2="238.73" y2="450.13" gradientUnits="userSpaceOnUse">
+      <stop offset=".04" stop-color="#051d38"/>
+      <stop offset=".39" stop-color="#133152"/>
+      <stop offset=".59" stop-color="#1e3a5c"/>
+      <stop offset=".78" stop-color="#2e486c"/>
+      <stop offset="1" stop-color="#466084"/>
+    </linearGradient>
+  </defs>
+  <!-- Generator: Adobe Illustrator 28.6.0, SVG Export Plug-In . SVG Version: 1.2.0 Build 709)  -->
+  <g>
+    <g id="Layer_1">
+      <g>
+        <path class="cls-7" d="M569.91,0c13.46,0,24.37,10.91,24.37,24.37v546.54c0,13.46-10.91,24.37-24.37,24.37H23.37c-13.46,0-24.37-10.91-24.37-24.37V24.37C-1,10.91,9.91,0,23.37,0h546.54Z"/>
+        <path class="cls-4" d="M277.21,114.71c29.35,0,53.17,23.67,53.17,52.81s-23.83,52.81-53.17,52.81-53.18-23.66-53.18-52.81,23.83-52.81,53.18-52.81h0Z"/>
+        <g class="cls-8">
+          <g class="cls-10">
+            <path id="L1-4" class="cls-5" d="M424.15,279.96l80.51-93.02c-10.04,31.93-68.2,142.88-68.2,142.88l-12.3-49.86h0ZM367.82,340.61l33.24,56.33s27.02-46.66,35.22-67.83l-11.8-47.8-56.67,59.3h0ZM381.39,425.24s11.57-14.11,19.6-28.42l-33.17-56.21-37.34,36.26,50.37,47.37.54,1ZM276.3,416.36s43.2,39.37,99.46,13.35c2.02-.93,3.82-2.28,5.28-3.96.32-.42.57-.74.59-.75.05-.06-51.15-48.13-51.15-48.13l-54.17,39.5h0Z"/>
+            <g class="cls-9">
+              <path class="cls-6" d="M276.53,415.67c0,.09-.02.17-.03.26-.58-.42-.96-.61-.96-.61-56.99,39.18-124.43,10.92-124.43,10.92,53.18,52.28,96.64,51.48,96.64,51.48.19-.17.38-.34.57-.51-.36.33-.57.51-.57.51,82.93,17.41,131.91-50.59,131.91-50.59-58.43,25.22-103.13-11.46-103.13-11.46Z"/>
+            </g>
+            <g class="cls-11">
+              <path class="cls-3" d="M273.94,417.26c1.6.9,2.86,1.43,3.68,1.51,0,0-53.73,39.55-127.71,9.9,0,0-7.55-9.38-16.13-19.23l60.2-44.21c22.07,19.3,48.55,37.55,79.96,52.03h0ZM190.87,367.51c-16.58-14.49-27.45-31.72-39.28-46.24l-49.29,33.67c10.13,29.11,31.48,54.51,31.48,54.51l57.1-41.93h0ZM148.98,323.05c-34.98-42.91-47.63-82.73-48.93-86.08-25.45,49.71,2.25,117.97,2.25,117.97l49.29-33.67-2.61,1.78ZM100.09,236.88l1.05,1.08-.98-1.22s-.05.1-.07.14h0Z"/>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

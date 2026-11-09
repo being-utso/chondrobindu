@@ -1,28 +1,40 @@
 import 'package:flutter/material.dart';
+import '../core/theme/app_colors.dart';
 
-/// Reusable global app logo widget encapsulating assets/icons/logo_ember.png logic and fallback icon.
+/// Reusable global app logo widget that dynamically responds to the active visual theme.
+///
+/// Light Mode ("Lime Wash"): Uses [lightLogoAsset] (`assets/images/logo_chondrobindu_w.png`).
+/// Dark Mode ("Indigo Slate"): Uses [darkLogoAsset] (`assets/images/logo_chondrobindu_d.png`).
 class AppLogo extends StatelessWidget {
+  static const String lightLogoAsset = 'assets/images/logo_chondrobindu_w.png';
+  static const String darkLogoAsset = 'assets/images/logo_chondrobindu_d.png';
+
   final double size;
   final BoxFit fit;
   final bool showContainer;
+  final bool? isDark;
 
   const AppLogo({
     super.key,
     this.size = 38,
     this.fit = BoxFit.contain,
     this.showContainer = true,
+    this.isDark,
   });
 
   @override
   Widget build(BuildContext context) {
-    const accentColor = Color(0xFFF2B78A);
+    final bool effectiveIsDark = isDark ?? (Theme.of(context).brightness == Brightness.dark);
+    final String assetPath = effectiveIsDark ? darkLogoAsset : lightLogoAsset;
+    final Color fallbackColor = effectiveIsDark ? AppColors.darkPrimary : AppColors.lightPrimary;
 
     final imageWidget = Image.asset(
-      'assets/icons/logo_ember.png',
+      assetPath,
+      key: ValueKey<String>(assetPath),
       fit: fit,
       errorBuilder: (_, __, ___) => Icon(
         Icons.menu_book_rounded,
-        color: accentColor,
+        color: fallbackColor,
         size: size * 0.55,
       ),
     );
@@ -35,18 +47,21 @@ class AppLogo extends StatelessWidget {
       );
     }
 
+    final containerBg = effectiveIsDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final containerBorder = effectiveIsDark ? AppColors.darkBorder : AppColors.lightBorder;
+
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: const Color(0xFF241C1A),
+        color: containerBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: const Color(0xFF4A3830),
+          color: containerBorder,
           width: 0.8,
         ),
       ),
-      padding: const EdgeInsets.all(7),
+      padding: EdgeInsets.all(size * 0.18),
       child: imageWidget,
     );
   }
