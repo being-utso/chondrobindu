@@ -121,9 +121,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   AuthMode _authMode = AuthMode.signIn;
   AcademicTrack _academicTrack = AcademicTrack.university;
-  String _hscGroup = 'Science';
-  bool _isAdmissionCandidate = true;
-  String _selectedPrimaryTarget = 'BUET / Engineering';
+  String? _hscGroup;
+  bool _isAdmissionCandidate = false;
+  String? _selectedPrimaryTarget;
   String? _selectedSecondaryTarget;
 
   bool _isLoading = false;
@@ -135,14 +135,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  // University Fields
-  final _uniInstitutionController = TextEditingController(text: 'BUET');
-  final _deptBatchController = TextEditingController(text: "EEE '25");
-  final _levelTermController = TextEditingController(text: 'L-1 • T-1');
+  // University Fields (starts blank with clean placeholders)
+  final _uniInstitutionController = TextEditingController();
+  final _deptBatchController = TextEditingController();
+  final _levelTermController = TextEditingController();
 
-  // College Fields
-  final _collegeNameController = TextEditingController(text: 'Notre Dame College');
-  final _hscBatchController = TextEditingController(text: '2025');
+  // College Fields (starts blank with clean placeholders)
+  final _collegeNameController = TextEditingController();
+  final _hscBatchController = TextEditingController();
 
   @override
   void dispose() {
@@ -179,11 +179,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     SafeHaptics.selectionClick();
     setState(() {
       _hscGroup = newGroup;
-      final targets = kAdmissionTargetsByGroup[newGroup] ?? [];
-      if (targets.isNotEmpty) {
-        _selectedPrimaryTarget = targets.first.name;
-        _selectedSecondaryTarget = null;
-      }
+      _selectedPrimaryTarget = null;
+      _selectedSecondaryTarget = null;
     });
   }
 
@@ -226,7 +223,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             college: !isUni ? _collegeNameController.text.trim() : '',
             batch: !isUni ? _hscBatchController.text.trim() : '2025',
             academicGroup: !isUni ? _hscGroup : null,
-            primaryTarget: !isUni && _isAdmissionCandidate ? _selectedPrimaryTarget : 'Undergraduate',
+            primaryTarget: !isUni && _isAdmissionCandidate ? (_selectedPrimaryTarget ?? 'General') : 'Undergraduate',
             secondaryTarget: !isUni && _isAdmissionCandidate ? (_selectedSecondaryTarget ?? 'None') : 'None',
             isUniversityStudent: isUni,
             isOnboarded: true,
@@ -393,22 +390,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
-        child: SizedBox(
-          width: double.infinity,
-          height: double.infinity,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.symmetric(
-              horizontal: isDesktop ? 32.0 : 16.0,
-              vertical: isDesktop ? 40.0 : 20.0,
-            ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 960),
-                child: isDesktop
-                    ? _buildDesktopDualPane(colors, isDark)
-                    : _buildMobilePortal(colors, isDark),
-              ),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.symmetric(
+            horizontal: isDesktop ? 32.0 : 16.0,
+            vertical: isDesktop ? 40.0 : 24.0,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 960),
+              child: isDesktop
+                  ? _buildDesktopDualPane(colors, isDark)
+                  : _buildMobilePortal(colors, isDark),
             ),
           ),
         ),
@@ -455,13 +448,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               flex: 55,
               child: Container(
                 color: colors.surface,
-                padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 36.0),
-                child: AnimatedSize(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  alignment: Alignment.topCenter,
-                  child: _buildAuthFormContent(colors, isDark, isDesktop: true),
-                ),
+                padding: const EdgeInsets.fromLTRB(40.0, 36.0, 40.0, 40.0),
+                child: _buildAuthFormContent(colors, isDark, isDesktop: true),
               ),
             ),
           ],
@@ -1109,7 +1097,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               const SizedBox(height: 4),
               _buildTextInput(
                 controller: _uniInstitutionController,
-                hintText: 'BUET',
+                hintText: 'e.g. BUET',
                 colors: colors,
                 isDense: true,
               ),
@@ -1125,7 +1113,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               const SizedBox(height: 4),
               _buildTextInput(
                 controller: _deptBatchController,
-                hintText: "EEE '25",
+                hintText: "e.g. EEE '25",
                 colors: colors,
                 isDense: true,
               ),
@@ -1141,7 +1129,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               const SizedBox(height: 4),
               _buildTextInput(
                 controller: _levelTermController,
-                hintText: 'L-1 • T-1',
+                hintText: 'e.g. L-1 • T-1',
                 colors: colors,
                 isDense: true,
               ),
@@ -1154,7 +1142,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   // College / Admission Track Specific Fields
   Widget _buildCollegeAdmissionFields(ChondrobinduThemeColors colors, bool isDark) {
-    final targets = kAdmissionTargetsByGroup[_hscGroup] ?? [];
+    final targets = _hscGroup != null ? (kAdmissionTargetsByGroup[_hscGroup] ?? []) : <AdmissionTargetOption>[];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1164,7 +1152,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         const SizedBox(height: 4),
         _buildTextInput(
           controller: _collegeNameController,
-          hintText: 'e.g. Notre Dame College, Dhaka College',
+          hintText: 'e.g. Notre Dame College',
           colors: colors,
           isDense: true,
         ),
@@ -1207,6 +1195,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       child: DropdownButton<String>(
                         value: _hscGroup,
                         isExpanded: true,
+                        hint: Text(
+                          'Select group...',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: colors.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                         dropdownColor: colors.surface,
                         icon: Icon(Icons.keyboard_arrow_down_rounded, color: colors.textMuted, size: 18),
                         style: GoogleFonts.plusJakartaSans(
@@ -1254,7 +1250,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                       onChanged: (val) {
                         SafeHaptics.selectionClick();
-                        setState(() => _isAdmissionCandidate = val ?? true);
+                        setState(() => _isAdmissionCandidate = val ?? false);
                       },
                     ),
                   ),
@@ -1294,178 +1290,205 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           Divider(color: colors.surfaceBorder.withValues(alpha: 0.6), height: 1),
           const SizedBox(height: 10),
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'PRIMARY ADMISSION TARGET',
-                style: GoogleFonts.jetBrainsMono(
-                  color: colors.textMuted,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                ),
-              ),
-              Text(
-                '1 Selected',
-                style: GoogleFonts.jetBrainsMono(color: colors.secondary, fontSize: 10),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Primary Target Grid
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: targets.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 2.3,
-            ),
-            itemBuilder: (ctx, index) {
-              final target = targets[index];
-              final isSelected = target.name == _selectedPrimaryTarget;
-
-              // Crystal clear contrast requirements:
-              // Selected: #EDEAE0 text on #2A3444 surface with #C88256 rust border
-              // Inactive: colors.textMuted on colors.recessed with colors.surfaceBorder
-              final bgColor = isSelected
-                  ? (isDark ? const Color(0xFF2A3444) : colors.primary.withValues(alpha: 0.12))
-                  : colors.recessed;
-              final borderSideColor = isSelected
-                  ? (isDark ? const Color(0xFFC88256) : colors.primary)
-                  : colors.surfaceBorder;
-              final textColor = isSelected
-                  ? (isDark ? const Color(0xFFEDEAE0) : colors.primary)
-                  : colors.textMuted;
-
-              return InkWell(
-                onTap: () {
-                  SafeHaptics.selectionClick();
-                  setState(() {
-                    _selectedPrimaryTarget = target.name;
-                    if (_selectedSecondaryTarget == target.name) {
-                      _selectedSecondaryTarget = null;
-                    }
-                  });
-                },
+          if (_hscGroup == null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: colors.recessed.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: borderSideColor,
-                      width: isSelected ? 1.5 : 1.0,
+                border: Border.all(color: colors.surfaceBorder),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline_rounded, color: colors.secondary, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Select your HSC Group above to load target choices.',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textMuted,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Icon(
-                            target.icon,
-                            color: isSelected ? (isDark ? const Color(0xFFC88256) : colors.primary) : colors.textMuted,
-                            size: 15,
-                          ),
-                          if (isSelected)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFFC88256) : colors.primary,
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: Text(
-                                'TARGET 1',
+                ],
+              ),
+            ),
+          ] else ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'PRIMARY ADMISSION TARGET',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                Text(
+                  _selectedPrimaryTarget != null ? '1 Selected' : '0 Selected',
+                  style: GoogleFonts.jetBrainsMono(color: colors.secondary, fontSize: 10),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Primary Target Grid
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: targets.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 2.3,
+              ),
+              itemBuilder: (ctx, index) {
+                final target = targets[index];
+                final isSelected = target.name == _selectedPrimaryTarget;
+
+                // Crystal clear contrast requirements:
+                // Selected: #EDEAE0 text on #2A3444 surface with #C88256 rust border
+                // Inactive: colors.textMuted on colors.recessed with colors.surfaceBorder
+                final bgColor = isSelected
+                    ? (isDark ? const Color(0xFF2A3444) : colors.primary.withValues(alpha: 0.12))
+                    : colors.recessed;
+                final borderSideColor = isSelected
+                    ? (isDark ? const Color(0xFFC88256) : colors.primary)
+                    : colors.surfaceBorder;
+                final textColor = isSelected
+                    ? (isDark ? const Color(0xFFEDEAE0) : colors.primary)
+                    : colors.textMuted;
+
+                return InkWell(
+                  onTap: () {
+                    SafeHaptics.selectionClick();
+                    setState(() {
+                      _selectedPrimaryTarget = target.name;
+                      if (_selectedSecondaryTarget == target.name) {
+                        _selectedSecondaryTarget = null;
+                      }
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: borderSideColor,
+                        width: isSelected ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Icon(
+                              target.icon,
+                              color: isSelected ? (isDark ? const Color(0xFFC88256) : colors.primary) : colors.textMuted,
+                              size: 15,
+                            ),
+                            if (isSelected)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFFC88256) : colors.primary,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  'TARGET 1',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: isDark ? const Color(0xFF13171E) : Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              )
+                            else
+                              Text(
+                                target.tag,
                                 style: GoogleFonts.jetBrainsMono(
-                                  color: isDark ? const Color(0xFF13171E) : Colors.white,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
+                                  color: colors.secondary,
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                            )
-                          else
-                            Text(
-                              target.tag,
-                              style: GoogleFonts.jetBrainsMono(
-                                color: colors.secondary,
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        target.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: textColor,
-                          fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 3),
+                        Text(
+                          target.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: textColor,
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-
-          // Secondary Target (Optional backup selection)
-          Text(
-            'SECONDARY TARGET (OPTIONAL)',
-            style: GoogleFonts.jetBrainsMono(
-              color: colors.textMuted,
-              fontSize: 9.5,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.6,
+                );
+              },
             ),
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: targets.where((t) => t.name != _selectedPrimaryTarget).map((t) {
-              final isSec = t.name == _selectedSecondaryTarget;
-              return InkWell(
-                onTap: () {
-                  SafeHaptics.selectionClick();
-                  setState(() {
-                    _selectedSecondaryTarget = isSec ? null : t.name;
-                  });
-                },
-                borderRadius: BorderRadius.circular(6),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isSec ? colors.secondary.withValues(alpha: 0.15) : colors.recessed,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: isSec ? colors.secondary : colors.surfaceBorder,
+            const SizedBox(height: 10),
+
+            // Secondary Target (Optional backup selection)
+            Text(
+              'SECONDARY TARGET (OPTIONAL)',
+              style: GoogleFonts.jetBrainsMono(
+                color: colors.textMuted,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: targets.where((t) => t.name != _selectedPrimaryTarget).map((t) {
+                final isSec = t.name == _selectedSecondaryTarget;
+                return InkWell(
+                  onTap: () {
+                    SafeHaptics.selectionClick();
+                    setState(() {
+                      _selectedSecondaryTarget = isSec ? null : t.name;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isSec ? colors.secondary.withValues(alpha: 0.15) : colors.recessed,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isSec ? colors.secondary : colors.surfaceBorder,
+                      ),
+                    ),
+                    child: Text(
+                      isSec ? '✓ ${t.name}' : '+ ${t.name}',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: isSec ? colors.secondary : colors.textMuted,
+                        fontSize: 10.5,
+                        fontWeight: isSec ? FontWeight.w700 : FontWeight.w500,
+                      ),
                     ),
                   ),
-                  child: Text(
-                    isSec ? '✓ ${t.name}' : '+ ${t.name}',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: isSec ? colors.secondary : colors.textMuted,
-                      fontSize: 10.5,
-                      fontWeight: isSec ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
+                );
+              }).toList(),
+            ),
+          ],
         ],
       ],
     );
