@@ -12,6 +12,7 @@ import 'services/background_audit_service.dart';
 import 'services/notification_service.dart';
 import 'services/tour_service.dart';
 import 'core/theme/app_theme.dart';
+import 'providers/theme_provider.dart';
 
 /// Configures Firebase Auth persistence with graceful web fallbacks for Safari/WebKit
 Future<void> configureAuthPersistence() async {
@@ -35,8 +36,6 @@ Future<void> configureAuthPersistence() async {
     }
   }
 }
-
-import 'providers/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

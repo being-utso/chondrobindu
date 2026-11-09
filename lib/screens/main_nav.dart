@@ -253,8 +253,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
             child: CircleAvatar(
               radius: 15,
               backgroundColor: colors.surfaceBorder,
-              backgroundImage: (photoUrl.isNotEmpty) ? NetworkImage(photoUrl) : null,
-              child: (photoUrl.isEmpty)
+              backgroundImage: (photoUrl != null && photoUrl.isNotEmpty) ? NetworkImage(photoUrl) : null,
+              child: (photoUrl == null || photoUrl.isEmpty)
                   ? Text(
                       displayName.isNotEmpty ? displayName[0].toUpperCase() : 'S',
                       style: GoogleFonts.plusJakartaSans(

@@ -13,7 +13,6 @@ import '../providers/theme_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../screens/auth_screen.dart';
 import '../screens/help_screen.dart';
-import '../screens/journal_screen.dart';
 import '../screens/profile_screen.dart';
 import '../utils/safe_haptics.dart';
 import 'app_logo.dart';
@@ -495,7 +494,7 @@ class _DesktopNavBarState extends ConsumerState<DesktopNavBar> {
               ),
             ),
           ),
-          PopupMenuDivider(height: 1),
+          const PopupMenuDivider(height: 1),
           ...upcomingAlerts.take(5).map((a) {
             final days = a.date!.difference(now).inDays;
             final dueStr = days <= 0

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +14,6 @@ import '../providers/nav_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/exam_service.dart';
 import '../services/syllabus_factory.dart';
-import 'profile_screen.dart';
 import '../providers/notes_provider.dart';
 import '../widgets/app_preloader.dart';
 import 'journal_screen.dart';
@@ -427,19 +425,11 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFF110D0C);
     const cardColor = Color(0xFF241C1A);
     const accentColor = Color(0xFFF2B78A);
     const orangeColor = Color(0xFFF2B78A);
 
     final userProfile = ref.watch(userProfileProvider);
-    final authUser = Firebase.apps.isNotEmpty ? FirebaseAuth.instance.currentUser : null;
-    final String? effectiveImageUrl = (userProfile.profileImageUrl != null && userProfile.profileImageUrl!.trim().isNotEmpty)
-        ? userProfile.profileImageUrl!.trim()
-        : (authUser?.photoURL != null && authUser!.photoURL!.trim().isNotEmpty
-            ? authUser.photoURL!.trim()
-            : null);
-    final bool hasProfileImage = effectiveImageUrl != null && effectiveImageUrl.isNotEmpty;
 
     // Watch live exams from Cloud Firestore
     final examsAsync = ref.watch(examsStreamProvider);
@@ -449,7 +439,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     final currentStreak = ref.watch(currentStreakProvider);
 
     final colors = AppColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: colors.background,

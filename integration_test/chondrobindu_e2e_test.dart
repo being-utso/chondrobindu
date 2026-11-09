@@ -7,7 +7,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:chondrobindu/main.dart';
 import 'package:chondrobindu/models/assessment_model.dart';
 import 'package:chondrobindu/models/course_model.dart';
-import 'package:chondrobindu/models/profile_models.dart';
 import 'package:chondrobindu/models/routine_slot_model.dart';
 import 'package:chondrobindu/providers/firestore_providers.dart';
 import 'package:chondrobindu/providers/user_profile_provider.dart';

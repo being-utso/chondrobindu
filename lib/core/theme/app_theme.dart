@@ -123,7 +123,7 @@ abstract class AppTheme {
         indicatorShape: RoundedRectangleBorder(borderRadius: AppSpacing.borderRadiusPill),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return TextStyle(
+            return const TextStyle(
               color: AppColors.darkPrimary,
               fontSize: 11,
               fontWeight: FontWeight.w600,

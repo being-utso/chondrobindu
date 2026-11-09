@@ -1,20 +1,16 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/theme/app_colors.dart';
-import '../models/user_profile.dart';
-import '../providers/theme_provider.dart';
+import '../providers/firestore_providers.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/auth_service.dart';
-import '../services/data_seed_service.dart';
 import '../services/tour_service.dart';
 import '../utils/safe_haptics.dart';
 import '../widgets/app_logo.dart';
-import 'main_nav.dart';
 
 enum AuthMode { signIn, signUp }
 enum AcademicTrack { university, college }
