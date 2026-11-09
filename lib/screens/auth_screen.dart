@@ -426,12 +426,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           ),
         ],
       ),
-      clipBehavior: Clip.antiAlias,
+      clipBehavior: Clip.none,
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Left Pane (45% width): Deep Natural Indigo Brand Poster
+            // Left Pane (45% width): Deep Natural Indigo Brand Poster (#2F4A6D Light / #13171E Dark)
             Expanded(
               flex: 45,
               child: _buildLeftBrandPoster(colors, isDark),
@@ -447,7 +447,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             Expanded(
               flex: 55,
               child: Container(
-                color: colors.surface,
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
+                ),
                 padding: const EdgeInsets.fromLTRB(40.0, 36.0, 40.0, 64.0),
                 child: _buildAuthFormContent(colors, isDark, isDesktop: true),
               ),
@@ -458,10 +461,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
   }
 
-  // Left Brand Poster (#2F4A6D Deep Natural Indigo)
+  // Left Brand Poster (#2F4A6D Deep Natural Indigo Light / #13171E Dark)
   Widget _buildLeftBrandPoster(ChondrobinduThemeColors colors, bool isDark) {
     return Container(
-      color: const Color(0xFF2F4A6D),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF13171E) : const Color(0xFF2F4A6D),
+        borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
+      ),
       padding: const EdgeInsets.all(36.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
