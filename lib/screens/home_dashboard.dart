@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -42,7 +44,6 @@ class HomeDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
-  final bool _hasCheckedOnboarding = false;
   final TextEditingController _scratchpadController = TextEditingController();
   Timer? _scratchpadDebounceTimer;
   bool _isSavingScratchpad = false;
@@ -155,6 +156,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: targetOptions.contains(target) ? target : targetOptions.first,
                         dropdownColor: const Color(0xFF170F0D),
                         style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -166,7 +168,12 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                           prefixIcon: const Icon(Icons.track_changes_rounded, color: accentColor, size: 20),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                         ),
-                        items: targetOptions.map((opt) => DropdownMenuItem(value: opt, child: Text(opt))).toList(),
+                        items: targetOptions
+                            .map((opt) => DropdownMenuItem(
+                                  value: opt,
+                                  child: Text(opt, overflow: TextOverflow.ellipsis),
+                                ))
+                            .toList(),
                         onChanged: (val) {
                           if (val != null) setModalState(() => target = val);
                         },
@@ -229,14 +236,25 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                         }
                       }
 
-                      if (mounted) {
+                      if (ctx.mounted) {
                         Navigator.pop(ctx); // Close Profile Onboarding
+                      }
+                      if (mounted) {
                         _showExamOnboardingModal(); // Trigger optional exam onboarding
                       }
                     }
                   },
                   child: const Text('Save & Continue', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
+                if (kDebugMode) ...[
+                  const SizedBox(height: 8),
+                  Center(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Skip for now (QA / Dev)', style: TextStyle(color: Colors.blueGrey)),
+                    ),
+                  ),
+                ],
               ],
             ),
           );
@@ -250,6 +268,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     final examNameCtrl = TextEditingController(text: 'Model Test 01');
     final subjCtrl = TextEditingController(text: 'Physics');
     DateTime selectedDate = DateTime.now().add(const Duration(days: 7));
+
+    final messenger = ScaffoldMessenger.of(context);
 
     showDialog(
       context: context,
@@ -379,9 +399,11 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                           isCompleted: false,
                         ),
                       );
-                  if (mounted) {
+                  if (ctx.mounted) {
                     Navigator.pop(ctx); // Close Exam Onboarding
-                    ScaffoldMessenger.of(context).showSnackBar(
+                  }
+                  if (mounted) {
+                    messenger.showSnackBar(
                       SnackBar(
                         backgroundColor: const Color(0xFF10B981),
                         behavior: SnackBarBehavior.floating,
@@ -411,7 +433,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     const orangeColor = Color(0xFFF2B78A);
 
     final userProfile = ref.watch(userProfileProvider);
-    final authUser = FirebaseAuth.instance.currentUser;
+    final authUser = Firebase.apps.isNotEmpty ? FirebaseAuth.instance.currentUser : null;
     final String? effectiveImageUrl = (userProfile.profileImageUrl != null && userProfile.profileImageUrl!.trim().isNotEmpty)
         ? userProfile.profileImageUrl!.trim()
         : (authUser?.photoURL != null && authUser!.photoURL!.trim().isNotEmpty
@@ -496,9 +518,12 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-          child: Column(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 1. Welcome Section
@@ -547,7 +572,9 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 
   /// Evaluates current hour for dynamic, natural greeting
@@ -577,13 +604,17 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       children: [
         Row(
           children: [
-            Text(
-              '$greeting, $name',
-              style: GoogleFonts.plusJakartaSans(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.5,
+            Expanded(
+              child: Text(
+                '$greeting, $name',
+                style: GoogleFonts.plusJakartaSans(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: 8),
@@ -1237,31 +1268,37 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryContainer,
-                              borderRadius: BorderRadius.circular(10),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryContainer,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.co_present_rounded, color: AppColors.primary, size: 20),
                             ),
-                            child: const Icon(Icons.co_present_rounded, color: AppColors.primary, size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Attendance Summary',
-                                style: AppTypography.cardTitle,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Attendance Summary',
+                                    style: AppTypography.cardTitle,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    '${courseDocs.length} Enrolled Courses Tracked',
+                                    style: AppTypography.subtext,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
-                              Text(
-                                '${courseDocs.length} Enrolled Courses Tracked',
-                                style: AppTypography.subtext,
-                              ),
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
                       TextButton.icon(
                         onPressed: () {
@@ -1466,39 +1503,48 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(10),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.timer_outlined, color: accentColor, size: 20),
                     ),
-                    child: Icon(Icons.timer_outlined, color: accentColor, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        nearest.examName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nearest.examName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            nearest.subject,
+                            style: TextStyle(
+                              color: Colors.blueGrey.shade300,
+                              fontSize: 12,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                      Text(
-                        nearest.subject,
-                        style: TextStyle(
-                          color: Colors.blueGrey.shade300,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -1988,17 +2034,20 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                    left: 20,
+                    right: 20,
+                    top: 20,
+                    bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   Center(
                     child: Container(
                       width: 36,
@@ -2116,7 +2165,9 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   ),
                 ],
               ),
-            );
+            ),
+          ),
+        );
           },
         );
       },

@@ -191,10 +191,10 @@ class _AdmissionArchiveScreenState extends ConsumerState<AdmissionArchiveScreen>
 
             // Subject Expansion Tiles
             ...subjects.map((subj) {
-              final subjTotalSecs = subj.chapters.fold<int>(0, (sum, c) => sum + c.sections.length);
+              final subjTotalSecs = subj.chapters.fold<int>(0, (total, c) => total + c.sections.length);
               final subjDoneSecs = subj.chapters.fold<int>(
                 0,
-                (sum, c) => sum + c.sections.where((s) => s.isCompleted).length,
+                (total, c) => total + c.sections.where((s) => s.isCompleted).length,
               );
 
               return Container(
@@ -416,7 +416,7 @@ class _AdmissionArchiveScreenState extends ConsumerState<AdmissionArchiveScreen>
               const SizedBox(height: 14),
               _buildInfoRow('Primary Target', profile.primaryTarget.isNotEmpty ? profile.primaryTarget : 'Engineering (BUET, CKRUET)'),
               const SizedBox(height: 8),
-              _buildInfoRow('Secondary Target', profile.secondaryTarget ?? 'None'),
+              _buildInfoRow('Secondary Target', profile.secondaryTarget.isNotEmpty ? profile.secondaryTarget : 'None'),
               const SizedBox(height: 8),
               _buildInfoRow('HSC Batch', 'HSC ${profile.hscBatch}'),
               const SizedBox(height: 8),

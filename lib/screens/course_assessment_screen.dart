@@ -1305,7 +1305,6 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
     const backgroundColor = Color(0xFF110D0C);
     const cardColor = Color(0xFF241C1A);
     const accentColor = Color(0xFFF2B78A);
-    const successColor = Color(0xFF10B981);
 
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final predictedGrade = _computeOverallPredictedGrade();
@@ -1374,9 +1373,6 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                               ? ((attendedCount / totalHeld) * 100.0).clamp(0.0, 100.0)
                               : 100.0;
                           final bool isSafe = attendanceRate >= 75.0;
-                          final statusColor = totalHeld == 0
-                              ? const Color(0xFF94A3B8)
-                              : (isSafe ? successColor : const Color(0xFFEF4444));
 
                           _liveAttendedCount = attendedCount;
                           _liveTotalHeld = totalHeld;
@@ -2365,10 +2361,6 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
         ),
       ),
     );
-  }
-
-  void _showEditMarksDialog(Assessment ct, VoidCallback onChanged) {
-    _showEnterMarksDialog(context, ct, onChanged);
   }
 
   Future<bool> _confirmDeleteDialog(BuildContext context, Assessment ct) async {

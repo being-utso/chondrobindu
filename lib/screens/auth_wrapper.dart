@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +19,9 @@ class AuthWrapper extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (Firebase.apps.isEmpty) {
+      return const AuthScreen();
+    }
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
@@ -129,11 +133,12 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
     final authService = ref.read(authServiceProvider);
     await authService.reloadUser();
 
+    if (!mounted) return;
     final currentUser = authService.currentUser;
     if (currentUser != null && currentUser.emailVerified) {
       _timer?.cancel();
-      // Refresh authStateChangesProvider to rebuild AuthWrapper and route to MainNav
-      ref.refresh(authStateChangesProvider);
+      // Invalidate authStateChangesProvider to rebuild AuthWrapper and route to MainNav
+      ref.invalidate(authStateChangesProvider);
     } else {
       if (mounted) {
         setState(() => _isChecking = false);

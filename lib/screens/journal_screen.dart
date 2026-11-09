@@ -100,17 +100,6 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
   String _selectedJournalSegment = 'current'; // 'current' or 'archived'
   String? _selectedCourseFilter;
 
-  static const List<String> tagFilters = [
-    'All',
-    'Notes',
-    'Study Sessions',
-    'Exam Journal',
-    'Brain Dump',
-    'Formula',
-    'Mistake',
-    'General',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -147,7 +136,6 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
   @override
   Widget build(BuildContext context) {
     const backgroundColor = Color(0xFF110D0C);
-    const cardColor = Color(0xFF241C1A);
     const accentColor = Color(0xFFF2B78A);
     const borderColor = Color(0xFF4A3830);
 

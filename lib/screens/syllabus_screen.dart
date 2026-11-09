@@ -627,7 +627,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
 
             final affectedChaptersCount = mySyllabus
                 .where((s) => selectedSubjectIds.contains(s.id))
-                .fold<int>(0, (sum, s) => sum + s.chapters.length);
+                .fold<int>(0, (total, s) => total + s.chapters.length);
 
             return Padding(
               padding: EdgeInsets.only(
@@ -1602,8 +1602,8 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
     required Color accentColor,
   }) {
     final isExpanded = expandedSubjectIds.contains(subject.id);
-    final totalSecs = subject.chapters.fold<int>(0, (sum, c) => sum + c.sections.length);
-    final doneSecs = subject.chapters.fold<int>(0, (sum, c) => sum + c.sections.where((s) => s.isCompleted).length);
+    final totalSecs = subject.chapters.fold<int>(0, (total, c) => total + c.sections.length);
+    final doneSecs = subject.chapters.fold<int>(0, (total, c) => total + c.sections.where((s) => s.isCompleted).length);
     final percent = totalSecs > 0 ? (doneSecs / totalSecs * 100) : 0.0;
     final iconData = _getSubjectIcon(subject.iconName, subject.title);
     return Container(
@@ -2030,11 +2030,11 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
     if (mySyllabus.isEmpty) return const SizedBox.shrink();
     final totalSections = mySyllabus.fold<int>(
       0,
-      (sum, s) => sum + s.chapters.fold<int>(0, (cSum, c) => cSum + c.sections.length),
+      (total, s) => total + s.chapters.fold<int>(0, (cSum, c) => cSum + c.sections.length),
     );
     final completedSections = mySyllabus.fold<int>(
       0,
-      (sum, s) => sum + s.chapters.fold<int>(
+      (total, s) => total + s.chapters.fold<int>(
         0,
         (cSum, c) => cSum + c.sections.where((sec) => sec.isCompleted).length,
       ),

@@ -9,12 +9,12 @@ export '../models/syllabus_models.dart';
 class SyllabusFactory {
   /// Primary generator method returning a fresh deep copy of syllabus subjects.
   static List<Subject> generateInitialSyllabus(String targetGoal, [String hscGroup = 'Science']) {
-    print('--- DEBUG: SyllabusFactory received goal: $targetGoal, group: $hscGroup ---');
+    debugPrint('--- DEBUG: SyllabusFactory received goal: $targetGoal, group: $hscGroup ---');
     return generateSyllabus(targetGoal, hscGroup);
   }
 
   static List<Subject> generateSyllabus(String targetGoal, [String hscGroup = 'Science']) {
-    print('--- DEBUG: SyllabusFactory received goal: $targetGoal, group: $hscGroup ---');
+    debugPrint('--- DEBUG: SyllabusFactory received goal: $targetGoal, group: $hscGroup ---');
     final targetType = _parseTargetGoal(targetGoal);
     final targetPrefix = _getTargetPrefix(targetType);
     final sectionTitles = _getSectionsForTarget(targetType);

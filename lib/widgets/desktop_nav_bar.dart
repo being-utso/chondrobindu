@@ -15,7 +15,7 @@ import '../utils/safe_haptics.dart';
 
 /// Global Top Navigation Shell pinned across desktop views (width >= 800px).
 /// Implements Dark Espresso aesthetic (#140F0E, #1E1816, #2E2623, #F2B78A).
-class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
+class DesktopNavBar extends ConsumerStatefulWidget implements PreferredSizeWidget {
   final int? selectedIndex;
   final ValueChanged<int>? onDestinationSelected;
 
@@ -28,20 +28,46 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(64.0);
 
+  @override
+  ConsumerState<DesktopNavBar> createState() => _DesktopNavBarState();
+}
+
+class _DesktopNavBarState extends ConsumerState<DesktopNavBar> {
+  NavigatorState? _rootNavigator;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _rootNavigator = Navigator.maybeOf(context, rootNavigator: true);
+  }
+
+  @override
+  void deactivate() {
+    final nav = _rootNavigator;
+    if (nav != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          nav.popUntil((route) => route is! PopupRoute);
+        } catch (_) {}
+      });
+    }
+    super.deactivate();
+  }
+
   void _showGlobalSearchPalette(BuildContext context, WidgetRef ref) {
     SafeHaptics.selectionClick();
     showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.6),
       builder: (dialogCtx) => _GlobalSearchDialog(
-        onDestinationSelected: onDestinationSelected,
+        onDestinationSelected: widget.onDestinationSelected,
       ),
     );
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final activeIndex = selectedIndex ?? ref.watch(navigationIndexProvider);
+  Widget build(BuildContext context) {
+    final activeIndex = widget.selectedIndex ?? ref.watch(navigationIndexProvider);
     final liveProfileAsync = ref.watch(liveUserProfileProvider);
     final fallbackProfile = ref.watch(userProfileProvider);
     final profile = liveProfileAsync.value ?? fallbackProfile;
@@ -99,7 +125,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                       isCompact: isCompactDesktop,
                       onTap: () {
                         SafeHaptics.selectionClick();
-                        onDestinationSelected?.call(0);
+                        widget.onDestinationSelected?.call(0);
                         ref.read(navigationIndexProvider.notifier).state = 0;
                       },
                     ),
@@ -111,7 +137,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                       isCompact: isCompactDesktop,
                       onTap: () {
                         SafeHaptics.selectionClick();
-                        onDestinationSelected?.call(1);
+                        widget.onDestinationSelected?.call(1);
                         ref.read(navigationIndexProvider.notifier).state = 1;
                       },
                     ),
@@ -123,7 +149,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                       isCompact: isCompactDesktop,
                       onTap: () {
                         SafeHaptics.selectionClick();
-                        onDestinationSelected?.call(2);
+                        widget.onDestinationSelected?.call(2);
                         ref.read(navigationIndexProvider.notifier).state = 2;
                       },
                     ),
@@ -135,7 +161,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                       isCompact: isCompactDesktop,
                       onTap: () {
                         SafeHaptics.selectionClick();
-                        onDestinationSelected?.call(3);
+                        widget.onDestinationSelected?.call(3);
                         ref.read(navigationIndexProvider.notifier).state = 3;
                       },
                     ),
@@ -147,7 +173,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                       isCompact: isCompactDesktop,
                       onTap: () {
                         SafeHaptics.selectionClick();
-                        onDestinationSelected?.call(4);
+                        widget.onDestinationSelected?.call(4);
                         ref.read(navigationIndexProvider.notifier).state = 4;
                       },
                     ),
@@ -375,7 +401,7 @@ class DesktopNavBar extends ConsumerWidget implements PreferredSizeWidget {
                 return PopupMenuItem<void>(
                   onTap: () {
                     SafeHaptics.selectionClick();
-                    onDestinationSelected?.call(3);
+                    widget.onDestinationSelected?.call(3);
                     ref.read(navigationIndexProvider.notifier).state = 3;
                   },
                   child: SizedBox(

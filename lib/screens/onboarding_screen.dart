@@ -454,7 +454,7 @@ Future<void> _completeOnboarding() async {
                       ),
                       Switch.adaptive(
                         value: _isUniversityStudent,
-                        activeColor: accentColor,
+                        activeThumbColor: accentColor,
                         onChanged: (val) {
                           setState(() {
                             _isUniversityStudent = val;
@@ -662,6 +662,7 @@ Future<void> _completeOnboarding() async {
                             DropdownButtonFormField<String>(
                               initialValue: _selectedLevel,
                               dropdownColor: cardColor,
+                              isExpanded: true,
                               style: const TextStyle(color: Colors.white, fontSize: 14),
                               decoration: _buildInputDecoration(
                                 hintText: 'Level',
@@ -670,7 +671,10 @@ Future<void> _completeOnboarding() async {
                                 accentColor: accentColor,
                               ),
                               items: ['1', '2', '3', '4'].map((l) {
-                                return DropdownMenuItem(value: l, child: Text('Level $l'));
+                                return DropdownMenuItem(
+                                  value: l,
+                                  child: Text('Level $l', overflow: TextOverflow.ellipsis),
+                                );
                               }).toList(),
                               onChanged: (val) {
                                 if (val != null) setState(() => _selectedLevel = val);
@@ -689,6 +693,7 @@ Future<void> _completeOnboarding() async {
                             DropdownButtonFormField<String>(
                               initialValue: _selectedTerm,
                               dropdownColor: cardColor,
+                              isExpanded: true,
                               style: const TextStyle(color: Colors.white, fontSize: 14),
                               decoration: _buildInputDecoration(
                                 hintText: 'Term',
@@ -697,7 +702,10 @@ Future<void> _completeOnboarding() async {
                                 accentColor: accentColor,
                               ),
                               items: ['1', '2'].map((t) {
-                                return DropdownMenuItem(value: t, child: Text('Term $t'));
+                                return DropdownMenuItem(
+                                  value: t,
+                                  child: Text('Term $t', overflow: TextOverflow.ellipsis),
+                                );
                               }).toList(),
                               onChanged: (val) {
                                 if (val != null) setState(() => _selectedTerm = val);
@@ -744,6 +752,7 @@ Future<void> _completeOnboarding() async {
                             DropdownButtonFormField<String>(
                               initialValue: _selectedBatch,
                               dropdownColor: cardColor,
+                              isExpanded: true,
                               style: const TextStyle(color: Colors.white, fontSize: 14),
                               decoration: _buildInputDecoration(
                                 hintText: 'Batch',
@@ -752,7 +761,10 @@ Future<void> _completeOnboarding() async {
                                 accentColor: accentColor,
                               ),
                               items: _batchOptions.map((b) {
-                                return DropdownMenuItem(value: b, child: Text('HSC $b'));
+                                return DropdownMenuItem(
+                                  value: b,
+                                  child: Text('HSC $b', overflow: TextOverflow.ellipsis),
+                                );
                               }).toList(),
                               onChanged: (val) {
                                 if (val != null) setState(() => _selectedBatch = val);
@@ -773,6 +785,7 @@ Future<void> _completeOnboarding() async {
                             DropdownButtonFormField<String>(
                               initialValue: _selectedGroup,
                               dropdownColor: cardColor,
+                              isExpanded: true,
                               style: const TextStyle(color: Colors.white, fontSize: 14),
                               decoration: _buildInputDecoration(
                                 hintText: 'Group',
@@ -781,7 +794,10 @@ Future<void> _completeOnboarding() async {
                                 accentColor: accentColor,
                               ),
                               items: _groupOptions.map((g) {
-                                return DropdownMenuItem(value: g, child: Text(g));
+                                return DropdownMenuItem(
+                                  value: g,
+                                  child: Text(g, overflow: TextOverflow.ellipsis),
+                                );
                               }).toList(),
                               onChanged: (val) {
                                 if (val != null) {
@@ -827,49 +843,50 @@ Future<void> _completeOnboarding() async {
                     const SizedBox(height: 10),
 
                     // Target Options Radio Grid
-                    Column(
-                      children: _admissionTargetOptions.map((target) {
-                        final isSelected = _primaryTarget == target;
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 10.0),
-                          child: InkWell(
-                            onTap: () {
-                              setState(() {
-                                _primaryTarget = target;
-                                if (_secondaryTarget == target) {
-                                  _secondaryTarget = 'None';
-                                }
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(14),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: isSelected ? accentColor.withValues(alpha: 0.12) : cardColor,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: isSelected ? accentColor : borderColor,
-                                  width: isSelected ? 1.5 : 1.0,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Radio<String>(
-                                    value: target,
-                                    groupValue: _primaryTarget,
-                                    activeColor: accentColor,
-                                    onChanged: (val) {
-                                      if (val != null) {
-                                        setState(() {
-                                          _primaryTarget = val;
-                                          if (_secondaryTarget == val) {
-                                            _secondaryTarget = 'None';
-                                          }
-                                        });
-                                      }
-                                    },
+                    RadioGroup<String>(
+                      groupValue: _primaryTarget,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _primaryTarget = val;
+                            if (_secondaryTarget == val) {
+                              _secondaryTarget = 'None';
+                            }
+                          });
+                        }
+                      },
+                      child: Column(
+                        children: _admissionTargetOptions.map((target) {
+                          final isSelected = _primaryTarget == target;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10.0),
+                            child: InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _primaryTarget = target;
+                                  if (_secondaryTarget == target) {
+                                    _secondaryTarget = 'None';
+                                  }
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(14),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? accentColor.withValues(alpha: 0.12) : cardColor,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isSelected ? accentColor : borderColor,
+                                    width: isSelected ? 1.5 : 1.0,
                                   ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Radio<String>(
+                                      value: target,
+                                      activeColor: accentColor,
+                                    ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Column(
@@ -902,6 +919,7 @@ Future<void> _completeOnboarding() async {
                         );
                       }).toList(),
                     ),
+                  ),
                     const SizedBox(height: 18),
 
                     // 7. Secondary Target Dropdown (Optional)
@@ -910,6 +928,7 @@ Future<void> _completeOnboarding() async {
                     DropdownButtonFormField<String>(
                       initialValue: _secondaryTargetOptions.contains(_secondaryTarget) ? _secondaryTarget : 'None',
                       dropdownColor: cardColor,
+                      isExpanded: true,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       decoration: _buildInputDecoration(
                         hintText: 'Secondary Track',
@@ -918,7 +937,10 @@ Future<void> _completeOnboarding() async {
                         accentColor: accentColor,
                       ),
                       items: _secondaryTargetOptions.map((opt) {
-                        return DropdownMenuItem(value: opt, child: Text(opt));
+                        return DropdownMenuItem(
+                          value: opt,
+                          child: Text(opt, overflow: TextOverflow.ellipsis),
+                        );
                       }).toList(),
                       onChanged: (val) {
                         if (val != null) setState(() => _secondaryTarget = val);

@@ -36,6 +36,8 @@ class _MainShellState extends ConsumerState<MainShell> {
     InsightsScreen(),
   ];
 
+  NavigatorState? _rootNavigator;
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +47,25 @@ class _MainShellState extends ConsumerState<MainShell> {
         ref.read(navigationIndexProvider.notifier).state = widget.initialIndex;
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _rootNavigator = Navigator.maybeOf(context, rootNavigator: true);
+  }
+
+  @override
+  void deactivate() {
+    final nav = _rootNavigator;
+    if (nav != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          nav.popUntil((route) => route is! PopupRoute);
+        } catch (_) {}
+      });
+    }
+    super.deactivate();
   }
 
   void _onDestinationSelected(int index) {

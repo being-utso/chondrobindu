@@ -1164,7 +1164,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
                       isExpanded: true,
                       underline: Container(height: 1, color: const Color(0xFF2E2623)),
-                      items: courses.map((c) => DropdownMenuItem(value: c, child: Text('${c.code}: ${c.title}'))).toList(),
+                      items: courses.map((c) => DropdownMenuItem(value: c, child: Text('${c.code}: ${c.title}', overflow: TextOverflow.ellipsis))).toList(),
                       onChanged: (val) {
                         if (val != null) setDialogState(() => selectedCourse = val);
                       },
@@ -1194,7 +1194,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                     style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
                     isExpanded: true,
                     underline: Container(height: 1, color: const Color(0xFF2E2623)),
-                    items: typeOptions.map((t) => DropdownMenuItem(value: t['val'], child: Text(t['label']!))).toList(),
+                    items: typeOptions.map((t) => DropdownMenuItem(value: t['val'], child: Text(t['label']!, overflow: TextOverflow.ellipsis))).toList(),
                     onChanged: (val) {
                       if (val != null) setDialogState(() => selectedType = val);
                     },
@@ -1350,7 +1350,12 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
                       isExpanded: true,
                       underline: Container(height: 1, color: const Color(0xFF2E2623)),
-                      items: courses.map((c) => DropdownMenuItem(value: c, child: Text('${c.code}: ${c.title}'))).toList(),
+                      items: courses
+                          .map((c) => DropdownMenuItem(
+                                value: c,
+                                child: Text('${c.code}: ${c.title}', overflow: TextOverflow.ellipsis),
+                              ))
+                          .toList(),
                       onChanged: (val) {
                         if (val != null) setDialogState(() => selectedCourse = val);
                       },
@@ -1369,7 +1374,12 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                     style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
                     isExpanded: true,
                     underline: Container(height: 1, color: const Color(0xFF2E2623)),
-                    items: daysList.map((d) => DropdownMenuItem(value: d['day'] as int, child: Text(d['name'] as String))).toList(),
+                    items: daysList
+                        .map((d) => DropdownMenuItem(
+                              value: d['day'] as int,
+                              child: Text(d['name'] as String, overflow: TextOverflow.ellipsis),
+                            ))
+                        .toList(),
                     onChanged: (val) {
                       if (val != null) setDialogState(() => selectedDay = val);
                     },
@@ -1444,9 +1454,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                     isExpanded: true,
                     underline: Container(height: 1, color: const Color(0xFF2E2623)),
                     items: const [
-                      DropdownMenuItem(value: CourseType.theory, child: Text('Theory')),
-                      DropdownMenuItem(value: CourseType.sessional, child: Text('Sessional / Lab')),
-                      DropdownMenuItem(value: CourseType.practical, child: Text('Practical')),
+                      DropdownMenuItem(value: CourseType.theory, child: Text('Theory', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: CourseType.sessional, child: Text('Sessional / Lab', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: CourseType.practical, child: Text('Practical', overflow: TextOverflow.ellipsis)),
                     ],
                     onChanged: (val) {
                       if (val != null) setDialogState(() => selectedType = val);

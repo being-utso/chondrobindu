@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -10,6 +11,19 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
+
+  /// Returns true if local notifications are supported in the current runtime environment
+  static bool get isSupported {
+    if (kIsWeb) return false;
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) return false;
+    } catch (_) {
+      return false;
+    }
+    return true;
+  }
+
+  bool get _canProceed => isSupported && _isInitialized;
 
   static const int timerNotificationId = 1001;
   static const int breakAlertNotificationId = 1002;
@@ -59,6 +73,7 @@ class NotificationService {
 
   /// Initialize timezone data & local notification plugin
   Future<void> init() async {
+    if (!isSupported) return;
     if (_isInitialized) return;
 
     try {
@@ -97,7 +112,9 @@ class NotificationService {
 
   /// Explicitly request notification permissions on Android 13+ (Tiramisu) and iOS
   Future<bool?> requestPermissions() async {
+    if (!isSupported) return null;
     if (!_isInitialized) await init();
+    if (!_isInitialized) return null;
 
     try {
       final androidImplementation = _notificationsPlugin
@@ -118,7 +135,9 @@ class NotificationService {
     required bool isRunning,
     bool isBreakMode = false,
   }) async {
+    if (!isSupported) return;
     if (!_isInitialized) await init();
+    if (!_isInitialized) return;
 
     const androidDetails = AndroidNotificationDetails(
       timerChannelId,
@@ -168,7 +187,9 @@ class NotificationService {
 
   /// Local alert notification triggered the exact moment Focus target is reached
   Future<void> showBreakAlertNotification() async {
+    if (!isSupported) return;
     if (!_isInitialized) await init();
+    if (!_isInitialized) return;
 
     const androidDetails = AndroidNotificationDetails(
       breakChannelId,
@@ -207,7 +228,9 @@ class NotificationService {
 
   /// The "Abandoned Pause" Nudge (Triggered if timer paused for 15+ minutes)
   Future<void> showAbandonedPauseNudge() async {
+    if (!isSupported) return;
     if (!_isInitialized) await init();
+    if (!_isInitialized) return;
 
     const androidDetails = AndroidNotificationDetails(
       timerNudgeChannelId,
@@ -247,6 +270,7 @@ class NotificationService {
 
   /// Cancels abandoned pause nudge notification
   Future<void> cancelAbandonedPauseNudge() async {
+    if (!_canProceed) return;
     try {
       await _notificationsPlugin.cancel(abandonedPauseNotificationId);
     } catch (e) {
@@ -256,6 +280,7 @@ class NotificationService {
 
   /// Dismisses active persistent timer notification
   Future<void> cancelTimerNotification() async {
+    if (!_canProceed) return;
     try {
       await _notificationsPlugin.cancel(timerNotificationId);
     } catch (e) {
@@ -270,7 +295,9 @@ class NotificationService {
     required DateTime date,
     String? id,
   }) async {
+    if (!isSupported) return;
     if (!_isInitialized) await init();
+    if (!_isInitialized) return;
 
     final reminderTime = date.subtract(const Duration(hours: 24));
     try {
@@ -323,7 +350,9 @@ class NotificationService {
     required String subject,
     required DateTime examDate,
   }) async {
+    if (!isSupported) return;
     if (!_isInitialized) await init();
+    if (!_isInitialized) return;
 
     final dayBefore = examDate.subtract(const Duration(days: 1));
     final targetDateTime = DateTime(dayBefore.year, dayBefore.month, dayBefore.day, 18, 0, 0);
@@ -379,7 +408,9 @@ class NotificationService {
     required String subject,
     required DateTime examDate,
   }) async {
+    if (!isSupported) return;
     if (!_isInitialized) await init();
+    if (!_isInitialized) return;
 
     final tenDaysAfter = examDate.add(const Duration(days: 10));
     final targetDateTime = DateTime(tenDaysAfter.year, tenDaysAfter.month, tenDaysAfter.day, 10, 0, 0);
@@ -431,6 +462,7 @@ class NotificationService {
 
   /// Cancels post-exam score log nudge
   Future<void> cancelPostExamScoreNudge(String examId) async {
+    if (!_canProceed) return;
     final notifId = (examId.hashCode.abs() % 1000000) + postExamNudgeBaseId;
     try {
       await _notificationsPlugin.cancel(notifId);
@@ -441,6 +473,7 @@ class NotificationService {
 
   /// Cancels scheduled exam reminder
   Future<void> cancelExamReminder(String examId) async {
+    if (!_canProceed) return;
     final notifId = (examId.hashCode.abs() % 1000000) + examReminderBaseId;
     try {
       await _notificationsPlugin.cancel(notifId);
@@ -451,7 +484,9 @@ class NotificationService {
 
   /// The Streak Protector (Rolling Schedule at 9:00 PM the following day)
   Future<void> scheduleStreakProtectorReminder() async {
+    if (!isSupported) return;
     if (!_isInitialized) await init();
+    if (!_isInitialized) return;
 
     try {
       await _notificationsPlugin.cancel(streakProtectorNotificationId);
@@ -504,7 +539,9 @@ class NotificationService {
 
   /// Task 2: Syllabus "Decay" Nudge (Triggered when neither paper of a core subject has been touched in 14+ days)
   Future<void> showSyllabusDecayNudge(String coreSubject) async {
+    if (!isSupported) return;
     if (!_isInitialized) await init();
+    if (!_isInitialized) return;
 
     final notifId = syllabusDecayBaseId + (coreSubject.hashCode.abs() % 1000);
 
@@ -546,7 +583,9 @@ class NotificationService {
 
   /// Task 3: The Weekly Wrap-Up Notification (Triggered Sunday evening with 7-day focus totals)
   Future<void> showWeeklyWrapUpNotification(double totalHours) async {
+    if (!isSupported) return;
     if (!_isInitialized) await init();
+    if (!_isInitialized) return;
 
     const androidDetails = AndroidNotificationDetails(
       weeklyWrapUpChannelId,
@@ -587,7 +626,9 @@ class NotificationService {
 
   /// Task 2: Burnout Guard Notification (Triggered once per day when total focus time exceeds 12 hours)
   Future<void> showBurnoutGuardNotification() async {
+    if (!isSupported) return;
     if (!_isInitialized) await init();
+    if (!_isInitialized) return;
 
     const androidDetails = AndroidNotificationDetails(
       burnoutGuardChannelId,

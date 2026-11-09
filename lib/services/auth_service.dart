@@ -233,7 +233,7 @@ class AuthService {
   /// Step 2: Delete main user document & subcollections (focus_sessions, exams, syllabus) from Firestore
   /// Step 3: Delete user record from FirebaseAuth
   Future<void> deleteAccount({String? profileImageUrl}) async {
-    print('--- DEBUG: ATTEMPTING ACCOUNT DELETION ---');
+    debugPrint('--- DEBUG: ATTEMPTING ACCOUNT DELETION ---');
     final user = _auth.currentUser;
     if (user == null) {
       throw Exception('No user is currently signed in.');

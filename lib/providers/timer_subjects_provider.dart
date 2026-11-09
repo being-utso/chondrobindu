@@ -57,7 +57,6 @@ final timerSubjectsProvider = StateNotifierProvider<TimerSubjectsNotifier, List<
 class TimerSubjectsNotifier extends StateNotifier<List<String>> {
   final FirebaseFirestore? _customFirestore;
   final FirebaseAuth? _customAuth;
-  final Ref? _ref;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userSubscription;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _coursesSubscription;
 
@@ -90,8 +89,7 @@ class TimerSubjectsNotifier extends StateNotifier<List<String>> {
     List<String> initialSyllabusSubjects = const [],
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
-  })  : _ref = ref,
-        _isUniversityStudent = isUniversityStudent,
+  })  : _isUniversityStudent = isUniversityStudent,
         _customFirestore = firestore,
         _customAuth = auth,
         _syllabusSubjects = initialSyllabusSubjects,

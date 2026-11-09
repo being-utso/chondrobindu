@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/user_profile_provider.dart';
@@ -9,6 +10,7 @@ import '../services/tour_service.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/app_preloader.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'main_nav.dart';
 
 enum AuthMode { signIn, signUp }
 
@@ -803,6 +805,28 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     ),
                   ],
                 ),
+                if (kDebugMode) ...[
+                  const SizedBox(height: 12),
+                  Center(
+                    child: TextButton.icon(
+                      key: const Key('qa_bypass_button'),
+                      icon: const Icon(Icons.developer_mode, color: Color(0xFFF2B78A), size: 16),
+                      label: Text(
+                        'QA Bypass to Main Dashboard',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: const Color(0xFFF2B78A),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+                        );
+                      },
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
               ],
             ),

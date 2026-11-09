@@ -655,6 +655,7 @@ class _AddCourseScreenState extends ConsumerState<AddCourseScreen> {
                           _buildFieldLabel('COURSE TYPE *'),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
+                            isExpanded: true,
                             initialValue: _selectedCourseType,
                             dropdownColor: cardColor,
                             style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -665,7 +666,10 @@ class _AddCourseScreenState extends ConsumerState<AddCourseScreen> {
                               accentColor: accentColor,
                             ),
                             items: _courseTypes.map((type) {
-                              return DropdownMenuItem(value: type, child: Text(type));
+                              return DropdownMenuItem(
+                                value: type,
+                                child: Text(type, overflow: TextOverflow.ellipsis),
+                              );
                             }).toList(),
                             onChanged: (val) {
                               if (val != null) setState(() => _selectedCourseType = val);

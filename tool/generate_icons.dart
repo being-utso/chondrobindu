@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print
 import 'dart:io';
 import 'package:image/image.dart' as img;
 
@@ -42,7 +43,7 @@ void main() {
 
   // 2. Generate assets/icons/logo_ember.png (Clean, prominent glyph for in-app header & splash)
   // Target 1024x1024 square with ~6% margin so glyph fills the space cleanly
-  final emberCanvasSize = 1024;
+  const emberCanvasSize = 1024;
   final emberGlyphTargetSize = (emberCanvasSize * 0.88).round(); // 88% of canvas, tight 6% padding
   
   // Scale glyph proportionally
@@ -82,7 +83,7 @@ void main() {
   // Android adaptive safe area is 66.7% diameter.
   // We place the glyph so its maximum dimension occupies ~50% of the 1024x1024 canvas
   // That provides 25-30% padding around the glyph, so no part is clipped by squircle/circle masks!
-  final adaptiveCanvasSize = 1024;
+  const adaptiveCanvasSize = 1024;
   final adaptiveGlyphTargetSize = (adaptiveCanvasSize * 0.50).round(); // 50% of canvas
 
   final double scaleAdaptive = adaptiveGlyphTargetSize / (glyphW > glyphH ? glyphW : glyphH);
@@ -153,7 +154,7 @@ void main() {
 
   // 5. Generate @drawable/splash_logo with ~20% inner padding (transparent background)
   // Transparent copper version centered cleanly with 20% padding so 110dp bitmap never clips
-  final splashCanvasSize = 512;
+  const splashCanvasSize = 512;
   final splashGlyphTargetSize = (splashCanvasSize * 0.60).round(); // ~20% margin on each side
   final double scaleSplash = splashGlyphTargetSize / (glyphW > glyphH ? glyphW : glyphH);
   final scaledSplashW = (glyphW * scaleSplash).round();

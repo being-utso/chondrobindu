@@ -410,9 +410,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
               if (confirm == true) {
                 await ref.read(authServiceProvider).signOut();
-                if (mounted) {
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                }
+                if (!context.mounted) return;
+                Navigator.of(context).popUntil((route) => route.isFirst);
               }
             },
           ),
@@ -593,7 +592,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     Switch.adaptive(
                       value: _isUniversityStudent,
-                      activeColor: accentColor,
+                      activeThumbColor: accentColor,
                       onChanged: (val) {
                         setState(() {
                           _isUniversityStudent = val;
@@ -830,13 +829,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 DropdownButtonFormField<String>(
                                   initialValue: _selectedLevel,
                                   dropdownColor: cardColor,
+                                  isExpanded: true,
                                   style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
                                   decoration: _buildInputDecoration(
                                     hintText: 'Level',
                                     prefixIcon: Icons.layers_rounded,
                                   ),
                                   items: ['1', '2', '3', '4']
-                                      .map((l) => DropdownMenuItem(value: l, child: Text('Level $l')))
+                                      .map((l) => DropdownMenuItem(
+                                            value: l,
+                                            child: Text('Level $l', overflow: TextOverflow.ellipsis),
+                                          ))
                                       .toList(),
                                   onChanged: (val) {
                                     if (val != null) setState(() => _selectedLevel = val);
@@ -855,13 +858,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 DropdownButtonFormField<String>(
                                   initialValue: _selectedTerm,
                                   dropdownColor: cardColor,
+                                  isExpanded: true,
                                   style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
                                   decoration: _buildInputDecoration(
                                     hintText: 'Term',
                                     prefixIcon: Icons.timelapse_rounded,
                                   ),
                                   items: ['1', '2']
-                                      .map((t) => DropdownMenuItem(value: t, child: Text('Term $t')))
+                                      .map((t) => DropdownMenuItem(
+                                            value: t,
+                                            child: Text('Term $t', overflow: TextOverflow.ellipsis),
+                                          ))
                                       .toList(),
                                   onChanged: (val) {
                                     if (val != null) setState(() => _selectedTerm = val);
@@ -955,13 +962,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 DropdownButtonFormField<String>(
                                   initialValue: _hscBatch,
                                   dropdownColor: cardColor,
+                                  isExpanded: true,
                                   style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
                                   decoration: _buildInputDecoration(
                                     hintText: 'Batch',
                                     prefixIcon: Icons.calendar_today_outlined,
                                   ),
                                   items: _batchOptions
-                                      .map((b) => DropdownMenuItem(value: b, child: Text('HSC $b')))
+                                      .map((b) => DropdownMenuItem(
+                                            value: b,
+                                            child: Text('HSC $b', overflow: TextOverflow.ellipsis),
+                                          ))
                                       .toList(),
                                   onChanged: (val) {
                                     if (val != null) setState(() => _hscBatch = val);
@@ -980,13 +991,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 DropdownButtonFormField<String>(
                                   initialValue: _hscGroup,
                                   dropdownColor: cardColor,
+                                  isExpanded: true,
                                   style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
                                   decoration: _buildInputDecoration(
                                     hintText: 'Group',
                                     prefixIcon: Icons.category_outlined,
                                   ),
                                   items: _groupOptions
-                                      .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                                      .map((g) => DropdownMenuItem(
+                                            value: g,
+                                            child: Text(g, overflow: TextOverflow.ellipsis),
+                                          ))
                                       .toList(),
                                   onChanged: (val) {
                                     if (val != null) {
@@ -1325,6 +1340,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         runSpacing: 8,
                         children: [
                           ElevatedButton.icon(
+                            onPressed: () => _showBkashNagadModal(context),
+                            icon: const Icon(Icons.volunteer_activism_rounded, size: 15, color: Colors.white),
+                            label: const Text(
+                              'Donate via bKash',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFD82A74),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              elevation: 0,
+                            ),
+                          ),
+                          ElevatedButton.icon(
                             onPressed: () => _safeLaunchUrl(context, 'https://being-utso.github.io/contact.html'),
                             icon: const Icon(Icons.coffee_rounded, size: 15, color: Colors.black87),
                             label: const Text(
@@ -1443,7 +1473,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     );
 
                     if (confirm == true) {
-                      if (!mounted) return;
+                      if (!context.mounted) return;
                       final scaffoldMessenger = ScaffoldMessenger.of(context);
                       scaffoldMessenger.showSnackBar(
                         const SnackBar(
@@ -1454,7 +1484,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                       final removedCount = await purgeHistoricalSessionDuplicates(uid);
 
-                      if (mounted) {
+                      if (context.mounted) {
                         scaffoldMessenger.showSnackBar(
                           SnackBar(
                             content: Text(
@@ -1527,9 +1557,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                     if (confirm == true) {
                       await ref.read(authServiceProvider).signOut();
-                      if (mounted) {
-                        Navigator.of(context).popUntil((route) => route.isFirst);
-                      }
+                      if (!context.mounted) return;
+                      Navigator.of(context).popUntil((route) => route.isFirst);
                     }
                   },
                   borderRadius: BorderRadius.circular(16.0),
@@ -1673,9 +1702,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
 
-    if (confirm != true || !mounted) return;
+    if (confirm != true || !context.mounted) return;
 
-    bool localLoading = true;
     bool dialogShown = false;
 
     // 1. Show Loading Dialog/Spinner
@@ -1687,7 +1715,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     dialogShown = true;
 
     try {
-      print('--- DEBUG: ATTEMPTING ACCOUNT DELETION ---');
+      debugPrint('--- DEBUG: ATTEMPTING ACCOUNT DELETION ---');
       debugPrint('[DELETE ACCOUNT] Starting account deletion...');
       final user = FirebaseAuth.instance.currentUser;
       final uid = user?.uid;
@@ -1739,7 +1767,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ref.read(navigationIndexProvider.notifier).state = 0;
 
       // 4. Route to Login Screen
-      if (mounted) {
+      if (context.mounted) {
         if (dialogShown) {
           Navigator.of(context, rootNavigator: true).pop();
           dialogShown = false;
@@ -1757,63 +1785,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         );
       }
     } on FirebaseAuthException catch (e) {
-      print('DEBUG: FIREBASE AUTH ERROR CODE: ${e.code}');
-      print('Firebase Auth Error: ${e.code}');
-      if (dialogShown && mounted) {
+      debugPrint('DEBUG: FIREBASE AUTH ERROR CODE: ${e.code}');
+      debugPrint('Firebase Auth Error: ${e.code}');
+      if (dialogShown && context.mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         dialogShown = false;
       }
 
       if (e.code == 'requires-recent-login') {
-        // Show specific dialog: "Please sign out and sign back in to delete your account."
-        if (mounted) {
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              backgroundColor: const Color(0xFF241C1A),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: const Row(
-                children: [
-                  Icon(Icons.lock_reset_rounded, color: Color(0xFFEF4444), size: 22),
-                  SizedBox(width: 8),
-                  Text(
-                    'Re-Authentication Required',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ],
-              ),
-              content: const Text(
-                'Please sign out and sign back in to verify your identity before deleting your account.',
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF2B78A),
-                    foregroundColor: const Color(0xFF110D0C),
-                  ),
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    await ref.read(authServiceProvider).signOut();
-                    if (mounted) {
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const AuthScreen()),
-                        (route) => false,
-                      );
-                    }
-                  },
-                  child: const Text('Sign Out Now', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-          );
+        if (context.mounted) {
+          _showRecentLoginReauthDialog(context, ref, profile);
         }
       } else {
-        if (mounted) {
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: const Color(0xFFEF4444),
@@ -1824,13 +1808,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         }
       }
     } catch (e) {
-      print('DEBUG: GENERAL DELETION ERROR: $e');
-      print('General Error: $e');
-      if (dialogShown && mounted) {
+      debugPrint('DEBUG: GENERAL DELETION ERROR: $e');
+      debugPrint('General Error: $e');
+      if (dialogShown && context.mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         dialogShown = false;
       }
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: const Color(0xFFEF4444),
@@ -1841,8 +1825,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       }
     } finally {
       // THIS MUST RUN. Dismiss the loading dialog or set isLoading = false.
-      localLoading = false;
-      if (dialogShown && mounted) {
+      if (dialogShown && context.mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         dialogShown = false;
       }
@@ -1859,8 +1842,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       context: context,
       builder: (reauthCtx) => StatefulBuilder(
         builder: (ctx, setState) {
-          String? errorMessage;
-
           return AlertDialog(
             backgroundColor: const Color(0xFF241C1A),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -1956,9 +1937,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         _handleDeleteAccount(context, ref, profile);
                       }
                     } catch (e) {
-                      setState(() {
-                        errorMessage = 'Incorrect password or authentication error.';
-                      });
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            backgroundColor: Color(0xFFEF4444),
+                            content: Text('Incorrect password or authentication error.'),
+                          ),
+                        );
+                      }
                     }
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF2B78A), foregroundColor: const Color(0xFF110D0C)),

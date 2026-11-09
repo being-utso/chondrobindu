@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +20,74 @@ import '../widgets/app_preloader.dart';
 import 'package:chondrobindu/utils/safe_haptics.dart';
 
 class PdfReportService {
+  static pw.ThemeData? _cachedTheme;
+
+  /// Loads Bengali-capable font (Hind Siliguri) and Unicode fallback (Noto Sans) for PDF rendering
+  static Future<pw.ThemeData> _getPdfTheme() async {
+    if (_cachedTheme != null) return _cachedTheme!;
+    try {
+      pw.Font? baseFont;
+      pw.Font? boldFont;
+      pw.Font? unicodeFallback;
+
+      // 1. Try loading from bundled asset file on disk (for test/local environment)
+      try {
+        final regFile = File('assets/fonts/HindSiliguri-Regular.ttf');
+        final boldFile = File('assets/fonts/HindSiliguri-Bold.ttf');
+        final unicodeFile = File('assets/fonts/NotoSans-Regular.ttf');
+
+        if (regFile.existsSync() && boldFile.existsSync()) {
+          baseFont = pw.Font.ttf(regFile.readAsBytesSync().buffer.asByteData());
+          boldFont = pw.Font.ttf(boldFile.readAsBytesSync().buffer.asByteData());
+          if (unicodeFile.existsSync()) {
+            unicodeFallback = pw.Font.ttf(unicodeFile.readAsBytesSync().buffer.asByteData());
+          }
+        }
+      } catch (_) {}
+
+      // 2. Try rootBundle (for production Flutter app & Web runtime)
+      if (baseFont == null || boldFont == null) {
+        try {
+          final regData = await rootBundle.load('assets/fonts/HindSiliguri-Regular.ttf');
+          final boldData = await rootBundle.load('assets/fonts/HindSiliguri-Bold.ttf');
+          baseFont = pw.Font.ttf(regData);
+          boldFont = pw.Font.ttf(boldData);
+          try {
+            final uniData = await rootBundle.load('assets/fonts/NotoSans-Regular.ttf');
+            unicodeFallback = pw.Font.ttf(uniData);
+          } catch (_) {}
+        } catch (_) {}
+      }
+
+      // 3. Fallback to PdfGoogleFonts over network
+      if (baseFont == null || boldFont == null) {
+        try {
+          baseFont = await PdfGoogleFonts.hindSiliguriRegular();
+          boldFont = await PdfGoogleFonts.hindSiliguriBold();
+          unicodeFallback ??= await PdfGoogleFonts.notoSansRegular();
+        } catch (_) {}
+      }
+
+      if (baseFont != null && boldFont != null) {
+        final fallbacks = <pw.Font>[
+          if (unicodeFallback != null) unicodeFallback,
+          baseFont,
+        ];
+        _cachedTheme = pw.ThemeData.withFont(
+          base: baseFont,
+          bold: boldFont,
+          fontFallback: fallbacks,
+        );
+        return _cachedTheme!;
+      }
+
+      return pw.ThemeData.base();
+    } catch (e) {
+      debugPrint('Failed to load PDF theme: $e');
+      return pw.ThemeData.base();
+    }
+  }
+
   /// Generates a structured 1-page PDF document summarizing student academic progress
   static Future<Uint8List> generateProgressReport({
     required UserProfile userProfile,
@@ -26,7 +95,8 @@ class PdfReportService {
     required List<Subject> syllabusSubjects,
     required List<ExamModel> recentExams,
   }) async {
-    final pdf = pw.Document();
+    final theme = await _getPdfTheme();
+    final pdf = pw.Document(theme: theme);
 
     final now = DateTime.now();
     final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
@@ -41,13 +111,14 @@ class PdfReportService {
     // Calculate overall syllabus progress
     double overallSyllabusProgress = 0.0;
     if (syllabusSubjects.isNotEmpty) {
-      final totalProg = syllabusSubjects.fold<double>(0.0, (sum, s) => sum + s.totalProgress);
+      final totalProg = syllabusSubjects.fold<double>(0.0, (total, s) => total + s.totalProgress);
       overallSyllabusProgress = (totalProg / syllabusSubjects.length) * 100;
     }
 
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
+        theme: theme,
         margin: const pw.EdgeInsets.all(32),
         build: (pw.Context context) {
           return pw.Column(
@@ -231,10 +302,10 @@ class PdfReportService {
     final headers = ['Subject Title', 'Completed Sections', 'Progress'];
 
     final data = subjects.take(8).map((subject) {
-      final totalSections = subject.chapters.fold<int>(0, (sum, c) => sum + c.sections.length);
+      final totalSections = subject.chapters.fold<int>(0, (total, c) => total + c.sections.length);
       final completedSections = subject.chapters.fold<int>(
         0,
-        (sum, c) => sum + c.sections.where((s) => s.isCompleted).length,
+        (total, c) => total + c.sections.where((s) => s.isCompleted).length,
       );
       final percentage = (subject.totalProgress * 100).toStringAsFixed(0);
 
@@ -334,7 +405,8 @@ class PdfReportService {
     required Map<String, String> courseCodeMap,
     AttendanceStats? attendanceStats,
   }) async {
-    final pdf = pw.Document();
+    final theme = await _getPdfTheme();
+    final pdf = pw.Document(theme: theme);
 
     final now = DateTime.now();
     final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
@@ -356,6 +428,7 @@ class PdfReportService {
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
+        theme: theme,
         margin: const pw.EdgeInsets.all(32),
         build: (pw.Context context) {
           return pw.Column(

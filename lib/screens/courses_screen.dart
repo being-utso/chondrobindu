@@ -1471,11 +1471,11 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                     isExpanded: true,
                     underline: Container(height: 1, color: const Color(0xFF2E2623)),
                     items: [
-                      const DropdownMenuItem(value: CourseType.theory, child: Text('Theory')),
+                      const DropdownMenuItem(value: CourseType.theory, child: Text('Theory', overflow: TextOverflow.ellipsis)),
                       if (isCollege)
-                        const DropdownMenuItem(value: CourseType.practical, child: Text('Practical'))
+                        const DropdownMenuItem(value: CourseType.practical, child: Text('Practical', overflow: TextOverflow.ellipsis))
                       else
-                        const DropdownMenuItem(value: CourseType.sessional, child: Text('Sessional / Lab')),
+                        const DropdownMenuItem(value: CourseType.sessional, child: Text('Sessional / Lab', overflow: TextOverflow.ellipsis)),
                     ],
                     onChanged: (val) {
                       if (val != null) setDialogState(() => selectedType = val);
@@ -1752,8 +1752,8 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                     isExpanded: true,
                     underline: Container(height: 1, color: const Color(0xFF2E2623)),
                     items: [
-                      ...existingChapters.map((ch) => DropdownMenuItem(value: ch, child: Text(ch))),
-                      const DropdownMenuItem(value: '__new__', child: Text('+ New Chapter...')),
+                      ...existingChapters.map((ch) => DropdownMenuItem(value: ch, child: Text(ch, overflow: TextOverflow.ellipsis))),
+                      const DropdownMenuItem(value: '__new__', child: Text('+ New Chapter...', overflow: TextOverflow.ellipsis)),
                     ],
                     onChanged: (val) {
                       if (val == '__new__') {
@@ -2164,6 +2164,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue: selectedType,
                   dropdownColor: const Color(0xFF241C1A),
                   style: GoogleFonts.plusJakartaSans(color: Colors.white),
@@ -2172,12 +2173,12 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                     labelStyle: TextStyle(color: Color(0xFF9E8C82)),
                   ),
                   items: const [
-                    DropdownMenuItem(value: 'ct', child: Text('Class Test (CT)')),
-                    DropdownMenuItem(value: 'quiz', child: Text('Quiz')),
-                    DropdownMenuItem(value: 'assignment', child: Text('Assignment')),
-                    DropdownMenuItem(value: 'midterm', child: Text('Midterm Exam')),
-                    DropdownMenuItem(value: 'final', child: Text('Term Final')),
-                    DropdownMenuItem(value: 'lab', child: Text('Lab Quiz / Viva')),
+                    DropdownMenuItem(value: 'ct', child: Text('Class Test (CT)', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'quiz', child: Text('Quiz', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'assignment', child: Text('Assignment', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'midterm', child: Text('Midterm Exam', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'final', child: Text('Term Final', overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'lab', child: Text('Lab Quiz / Viva', overflow: TextOverflow.ellipsis)),
                   ],
                   onChanged: (val) {
                     if (val != null) setDlgState(() => selectedType = val);

@@ -442,6 +442,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           ),
           title: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
+              isExpanded: true,
               value: _selectedTag,
               dropdownColor: const Color(0xFF1C1412),
               icon: const Icon(Icons.keyboard_arrow_down_rounded, color: accentColor, size: 20),
@@ -458,7 +459,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
               items: availableTags.map<DropdownMenuItem<String>>((String value) {
                 return DropdownMenuItem<String>(
                   value: value,
-                  child: Text(value),
+                  child: Text(value, overflow: TextOverflow.ellipsis),
                 );
               }).toList(),
             ),
@@ -493,7 +494,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
             TextButton(
               onPressed: () async {
                 await _saveNote();
-                if (mounted) {
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       backgroundColor: const Color(0xFF10B981),

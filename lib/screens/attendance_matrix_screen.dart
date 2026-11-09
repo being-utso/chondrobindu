@@ -276,7 +276,10 @@ class _AttendanceMatrixScreenState extends ConsumerState<AttendanceMatrixScreen>
                         dropdownColor: const Color(0xFF1C1412),
                         style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
                         items: ['Extra Lecture', 'Makeup Lab', 'Review Session', 'Special Sessional'].map((t) {
-                          return DropdownMenuItem(value: t, child: Text(t));
+                          return DropdownMenuItem(
+                            value: t,
+                            child: Text(t, overflow: TextOverflow.ellipsis),
+                          );
                         }).toList(),
                         onChanged: (val) {
                           if (val != null) setModalState(() => classType = val);
@@ -656,7 +659,6 @@ class _AttendanceMatrixScreenState extends ConsumerState<AttendanceMatrixScreen>
                               // Daily stats
                               int todayAttended = 0;
                               int todayMissed = 0;
-                              int todayCanceled = 0;
 
                               for (var routine in expectedRoutines) {
                                 final key = '${routine.courseId}_${routine.id}';
@@ -664,7 +666,6 @@ class _AttendanceMatrixScreenState extends ConsumerState<AttendanceMatrixScreen>
                                 final status = rec?.status ?? AttendanceStatus.unmarked;
                                 if (status == AttendanceStatus.attended || status == AttendanceStatus.extra) todayAttended++;
                                 if (status == AttendanceStatus.missed) todayMissed++;
-                                if (status == AttendanceStatus.canceled) todayCanceled++;
                               }
                               todayAttended += extraRecords.where((e) => e.status == AttendanceStatus.attended || e.status == AttendanceStatus.extra).length;
 

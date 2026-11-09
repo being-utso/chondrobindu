@@ -340,7 +340,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                   fontWeight: FontWeight.w600,
                 ),
                 items: timerSubjects
-                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                    .map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis)))
                     .toList(),
                 onChanged: (val) {
                   if (val != null) {

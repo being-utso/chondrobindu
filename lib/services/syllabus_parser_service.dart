@@ -9,8 +9,8 @@ import '../models/syllabus_node.dart';
 /// Priority pool of Gemini AI models for dynamic failover during syllabus extraction.
 const List<String> kGeminiModelPriorityPool = [
   'gemini-2.5-flash',
-  'gemini-1.5-flash',
-  'gemini-1.5-pro',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-pro',
 ];
 
 /// Type definition for testable AI model invoker

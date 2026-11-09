@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_quill/flutter_quill.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:chondrobindu/core/constants/app_constants.dart';
 import 'package:chondrobindu/core/constants/group_constants.dart';
@@ -15,19 +14,11 @@ import 'package:chondrobindu/models/note_model.dart';
 import 'package:chondrobindu/models/planner_event_model.dart';
 import 'package:chondrobindu/models/routine_models.dart';
 import 'package:chondrobindu/models/syllabus_node.dart';
-import 'package:chondrobindu/models/session_metadata.dart';
-import 'package:chondrobindu/screens/add_course_screen.dart' hide Course, CourseType;
 import 'package:chondrobindu/screens/insights_screen.dart';
-import 'package:chondrobindu/screens/exams_screen.dart' hide PlannerScreen;
-import 'package:chondrobindu/screens/admin_dashboard_screen.dart';
-import 'package:chondrobindu/screens/admin_login_screen.dart';
-import 'package:chondrobindu/screens/course_assessment_screen.dart';
 import 'package:chondrobindu/screens/course_syllabus_screen.dart';
 import 'package:chondrobindu/screens/grading_setup_screen.dart';
 import 'package:chondrobindu/screens/journal_screen.dart';
-import 'package:chondrobindu/screens/note_editor_screen.dart';
 import 'package:chondrobindu/screens/term_performance_screen.dart';
-import 'package:chondrobindu/screens/university_dashboard_screen.dart';
 import 'package:chondrobindu/screens/home_dashboard.dart';
 import 'package:chondrobindu/models/performance_models.dart';
 import 'package:chondrobindu/providers/syllabus_provider.dart';
@@ -40,13 +31,11 @@ import 'package:chondrobindu/services/pdf_report_service.dart';
 import 'package:chondrobindu/services/syllabus_factory.dart';
 import 'package:chondrobindu/services/assessment_calculator.dart';
 import 'package:chondrobindu/constants/app_config.dart';
-import 'package:chondrobindu/models/profile_models.dart';
 import 'package:chondrobindu/screens/personal_profile_screen.dart';
 import 'package:chondrobindu/screens/help_support_screen.dart';
 import 'package:chondrobindu/widgets/app_logo.dart';
 import 'package:chondrobindu/widgets/study_session_log_dialog.dart';
 import 'package:chondrobindu/services/snack_bar_service.dart';
-import 'package:chondrobindu/widgets/batch_add_materials_dialog.dart';
 import 'package:chondrobindu/widgets/attendance_override_dialog.dart';
 import 'package:chondrobindu/widgets/compact_loading_dialog.dart';
 import 'package:chondrobindu/services/syllabus_parser_service.dart';
@@ -54,10 +43,6 @@ import 'package:chondrobindu/widgets/assessment_card.dart';
 import 'package:chondrobindu/models/course_model.dart';
 import 'package:chondrobindu/providers/notes_provider.dart';
 import 'package:chondrobindu/providers/journal_provider.dart';
-import 'package:chondrobindu/core/theme/app_colors.dart';
-import 'package:chondrobindu/core/theme/app_spacing.dart';
-import 'package:chondrobindu/core/theme/app_typography.dart';
-import 'package:chondrobindu/core/theme/app_shadows.dart';
 import 'package:chondrobindu/core/theme/app_theme.dart';
 import 'package:chondrobindu/widgets/common/pressable_card.dart';
 import 'package:chondrobindu/widgets/common/app_badge.dart';
@@ -525,11 +510,11 @@ void main() {
           l.date.year == now.year &&
           l.date.month == now.month &&
           l.date.day == now.day);
-      final todayTotal = todayLogs.fold<int>(0, (sum, i) => sum + i.durationInMinutes);
+      final todayTotal = todayLogs.fold<int>(0, (total, i) => total + i.durationInMinutes);
       expect(todayTotal, 75);
 
       // All-time total = 45 + 30 + 60 = 135 mins
-      final allTimeTotal = logs.fold<int>(0, (sum, i) => sum + i.durationInMinutes);
+      final allTimeTotal = logs.fold<int>(0, (total, i) => total + i.durationInMinutes);
       expect(allTimeTotal, 135);
       expect(allTimeTotal / 60.0, 2.25);
     });
@@ -802,7 +787,7 @@ void main() {
       }
       expect(highest, 5);
 
-      final newCount = 3;
+      const newCount = 3;
       final generatedNames = List.generate(newCount, (i) => '$baseName ${highest + i + 1}');
       expect(generatedNames, ['Weekly Exam 6', 'Weekly Exam 7', 'Weekly Exam 8']);
     });
@@ -855,7 +840,7 @@ void main() {
       final weeklyLogs = logs.where((l) => l.date.isAfter(sevenDaysAgo)).toList();
 
       expect(weeklyLogs.length, 2);
-      final totalWeeklyMins = weeklyLogs.fold<int>(0, (sum, i) => sum + i.durationInMinutes);
+      final totalWeeklyMins = weeklyLogs.fold<int>(0, (total, i) => total + i.durationInMinutes);
       expect(totalWeeklyMins, 100);
 
       // Verify percentages: Physics (40/100 = 40%), Chemistry (60/100 = 60%)
@@ -898,7 +883,7 @@ void main() {
           l.date.day == targetDay.day).toList();
 
       expect(dailyLogs.length, 2);
-      final totalDayMins = dailyLogs.fold<int>(0, (sum, l) => sum + l.durationInMinutes);
+      final totalDayMins = dailyLogs.fold<int>(0, (total, l) => total + l.durationInMinutes);
       expect(totalDayMins, 75);
     });
   });
@@ -1008,7 +993,7 @@ void main() {
       final weeklySessions = sessions.where((s) => s.date.isAfter(sevenDaysAgo)).toList();
       expect(weeklySessions.length, 2);
 
-      final totalMinutes = weeklySessions.fold<int>(0, (sum, s) => sum + s.durationInMinutes);
+      final totalMinutes = weeklySessions.fold<int>(0, (total, s) => total + s.durationInMinutes);
       expect(totalMinutes, 210);
 
       final totalHours = totalMinutes / 60.0;
@@ -1077,7 +1062,7 @@ void main() {
 
       expect(filteredToday.length, 3);
 
-      final totalTodayMins = filteredToday.fold<int>(0, (sum, s) => sum + s.durationInMinutes);
+      final totalTodayMins = filteredToday.fold<int>(0, (total, s) => total + s.durationInMinutes);
       expect(totalTodayMins, 740);
       expect(totalTodayMins >= 720, true);
     });
@@ -1360,24 +1345,20 @@ void main() {
       ];
 
       // Case A: No pinned exam -> defaults to upcoming.first
-      String? pinnedId;
-      ExamModel? selectedExam;
-      if (pinnedId != null && pinnedId.isNotEmpty) {
-        try {
-          selectedExam = upcoming.firstWhere((e) => e.id == pinnedId);
-        } catch (_) {}
+      ExamModel? resolvePinned(String? pinnedId) {
+        if (pinnedId != null && pinnedId.isNotEmpty) {
+          try {
+            return upcoming.firstWhere((e) => e.id == pinnedId);
+          } catch (_) {}
+        }
+        return upcoming.isNotEmpty ? upcoming.first : null;
       }
-      selectedExam ??= (upcoming.isNotEmpty ? upcoming.first : null);
+
+      ExamModel? selectedExam = resolvePinned(null);
       expect(selectedExam?.id, 'e1');
 
       // Case B: Pinned exam is 'e2' -> chooses 'e2'
-      pinnedId = 'e2';
-      selectedExam = null;
-      if (pinnedId.isNotEmpty) {
-        try {
-          selectedExam = upcoming.firstWhere((e) => e.id == pinnedId);
-        } catch (_) {}
-      }
+      selectedExam = resolvePinned('e2');
       selectedExam ??= (upcoming.isNotEmpty ? upcoming.first : null);
       expect(selectedExam?.id, 'e2');
     });
@@ -2500,6 +2481,7 @@ void main() {
         children: [topicNode],
       );
       final syllabus = [sectionNode];
+      expect(syllabus.isNotEmpty, isTrue);
 
       // Topic logged: existing topic selected
       topicNode.isCompleted = true;
@@ -2522,7 +2504,7 @@ void main() {
       ];
 
       // New topic entered that wasn't in original syllabus
-      final newTopic = 'Taylor Series Approximations';
+      const newTopic = 'Taylor Series Approximations';
       const noteUrl = 'https://drive.google.com/taylor.pdf';
 
       SyllabusNode? logsSection;
@@ -2859,6 +2841,7 @@ void main() {
           startTime: '10:00 AM',
           endTime: '10:50 AM',
         );
+        expect(theorySlot1.classType, 'Theory');
 
         final theorySlot2 = ClassRoutine(
           id: 'rot_phy121_wed',
@@ -2996,7 +2979,7 @@ void main() {
 
       test('AssessmentCalculationHelper calculatePredictedGrade and CGPA conversion', () {
         // Quizzes (20%): 90% -> 18.0 pts
-        final res1 = CategoryCalculationResult(
+        const res1 = CategoryCalculationResult(
           obtained: 90,
           total: 100,
           percentage: 90.0,
@@ -3006,11 +2989,11 @@ void main() {
           bestCount: 3,
           totalItems: 4,
           countedItems: 3,
-          activeItems: const [],
+          activeItems: [],
         );
 
         // Midterm (30%): 80% -> 24.0 pts
-        final res2 = CategoryCalculationResult(
+        const res2 = CategoryCalculationResult(
           obtained: 24,
           total: 30,
           percentage: 80.0,
@@ -3020,11 +3003,11 @@ void main() {
           bestCount: 1,
           totalItems: 1,
           countedItems: 1,
-          activeItems: const [],
+          activeItems: [],
         );
 
         // Final (50%): 85% -> 42.5 pts
-        final res3 = CategoryCalculationResult(
+        const res3 = CategoryCalculationResult(
           obtained: 178.5,
           total: 210,
           percentage: 85.0,
@@ -3034,7 +3017,7 @@ void main() {
           bestCount: 1,
           totalItems: 1,
           countedItems: 1,
-          activeItems: const [],
+          activeItems: [],
         );
 
         final predicted = AssessmentCalculationHelper.calculatePredictedGrade(
@@ -3266,7 +3249,7 @@ void main() {
                   totalMarks: 100,
                   isCompleted: true,
                   journalEntries: [
-                    JournalEntry(
+                    const JournalEntry(
                       content: 'Silly mistake in vector cross product',
                       type: 'mistake',
                     ),
@@ -3643,10 +3626,10 @@ void main() {
         const attendanceWeightage = 10.0; // 10%
 
         // Formula: (Attended / Total) * Attendance Weightage
-        final attEarnedMarks = (attended / totalHeld) * attendanceWeightage; // 9.0 marks
+        const attEarnedMarks = (attended / totalHeld) * attendanceWeightage; // 9.0 marks
         expect(attEarnedMarks, 9.0);
 
-        final attResult = CategoryCalculationResult(
+        const attResult = CategoryCalculationResult(
           obtained: attEarnedMarks,
           total: attendanceWeightage,
           percentage: (attended / totalHeld) * 100.0,
@@ -3656,7 +3639,7 @@ void main() {
           bestCount: 1,
           totalItems: totalHeld,
           countedItems: attended,
-          activeItems: const [],
+          activeItems: [],
         );
 
         // Theory course breakdown:
@@ -4091,7 +4074,7 @@ void main() {
         // User moves slider on remaining 40.0% to 85%:
         // Projected marks = 85% * 40.0% = 34.0 pts.
         // Total Course 1 = 50.0 + 34.0 = 84.0% -> BUET A+ (4.00)
-        final c1Total = 50.0 + (0.85 * 40.0);
+        const c1Total = 50.0 + (0.85 * 40.0);
         final c1Grade = AssessmentCalculationHelper.percentageToGrade(c1Total);
         expect(c1Grade.letterGrade, 'A+');
         expect(c1Grade.gradePoint, 4.00);
@@ -4100,7 +4083,7 @@ void main() {
         // User moves slider on remaining 40.0% to 70%:
         // Projected marks = 70% * 40.0% = 28.0 pts.
         // Total Course 2 = 45.0 + 28.0 = 73.0% -> BUET A- (3.50)
-        final c2Total = 45.0 + (0.70 * 40.0);
+        const c2Total = 45.0 + (0.70 * 40.0);
         final c2Grade = AssessmentCalculationHelper.percentageToGrade(c2Total);
         expect(c2Grade.letterGrade, 'A-');
         expect(c2Grade.gradePoint, 3.50);
@@ -4251,13 +4234,13 @@ void main() {
         const securedMarks = 50.0;
         const pendingWeight = 40.0;
         const targetAplus = 80.0;
-        final reqAplus = ((targetAplus - securedMarks) / pendingWeight) * 100.0;
+        const reqAplus = ((targetAplus - securedMarks) / pendingWeight) * 100.0;
         expect(reqAplus, closeTo(75.0, 0.001));
 
         // Target: A- (cutoff 70.0%)
         // Required on pending = ((70.0 - 50.0) / 40.0) * 100% = (20.0 / 40.0) * 100% = 50.0%
         const targetAminus = 70.0;
-        final reqAminus = ((targetAminus - securedMarks) / pendingWeight) * 100.0;
+        const reqAminus = ((targetAminus - securedMarks) / pendingWeight) * 100.0;
         expect(reqAminus, closeTo(50.0, 0.001));
       });
 
@@ -4267,9 +4250,9 @@ void main() {
 
         // Test formatDuration hh:mm:ss
         const totalSecs = (10 * 3600) + (2 * 60) + 23; // 10:02:23
-        final h = totalSecs ~/ 3600;
-        final m = (totalSecs % 3600) ~/ 60;
-        final s = totalSecs % 60;
+        const h = totalSecs ~/ 3600;
+        const m = (totalSecs % 3600) ~/ 60;
+        const s = totalSecs % 60;
         final formatted = '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
         expect(formatted, '10:02:23');
 
@@ -4364,13 +4347,13 @@ void main() {
 
         // User sets slider to 80% on Final Exam
         const simulatedFinalPercent = 80.0;
-        final simulatedFinalMarks = (simulatedFinalPercent / 100.0) * finTotal; // 168.0 / 210
-        final simulatedFinalWeighted = (simulatedFinalPercent / 100.0) * pendingWeight; // 56.0 pts
+        const simulatedFinalMarks = (simulatedFinalPercent / 100.0) * finTotal; // 168.0 / 210
+        const simulatedFinalWeighted = (simulatedFinalPercent / 100.0) * pendingWeight; // 56.0 pts
 
         expect(simulatedFinalMarks, 168.0);
         expect(simulatedFinalWeighted, 56.0);
 
-        final projectedTotal = evaluatedSecured + simulatedFinalWeighted; // 26.5 + 56.0 = 82.5%
+        const projectedTotal = evaluatedSecured + simulatedFinalWeighted; // 26.5 + 56.0 = 82.5%
         expect(projectedTotal, 82.5);
 
         final projectedGrade = AssessmentCalculationHelper.percentageToGrade(projectedTotal);
@@ -4379,8 +4362,8 @@ void main() {
 
         // User sets slider to 50% on Final Exam
         const simulatedFinalPercent2 = 50.0;
-        final simulatedFinalWeighted2 = (simulatedFinalPercent2 / 100.0) * pendingWeight; // 35.0 pts
-        final projectedTotal2 = evaluatedSecured + simulatedFinalWeighted2; // 26.5 + 35.0 = 61.5%
+        const simulatedFinalWeighted2 = (simulatedFinalPercent2 / 100.0) * pendingWeight; // 35.0 pts
+        const projectedTotal2 = evaluatedSecured + simulatedFinalWeighted2; // 26.5 + 35.0 = 61.5%
         final projectedGrade2 = AssessmentCalculationHelper.percentageToGrade(projectedTotal2);
         expect(projectedGrade2.letterGrade, 'B');
         expect(projectedGrade2.gradePoint, 3.00);
@@ -4778,7 +4761,6 @@ void main() {
         final now = DateTime.now();
         final yesterday = now.subtract(const Duration(days: 1));
         final lastWeekYesterday = yesterday.subtract(const Duration(days: 7));
-        final tomorrow = now.add(const Duration(days: 1));
 
         // 1. Old routine effective up to yesterday
         final oldRoutine = ClassRoutine(
@@ -4898,13 +4880,13 @@ void main() {
         const totalFinalExamMarks = 70.0;
 
         // Target A: cutoff 75.0
-        final marksNeededA = 75.0 - totalSecured; // 49.4
-        final reqMarksA = (marksNeededA / finalExamWeight) * totalFinalExamMarks;
+        const marksNeededA = 75.0 - totalSecured; // 49.4
+        const reqMarksA = (marksNeededA / finalExamWeight) * totalFinalExamMarks;
         expect(reqMarksA, closeTo(49.4, 0.01));
 
         // When student needs 67.2 / 70 on remaining:
         const remainingNeeded = 67.2;
-        final reqPercent = (remainingNeeded / finalExamWeight) * 100.0;
+        const reqPercent = (remainingNeeded / finalExamWeight) * 100.0;
         expect(reqPercent, closeTo(96.0, 0.01));
 
         // When target is already secured:
@@ -5126,7 +5108,7 @@ void main() {
       group('Sprint 21: Profile Subtitle, Developer Description & Configurable Contact Link Tests', () {
         test('TASK 1: profileSubtitle formats "Level X - Term Y" cleanly from numeric or text strings', () {
           // Standard numeric level/term
-          final userUni1 = UserProfile(
+          const userUni1 = UserProfile(
             email: 'test@buet.ac.bd',
             fullName: 'Shahriyer Sayem',
             nickname: 'Sayem',
@@ -5142,7 +5124,7 @@ void main() {
           expect(userUni1.profileSubtitle, 'BUET • EEE • Level 1 - Term 1');
 
           // Text level/term ("Level 2", "Term 2")
-          final userUni2 = UserProfile(
+          const userUni2 = UserProfile(
             email: 'test2@buet.ac.bd',
             fullName: 'Shahriyer Sayem',
             nickname: 'Sayem',
@@ -5158,7 +5140,7 @@ void main() {
           expect(userUni2.profileSubtitle, 'BUET • CSE • Level 2 - Term 2');
 
           // Non-university admission student
-          final userAdmission = UserProfile(
+          const userAdmission = UserProfile(
             email: 'candidate@hsc.edu',
             fullName: 'Candidate',
             nickname: 'Cand',
@@ -6376,8 +6358,8 @@ void main() {
 
         group('Multi-Instructor, Sessional CGPA & Routine Interchange Tests', () {
           test('Teacher model and CourseModel multi-instructor serialization', () {
-            final t1 = Teacher(id: 't_1', name: 'Dr. Rahman', initials: 'MSR', isActive: true);
-            final t2 = Teacher(id: 't_2', name: 'Prof. Karim', initials: 'AK', isActive: true);
+            const t1 = Teacher(id: 't_1', name: 'Dr. Rahman', initials: 'MSR', isActive: true);
+            const t2 = Teacher(id: 't_2', name: 'Prof. Karim', initials: 'AK', isActive: true);
             final course = CourseModel(
               id: 'c_101',
               courseCode: 'CSE 101',
@@ -6431,7 +6413,7 @@ void main() {
           });
 
           test('RoutineSlotOverride serializes and deserializes replacement parameters cleanly', () {
-            final override = RoutineSlotOverride(
+            const override = RoutineSlotOverride(
               overrideId: 'ovr_101',
               originalSlotId: 'slot_1',
               targetDate: '2026-04-10',
@@ -6743,8 +6725,8 @@ void main() {
           test('kGeminiModelPriorityPool has the exact required priority ordering', () {
             expect(kGeminiModelPriorityPool, [
               'gemini-2.5-flash',
-              'gemini-1.5-flash',
-              'gemini-1.5-pro',
+              'gemini-2.5-flash-lite',
+              'gemini-2.5-pro',
             ]);
           });
 
@@ -6758,18 +6740,18 @@ void main() {
                 if (modelName == 'gemini-2.5-flash') {
                   throw Exception('ResourceExhausted: 429 Quota exceeded for model gemini-2.5-flash');
                 }
-                if (modelName == 'gemini-1.5-flash') {
+                if (modelName == 'gemini-2.5-flash-lite') {
                   return '[{"title": "Differential Equations", "topics": [{"title": "First order ODE"}]}]';
                 }
                 throw Exception('Unexpected model call: $modelName');
               },
             );
 
-            expect(attemptedModels, ['gemini-2.5-flash', 'gemini-1.5-flash']);
+            expect(attemptedModels, ['gemini-2.5-flash', 'gemini-2.5-flash-lite']);
             expect(result.contains('Differential Equations'), isTrue);
           });
 
-          test('simulating failure on first two models silently falls through to gemini-1.5-pro', () async {
+          test('simulating failure on first two models silently falls through to gemini-2.5-pro', () async {
             final attemptedModels = <String>[];
 
             final result = await SyllabusParserService.extractSyllabusWithFailover(
@@ -6779,17 +6761,17 @@ void main() {
                 if (modelName == 'gemini-2.5-flash') {
                   throw Exception('503 Service Unavailable: overloaded');
                 }
-                if (modelName == 'gemini-1.5-flash') {
+                if (modelName == 'gemini-2.5-flash-lite') {
                   throw Exception('500 Internal Server Error');
                 }
-                if (modelName == 'gemini-1.5-pro') {
+                if (modelName == 'gemini-2.5-pro') {
                   return '[{"title": "Linear Algebra", "topics": [{"title": "Matrix Inversion"}]}]';
                 }
                 throw Exception('Unexpected model call: $modelName');
               },
             );
 
-            expect(attemptedModels, ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']);
+            expect(attemptedModels, ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro']);
             expect(result.contains('Linear Algebra'), isTrue);
           });
         });
@@ -7045,7 +7027,7 @@ void main() {
       });
 
       test('UserProfile.fromFirebaseUser fallback logic handles null displayName and photo', () {
-        final profile = UserProfile(
+        const profile = UserProfile(
           fullName: 'Student',
           nickname: 'Student',
           username: 'student',

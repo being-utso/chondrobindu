@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -182,8 +183,6 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
   // TASK 4: University Study Analytics & Heatmap state
   String _uniStudyPeriodTab = 'Month';
-  DateTime get _uniSelectedInsightDate => _selectedDay;
-  set _uniSelectedInsightDate(DateTime val) => _selectedDay = val;
   DateTime _uniHeatmapMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
 
   // Period Selector Modal State & Compare Mode
@@ -972,7 +971,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     Color accentColor,
   ) {
     final dailyDist = _calculateDailySubjectDistribution(dailySessions);
-    final totalDayMins = dailySessions.fold<int>(0, (sum, s) => sum + s.durationInMinutes);
+    final totalDayMins = dailySessions.fold<int>(0, (total, s) => total + s.durationInMinutes);
 
     return Container(
       width: double.infinity,
@@ -2179,7 +2178,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     const backgroundColor = Color(0xFF110D0C);
     const cardColor = Color(0xFF241C1A);
     const accentColor = Color(0xFFF2B78A);
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = profile.uid.isNotEmpty ? profile.uid : (Firebase.apps.isNotEmpty ? FirebaseAuth.instance.currentUser?.uid : null);
 
     final uniName = profile.universityName?.isNotEmpty == true ? profile.universityName! : 'University';
     final major = profile.major?.isNotEmpty == true ? profile.major! : 'Engineering / Science';
@@ -2233,7 +2232,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     return matchesActiveCourse || matchesUniCategory;
                   }).toList();
 
-                  final universityHours = universitySessions.fold<int>(0, (sum, s) => sum + s.durationInMinutes) / 60.0;
+                  final universityHours = universitySessions.fold<int>(0, (total, s) => total + s.durationInMinutes) / 60.0;
 
                   final availableCourses = courseDocs.map((d) {
                     final data = d.data();
@@ -2423,9 +2422,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         if (_uniStudyPeriodTab == 'Day') ...[
                           _buildUniversityCourseDistributionSection(
                             cardColor,
-                            universitySessions.where((s) => isSameDay(s.date, _uniSelectedInsightDate)).toList(),
+                            universitySessions.where((s) => isSameDay(s.date, _selectedDay)).toList(),
                             courseColorMap,
-                            periodTitle: 'Course Distribution (${_uniSelectedInsightDate.day}/${_uniSelectedInsightDate.month})',
+                            periodTitle: 'Course Distribution (${_selectedDay.day}/${_selectedDay.month})',
                           ),
                           const SizedBox(height: 16),
                           _buildSelectedDateDetailCard(
@@ -2623,7 +2622,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       final now = DateTime.now();
                       setState(() {
                         _uniHeatmapMonth = DateTime(now.year, now.month, 1);
-                        _uniSelectedInsightDate = DateTime(now.year, now.month, now.day);
+                        _selectedDay = DateTime(now.year, now.month, now.day);
                       });
                     },
                   ),
@@ -2706,7 +2705,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               }
               final dayNumber = index - leadingBlanks + 1;
               final cellDate = DateTime(year, month, dayNumber);
-              final isSelected = isSameDay(cellDate, _uniSelectedInsightDate);
+              final isSelected = isSameDay(cellDate, _selectedDay);
               final isToday = isSameDay(cellDate, DateTime.now());
 
               final daySessions = universitySessions.where((s) => isSameDay(s.date, cellDate)).toList();
@@ -2718,7 +2717,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 onTap: () {
                   SafeHaptics.selectionClick();
                   setState(() {
-                    _uniSelectedInsightDate = cellDate;
+                    _selectedDay = cellDate;
                   });
                 },
                 borderRadius: BorderRadius.circular(8),
@@ -2791,7 +2790,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       courseMinutes[name] = (courseMinutes[name] ?? 0) + s.durationMinutes;
     }
 
-    final totalMins = courseMinutes.values.fold<int>(0, (sum, m) => sum + m);
+    final totalMins = courseMinutes.values.fold<int>(0, (total, m) => total + m);
     if (totalMins == 0) return const SizedBox.shrink();
 
     final sortedEntries = courseMinutes.entries.toList()
@@ -2897,7 +2896,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     required List<String> availableCourses,
     required Map<String, Color> courseColorMap,
   }) {
-    final date = _uniSelectedInsightDate;
+    final date = _selectedDay;
     final dayName = _getWeekdayName(date.weekday);
     final monthName = _getMonthName(date.month);
     final formattedDateStr = '$dayName, $monthName ${date.day}, ${date.year}';
@@ -3014,7 +3013,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
     // TASK 2: Recompute totalSecs and maxSecs directly from the final deduplicated sessionItems
     // ensuring perfect alignment between the displayed Total Focus Time and the rendered timeline cards
-    final totalSecs = sessionItems.fold<int>(0, (sum, it) => sum + (it.durationMinutes * 60));
+    final totalSecs = sessionItems.fold<int>(0, (total, it) => total + (it.durationMinutes * 60));
     final maxSecs = sessionItems.isEmpty
         ? 0
         : sessionItems.map((it) => it.durationMinutes * 60).reduce((a, b) => a > b ? a : b);
@@ -3600,7 +3599,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ),
             onPressed: () async {
               Navigator.pop(ctx);
-              final uid = FirebaseAuth.instance.currentUser?.uid;
+              final uid = Firebase.apps.isNotEmpty ? FirebaseAuth.instance.currentUser?.uid : null;
               if (uid == null) return;
 
               try {
@@ -4008,7 +4007,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                     : selectedCourse.trim();
                                 if (courseToSave.isEmpty) return;
 
-                                final uid = FirebaseAuth.instance.currentUser?.uid;
+                                final uid = Firebase.apps.isNotEmpty ? FirebaseAuth.instance.currentUser?.uid : null;
                                 final firestore = FirebaseFirestore.instance;
                                 if (uid == null) return;
 
@@ -4509,7 +4508,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                     : selectedCourse.trim();
                                 if (courseToSave.isEmpty) return;
 
-                                final uid = FirebaseAuth.instance.currentUser?.uid;
+                                final uid = Firebase.apps.isNotEmpty ? FirebaseAuth.instance.currentUser?.uid : null;
                                 if (uid == null) return;
 
                                 final topicsText = topicsController.text.trim();
@@ -4608,7 +4607,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     Color accentColor,
     List<FocusSession> universitySessions,
   ) {
-    final selectedDate = _uniSelectedInsightDate;
+    final selectedDate = _selectedDay;
     final monday = selectedDate.subtract(Duration(days: selectedDate.weekday - 1));
     final weekDays = List.generate(7, (i) => DateTime(monday.year, monday.month, monday.day).add(Duration(days: i)));
 
@@ -4836,7 +4835,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     List<FocusSession> universitySessions, {
     Map<String, Color>? courseColorMap,
   }) {
-    final date = _uniSelectedInsightDate;
+    final date = _selectedDay;
     final startOfDay = DateTime(date.year, date.month, date.day, 0, 0, 0);
     final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
     final daySessions = universitySessions

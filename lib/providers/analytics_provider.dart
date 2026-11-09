@@ -106,7 +106,7 @@ final todaysFocusMinutesProvider = Provider<int>((ref) {
       log.date.month == now.month &&
       log.date.day == now.day);
 
-  return todayLogs.fold<int>(0, (sum, item) => sum + item.durationInMinutes);
+  return todayLogs.fold<int>(0, (total, item) => total + item.durationInMinutes);
 });
 
 /// Task 3: Checks if today's study duration exceeds the 12-hour (720 minutes) Burnout Guard threshold
@@ -119,7 +119,7 @@ final isBurnoutThresholdReachedProvider = Provider<bool>((ref) {
 final totalFocusMinutesProvider = Provider<int>((ref) {
   final logs = ref.watch(studyLogsProvider);
   if (logs.isEmpty) return 0;
-  return logs.fold<int>(0, (sum, item) => sum + item.durationInMinutes);
+  return logs.fold<int>(0, (total, item) => total + item.durationInMinutes);
 });
 
 /// Total study hours formatted
@@ -137,7 +137,7 @@ final thirtyDayFocusHoursProvider = Provider<double>((ref) {
   final thirtyDaysAgo = now.subtract(const Duration(days: 30));
 
   final recentLogs = logs.where((log) => log.date.isAfter(thirtyDaysAgo));
-  final totalMins = recentLogs.fold<int>(0, (sum, log) => sum + log.durationInMinutes);
+  final totalMins = recentLogs.fold<int>(0, (total, log) => total + log.durationInMinutes);
   return totalMins / 60.0;
 });
 
@@ -180,7 +180,7 @@ final averageFocusProvider = Provider<int>((ref) {
 
   if (last7DaysLogs.isEmpty) return 0;
 
-  final totalMinutes = last7DaysLogs.fold<int>(0, (sum, item) => sum + item.durationInMinutes);
+  final totalMinutes = last7DaysLogs.fold<int>(0, (total, item) => total + item.durationInMinutes);
   return (totalMinutes / last7DaysLogs.length).round();
 });
 
@@ -212,7 +212,7 @@ final weeklyTrendProvider = Provider<List<DailyStudyBarData>>((ref) {
           log.date.day == targetDate.day;
     });
 
-    final totalMins = dayLogs.fold<int>(0, (sum, log) => sum + log.durationInMinutes);
+    final totalMins = dayLogs.fold<int>(0, (total, log) => total + log.durationInMinutes);
     final dayLabel = weekdays[targetDate.weekday - 1];
 
     result.add(DailyStudyBarData(

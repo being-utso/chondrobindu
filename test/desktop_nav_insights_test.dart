@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:chondrobindu/widgets/desktop_nav_bar.dart';
 import 'package:chondrobindu/screens/insights_screen.dart';
-import 'package:chondrobindu/models/user_profile.dart';
 import 'package:chondrobindu/providers/user_profile_provider.dart';
 import 'package:chondrobindu/providers/firestore_providers.dart';
 
@@ -28,7 +27,7 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      final testProfile = UserProfile(
+      const testProfile = UserProfile(
         uid: 'test-user',
         email: 'test@chondrobindu.edu',
         displayName: 'Ayesha Rahman',
@@ -163,7 +162,7 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      final testProfile = UserProfile(
+      const testProfile = UserProfile(
         uid: 'test-user',
         email: 'student@chondrobindu.edu',
         displayName: 'Tanvir Hossain',
@@ -257,5 +256,79 @@ void main() {
       await tester.tap(chevronRight);
       await tester.pumpAndSettle();
     });
+
+    testWidgets('unmounting DesktopNavBar on breakpoint resize dismisses open popup menu barrier', (tester) async {
+      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      const testProfile = UserProfile(
+        uid: 'test-user',
+        email: 'test@chondrobindu.edu',
+        displayName: 'Ayesha Rahman',
+        institutionType: InstitutionType.university,
+      );
+
+      bool isDesktop = true;
+      late StateSetter toggleBreakpoint;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(testProfile)),
+            upcomingAssessmentsStreamProvider.overrideWith((ref) => Stream.value([])),
+          ],
+          child: MaterialApp(
+            home: StatefulBuilder(
+              builder: (context, setState) {
+                toggleBreakpoint = setState;
+                return Scaffold(
+                  appBar: isDesktop
+                      ? PreferredSize(
+                          preferredSize: const Size.fromHeight(64),
+                          child: DesktopNavBar(
+                            selectedIndex: 0,
+                            onDestinationSelected: (_) {},
+                          ),
+                        )
+                      : null,
+                  body: const SizedBox(),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Desktop layout is active (DesktopNavBar present)
+      expect(find.byType(DesktopNavBar), findsOneWidget);
+
+      // Open Profile popup menu via Profile chip
+      final profileMenuButton = find.text('Ayesha Rahman');
+      expect(profileMenuButton, findsOneWidget);
+      await tester.tap(profileMenuButton);
+      await tester.pumpAndSettle();
+
+      // PopupMenu is open, PopupRoute barrier is active
+      expect(find.byType(ModalBarrier), findsWidgets);
+      expect(find.text('Settings'), findsOneWidget);
+
+      // Switch to mobile breakpoint (unmounting DesktopNavBar)
+      toggleBreakpoint(() {
+        isDesktop = false;
+      });
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // DesktopNavBar unmounted and active PopupRoute barrier was safely popped in deactivate()
+      expect(find.byType(DesktopNavBar), findsNothing);
+      expect(find.text('Settings'), findsNothing);
+    });
   });
 }
+

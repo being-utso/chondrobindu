@@ -1513,7 +1513,7 @@ class _CourseSimulationCardState extends State<CourseSimulationCard> {
                 ),
                 Switch.adaptive(
                   value: widget.isSelected,
-                  activeColor: AppColors.primary,
+                  activeThumbColor: AppColors.primary,
                   onChanged: widget.onToggleSelected,
                 ),
               ],

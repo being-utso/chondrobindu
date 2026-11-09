@@ -723,7 +723,7 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                     // University Mode Switch
                     SwitchListTile.adaptive(
                       value: isUni,
-                      activeColor: accentColor,
+                      activeThumbColor: accentColor,
                       contentPadding: EdgeInsets.zero,
                       title: const Text(
                         'University Student Mode Active',
@@ -782,6 +782,7 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                 const Text('Level', style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
+                                  isExpanded: true,
                                   initialValue: level,
                                   dropdownColor: cardColor,
                                   style: const TextStyle(color: Colors.white, fontSize: 13.5),
@@ -791,7 +792,7 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
                                   items: ['1', '2', '3', '4']
-                                      .map((l) => DropdownMenuItem(value: l, child: Text('Level $l')))
+                                      .map((l) => DropdownMenuItem(value: l, child: Text('Level $l', overflow: TextOverflow.ellipsis)))
                                       .toList(),
                                   onChanged: (val) {
                                     if (val != null) setModalState(() => level = val);
@@ -808,6 +809,7 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                 const Text('Term', style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
+                                  isExpanded: true,
                                   initialValue: term,
                                   dropdownColor: cardColor,
                                   style: const TextStyle(color: Colors.white, fontSize: 13.5),
@@ -817,7 +819,7 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
                                   items: ['1', '2']
-                                      .map((t) => DropdownMenuItem(value: t, child: Text('Term $t')))
+                                      .map((t) => DropdownMenuItem(value: t, child: Text('Term $t', overflow: TextOverflow.ellipsis)))
                                       .toList(),
                                   onChanged: (val) {
                                     if (val != null) setModalState(() => term = val);

@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -751,24 +753,32 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
     }
   }
 
+  bool get _canUseWakelock {
+    if (kIsWeb) return false;
+    try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) return false;
+    } catch (_) {
+      return false;
+    }
+    return true;
+  }
+
   void _enableWakelock() {
+    if (!_canUseWakelock) return;
     try {
       WakelockPlus.enable().catchError((e) {
-        debugPrint('Error enabling Wakelock: $e');
+        // Silently ignore channel errors when platform channel is not attached
       });
-    } catch (e) {
-      debugPrint('Error enabling Wakelock: $e');
-    }
+    } catch (_) {}
   }
 
   void _disableWakelock() {
+    if (!_canUseWakelock) return;
     try {
       WakelockPlus.disable().catchError((e) {
-        debugPrint('Error disabling Wakelock: $e');
+        // Silently ignore channel errors when platform channel is not attached
       });
-    } catch (e) {
-      debugPrint('Error disabling Wakelock: $e');
-    }
+    } catch (_) {}
   }
 
   /// Starts or resumes the timer with persistent low-priority notification

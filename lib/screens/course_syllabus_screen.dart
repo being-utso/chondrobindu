@@ -36,7 +36,7 @@ enum DeleteSectionAction {
 }
 
 /// Gemini API Key Placeholder
-const String YOUR_GEMINI_API_KEY = 'GEMINI_API_KEY'; // This will be injected at runtime via environment variables in AI Studio.
+const String _geminiApiKey = 'GEMINI_API_KEY'; // This will be injected at runtime via environment variables in AI Studio.
 
 /// Interactive Syllabus Screen for a University Course with n-level nested SyllabusNode hierarchy
 class CourseSyllabusScreen extends ConsumerStatefulWidget {
@@ -153,32 +153,34 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Group ${_selectedNodeIds.length} selected item(s) into a new Section / Folder:',
-              style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: titleController,
-              autofocus: true,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'e.g. Vector Calculus, Modern Physics',
-                hintStyle: TextStyle(color: Colors.blueGrey.shade500, fontSize: 13),
-                filled: true,
-                fillColor: const Color(0xFF170F0D),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFF2B78A)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Group ${_selectedNodeIds.length} selected item(s) into a new Section / Folder:',
+                style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: titleController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'e.g. Vector Calculus, Modern Physics',
+                  hintStyle: TextStyle(color: Colors.blueGrey.shade500, fontSize: 13),
+                  filled: true,
+                  fillColor: const Color(0xFF170F0D),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFF2B78A)),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -209,7 +211,7 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
                   _isMultiSelectMode = false;
                 });
                 await _saveSyllabusToFirestore(allNodes);
-                if (mounted) {
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       backgroundColor: const Color(0xFF1E293B),
@@ -241,10 +243,17 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
           children: [
             Icon(Icons.edit_rounded, color: Color(0xFFF2B78A), size: 20),
             SizedBox(width: 8),
-            Text('Edit Course Info', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            Expanded(
+              child: Text(
+                'Edit Course Info',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
-        content: Column(
+        content: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -286,7 +295,8 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
             ),
           ],
         ),
-        actions: [
+      ),
+      actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel', style: TextStyle(color: Colors.blueGrey)),
@@ -423,7 +433,7 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
     return SyllabusParserService.extractSyllabusWithFailover(
       promptText: fullPrompt,
       imageBytes: imageBytes,
-      apiKey: YOUR_GEMINI_API_KEY,
+      apiKey: _geminiApiKey,
     );
   }
 
@@ -626,7 +636,7 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
               });
 
               await _saveSyllabusToFirestore(allNodes);
-              if (mounted) Navigator.pop(ctx);
+              if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text('Create Section', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
@@ -660,39 +670,41 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
           'Add Topic to "${parentNode.title}"',
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: titleController,
-              autofocus: true,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'e.g. Karnaugh Map Minimization',
-                hintStyle: TextStyle(color: Colors.blueGrey.shade500, fontSize: 13),
-                filled: true,
-                fillColor: const Color(0xFF170F0D),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFF2B78A)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'e.g. Karnaugh Map Minimization',
+                  hintStyle: TextStyle(color: Colors.blueGrey.shade500, fontSize: 13),
+                  filled: true,
+                  fillColor: const Color(0xFF170F0D),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFF2B78A)),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: urlController,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'Resource URL (e.g. Google Drive link - optional)',
-                hintStyle: TextStyle(color: Colors.blueGrey.shade600, fontSize: 12),
-                prefixIcon: const Icon(Icons.link_rounded, color: Color(0xFFF2B78A), size: 18),
-                filled: true,
-                fillColor: const Color(0xFF170F0D),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              const SizedBox(height: 12),
+              TextField(
+                controller: urlController,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'Resource URL (e.g. Google Drive link - optional)',
+                  hintStyle: TextStyle(color: Colors.blueGrey.shade600, fontSize: 12),
+                  prefixIcon: const Icon(Icons.link_rounded, color: Color(0xFFF2B78A), size: 18),
+                  filled: true,
+                  fillColor: const Color(0xFF170F0D),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -725,7 +737,7 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
                 }
               });
               await _saveSyllabusToFirestore(allNodes);
-              if (mounted) Navigator.pop(ctx);
+              if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text('Add Topic', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
@@ -757,7 +769,10 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
-          return Padding(
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Padding(
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
               left: 20,
@@ -953,10 +968,12 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
                 ],
               ),
             ),
-          );
-        },
-      ),
-    );
+          ),
+        ),
+      );
+    },
+  ),
+);
   }
 
   /// TASK 1 & TASK 2: Multi-select dialog allowing the user to select multiple topic items within a section
@@ -988,39 +1005,41 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
         backgroundColor: const Color(0xFF241C1A),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Edit Node Details', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Title', style: TextStyle(color: Color(0xFFF2B78A), fontSize: 12, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: titleController,
-              autofocus: true,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: const Color(0xFF170F0D),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Title', style: TextStyle(color: Color(0xFFF2B78A), fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: titleController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: const Color(0xFF170F0D),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
-            const Text('Resource URL (Drive/Web link)', style: TextStyle(color: Color(0xFFF2B78A), fontSize: 12, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: urlController,
-              keyboardType: TextInputType.url,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'https://drive.google.com/...',
-                hintStyle: TextStyle(color: Colors.blueGrey.shade600, fontSize: 12),
-                prefixIcon: const Icon(Icons.link_rounded, color: Color(0xFFF2B78A), size: 18),
-                filled: true,
-                fillColor: const Color(0xFF170F0D),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              const SizedBox(height: 14),
+              const Text('Resource URL (Drive/Web link)', style: TextStyle(color: Color(0xFFF2B78A), fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: urlController,
+                keyboardType: TextInputType.url,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'https://drive.google.com/...',
+                  hintStyle: TextStyle(color: Colors.blueGrey.shade600, fontSize: 12),
+                  prefixIcon: const Icon(Icons.link_rounded, color: Color(0xFFF2B78A), size: 18),
+                  filled: true,
+                  fillColor: const Color(0xFF170F0D),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -1043,7 +1062,7 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
                 node.resourceUrl = normalizedUrl;
               });
               await _saveSyllabusToFirestore(allNodes);
-              if (mounted) Navigator.pop(ctx);
+              if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
@@ -1754,10 +1773,15 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        ass.name,
-                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                      Expanded(
+                        child: Text(
+                          ass.name,
+                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         '${ass.obtainedMarks?.toStringAsFixed(1) ?? "--"} / ${ass.totalMarks.toStringAsFixed(1)} (${ass.weightage.toStringAsFixed(0)}%)',
                         style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
@@ -1975,8 +1999,11 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
             )
           : null,
       body: SafeArea(
-        child: uid == null || uid.isEmpty
-            ? const Center(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: uid == null || uid.isEmpty
+                ? const Center(
                 child: Text('User authentication required.', style: TextStyle(color: Colors.white)),
               )
             : StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -2190,10 +2217,14 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
                                         Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Text(
-                                              '$completedTopics of $totalTopics Topics Completed',
-                                              style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 12, fontWeight: FontWeight.w500),
+                                            Expanded(
+                                              child: Text(
+                                                '$completedTopics of $totalTopics Topics Completed',
+                                                style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 12, fontWeight: FontWeight.w500),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
                                             ),
+                                            const SizedBox(width: 8),
                                             Text(
                                               '${allNodes.length} Sections',
                                               style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 12),
@@ -2294,8 +2325,10 @@ class _CourseSyllabusScreenState extends ConsumerState<CourseSyllabusScreen> {
                   );
                 },
               ),
-      ),
-    );
+            ),
+          ),
+        ),
+      );
   },
 );
   }

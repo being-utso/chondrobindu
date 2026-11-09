@@ -15,6 +15,7 @@ import 'main_shell.dart';
 import 'university_dashboard_screen.dart';
 import '../widgets/app_loading_screen.dart';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:showcaseview/showcaseview.dart';
 import '../providers/user_profile_provider.dart';
@@ -22,13 +23,27 @@ import '../services/tour_service.dart';
 import 'package:chondrobindu/utils/safe_haptics.dart';
 
 /// Main Navigation Screen wrapping 5 tabs (Home, Syllabus/Courses, Timer, Exams, Insights)
-class MainNavigationScreen extends ConsumerWidget {
+class MainNavigationScreen extends ConsumerStatefulWidget {
   const MainNavigationScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MainNavigationScreen> createState() => _MainNavigationScreenState();
+}
+
+class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
+  bool? _wasWide;
+
+  @override
+  Widget build(BuildContext context) {
     final profile = ref.watch(userProfileProvider);
-    final currentUser = FirebaseAuth.instance.currentUser;
+    User? currentUser;
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        currentUser = FirebaseAuth.instance.currentUser;
+      }
+    } catch (_) {
+      currentUser = null;
+    }
 
     // Task 4: Only route to Onboarding if user is signed in, profile is loaded, AND mandatory setup is missing
     if (currentUser != null) {
@@ -43,6 +58,19 @@ class MainNavigationScreen extends ConsumerWidget {
 
     final selectedIndex = ref.watch(navigationIndexProvider);
     final bool isWide = MediaQuery.of(context).size.width >= 800;
+
+    // Safely dismiss any active PopupRoute (e.g. PopupMenuButton on DesktopNavBar)
+    // when transitioning across the desktop-to-mobile breakpoint so no orphaned barrier remains.
+    if (_wasWide != null && _wasWide != isWide) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          try {
+            Navigator.of(context, rootNavigator: true).popUntil((route) => route is! PopupRoute);
+          } catch (_) {}
+        }
+      });
+    }
+    _wasWide = isWide;
 
     if (isWide) {
       return const MainShell();

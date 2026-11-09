@@ -93,58 +93,6 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
     }
   }
 
-  /// TASK 2: Routine Auto-Sync helper ensuring baseline Course document exists in Firestore
-  Future<String> _ensureCourseExists({
-    required String uid,
-    required String courseId,
-    required String rawName,
-    required String classType,
-  }) async {
-    final coursesCol = FirebaseFirestore.instance.collection('users').doc(uid).collection('courses');
-
-    String code = rawName.trim();
-    if (rawName.contains(' - ')) {
-      final parts = rawName.split(' - ');
-      code = parts.first.trim();
-    } else if (rawName.contains(': ')) {
-      final parts = rawName.split(': ');
-      code = parts.first.trim();
-    } else if (rawName.contains(' • ')) {
-      final parts = rawName.split(' • ');
-      code = parts.first.trim();
-    }
-
-    if (courseId.isNotEmpty) {
-      final docSnap = await coursesCol.doc(courseId).get();
-      if (docSnap.exists) return courseId;
-    }
-
-    // Check users/{uid}/courses for this code
-    final existing = await coursesCol.get();
-    for (final doc in existing.docs) {
-      final existingCode = (doc.data()['courseCode'] as String? ?? '').toLowerCase().trim();
-      if (code.isNotEmpty && existingCode == code.toLowerCase()) {
-        return doc.id;
-      }
-    }
-
-    // If missing, create a new Course document setting courseCode: routineCode and courseName: "Tap to edit name"
-    final newDoc = courseId.isNotEmpty ? coursesCol.doc(courseId) : coursesCol.doc();
-    final isLab = classType.toLowerCase().contains('lab') || classType.toLowerCase().contains('sessional');
-
-    await newDoc.set({
-      'id': newDoc.id,
-      'courseCode': code.isNotEmpty ? code : 'COURSE',
-      'courseName': 'Tap to edit name',
-      'creditHours': isLab ? 1.5 : 3.0,
-      'courseType': isLab ? 'Sessional/Lab' : 'Theory',
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
-    return newDoc.id;
-  }
-
   /// Helper to format raw course names, fixing duplicates like "MATH 159 - MATH 159"
   /// and ensuring clean display like "MATH 159 • Calculus II"
   String _formatCourseTitle(String rawName, List<QueryDocumentSnapshot<Map<String, dynamic>>> courses) {
@@ -299,7 +247,10 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
           final int endMins = endTime.hour * 60 + endTime.minute;
           final bool isTimeInvalid = endMins <= startMins;
 
-          return Padding(
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Padding(
             padding: EdgeInsets.only(
               left: 20,
               right: 20,
@@ -314,15 +265,20 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.schedule_rounded, color: Color(0xFFF2B78A), size: 22),
-                          const SizedBox(width: 10),
-                          Text(
-                            existing != null ? 'Edit Class' : 'Add Class to Routine',
-                            style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.schedule_rounded, color: Color(0xFFF2B78A), size: 22),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                existing != null ? 'Edit Class' : 'Add Class to Routine',
+                                style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close_rounded, color: Color(0xFFABA093), size: 20),
@@ -580,7 +536,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                                   dropdownColor: const Color(0xFF1C1412),
                                   style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
                                   items: ['Theory', 'Lab', 'Sessional', 'Tutorial'].map((t) {
-                                    return DropdownMenuItem(value: t, child: Text(t));
+                                    return DropdownMenuItem(value: t, child: Text(t, overflow: TextOverflow.ellipsis));
                                   }).toList(),
                                   onChanged: (val) {
                                     if (val != null) {
@@ -671,7 +627,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                                 items: [
                                   DropdownMenuItem<String?>(
                                     value: null,
-                                    child: Text('Unassigned / Common Class',
+                                    child: Text('Unassigned / Common Class', overflow: TextOverflow.ellipsis,
                                         style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093))),
                                   ),
                                   ...availableTeachers.map((t) {
@@ -812,6 +768,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                               value: null,
                               child: Text(
                                 'None / Keep Blank (Free week)',
+                                overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 13),
                               ),
                             ),
@@ -1038,6 +995,9 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                           return;
                         }
 
+                        final formattedStartTime = startTime.format(context);
+                        final formattedEndTime = endTime.format(context);
+
                         // Ensure course exists using RoutineCourseSyncService
                         final effectiveCourseId = await RoutineCourseSyncService.ensureCourseExists(
                           uid: uid,
@@ -1051,8 +1011,8 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                           courseId: effectiveCourseId,
                           courseName: courseNameToSave,
                           dayOfWeek: selectedDay,
-                          startTime: startTime.format(context),
-                          endTime: endTime.format(context),
+                          startTime: formattedStartTime,
+                          endTime: formattedEndTime,
                           classType: classType,
                           roomNumber: roomCtrl.text.trim().isNotEmpty ? roomCtrl.text.trim() : null,
                           teacherId: selectedTeacherId,
@@ -1103,8 +1063,8 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                                     'pairedClassId': effectiveCourseId,
                                     if (pairedClassId == effectiveCourseId && altDistinguisher.isNotEmpty)
                                       'courseName': pTitle,
-                                    'startTime': startTime.format(context),
-                                    'endTime': endTime.format(context),
+                                    'startTime': formattedStartTime,
+                                    'endTime': formattedEndTime,
                                     if (effectiveFrom != null) 'effectiveFrom': Timestamp.fromDate(effectiveFrom!),
                                     if (effectiveUntil != null) 'effectiveUntil': Timestamp.fromDate(effectiveUntil!),
                                     'updatedAt': FieldValue.serverTimestamp(),
@@ -1114,8 +1074,8 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                                     courseId: pairedClassId!,
                                     courseName: pTitle,
                                     dayOfWeek: selectedDay,
-                                    startTime: startTime.format(context),
-                                    endTime: endTime.format(context),
+                                    startTime: formattedStartTime,
+                                    endTime: formattedEndTime,
                                     classType: classType,
                                     roomNumber: roomCtrl.text.trim().isNotEmpty ? roomCtrl.text.trim() : null,
                                     isAlternating: true,
@@ -1140,8 +1100,10 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                           debugPrint('Error saving class routine: $e');
                         }
 
-                        if (context.mounted) {
+                        if (ctx.mounted) {
                           Navigator.pop(ctx);
+                        }
+                        if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               backgroundColor: const Color(0xFF10B981),
@@ -1160,10 +1122,12 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                 ],
               ),
             ),
-          );
-        },
-      ),
-    );
+          ),
+        ),
+      );
+    },
+  ),
+);
   }
 
   void _deleteClass(BuildContext context, String uid, String routineId) async {
@@ -1322,7 +1286,10 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
             }
           }
 
-          return Padding(
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Padding(
             padding: EdgeInsets.only(
               left: 20,
               right: 20,
@@ -1337,15 +1304,20 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.swap_horiz_rounded, color: Color(0xFFF2B78A), size: 22),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Class Swap / Substitution',
-                            style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.swap_horiz_rounded, color: Color(0xFFF2B78A), size: 22),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Class Swap / Substitution',
+                                style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close_rounded, color: Color(0xFFABA093), size: 20),
@@ -1499,7 +1471,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                           items: [
                             DropdownMenuItem<String?>(
                               value: null,
-                              child: Text('Same / Default Instructor', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093))),
+                              child: Text('Same / Default Instructor', overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093))),
                             ),
                             ...repTeachers.map((t) {
                               final id = t['id'] as String? ?? '';
@@ -1583,10 +1555,12 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                 ],
               ),
             ),
-          );
-        },
-      ),
-    );
+          ),
+        ),
+      );
+    },
+  ),
+);
   }
 
   void _showHandoverDialog(
@@ -1620,7 +1594,10 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
-          return Padding(
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Padding(
             padding: EdgeInsets.only(
               left: 20,
               right: 20,
@@ -1635,15 +1612,20 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.transfer_within_a_station_rounded, color: Color(0xFFF2B78A), size: 22),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Split-Semester Handover',
-                            style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.transfer_within_a_station_rounded, color: Color(0xFFF2B78A), size: 22),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Split-Semester Handover',
+                                style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close_rounded, color: Color(0xFFABA093), size: 20),
@@ -1713,7 +1695,7 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                         items: [
                           DropdownMenuItem<String?>(
                             value: null,
-                            child: Text('Select incoming instructor...', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093))),
+                            child: Text('Select incoming instructor...', overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093))),
                           ),
                           ...courseTeachers.map((t) {
                             final id = t['id'] as String? ?? '';
@@ -1793,10 +1775,12 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                 ],
               ),
             ),
-          );
-        },
-      ),
-    );
+          ),
+        ),
+      );
+    },
+  ),
+);
   }
 
   void _showEndClassesDialog(
@@ -1816,31 +1800,39 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 20,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 20,
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Icon(Icons.event_busy_rounded, color: Color(0xFFEF4444), size: 22),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Conclude / End Classes',
-                          style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(Icons.event_busy_rounded, color: Color(0xFFEF4444), size: 22),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Conclude / End Classes',
+                                  style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
-                    IconButton(
+                        IconButton(
                       icon: const Icon(Icons.close_rounded, color: Color(0xFFABA093), size: 20),
                       onPressed: () => Navigator.pop(ctx),
                     ),
@@ -1857,23 +1849,27 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                   Text('SCOPE OF CONCLUSION',
                       style: GoogleFonts.plusJakartaSans(color: const Color(0xFFF2B78A), fontSize: 11, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  RadioListTile<bool>(
-                    value: true,
+                  RadioGroup<bool>(
                     groupValue: teacherOnly,
-                    activeColor: const Color(0xFFF2B78A),
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('This Teacher Only (This Slot)', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-                    subtitle: Text('Only concludes this specific instructor routine slot.', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 11.5)),
                     onChanged: (val) => setModalState(() => teacherOnly = val ?? true),
-                  ),
-                  RadioListTile<bool>(
-                    value: false,
-                    groupValue: teacherOnly,
-                    activeColor: const Color(0xFFF2B78A),
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('All Classes for ${routine.courseName}', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-                    subtitle: Text('Concludes all routine slots for this course across the semester.', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 11.5)),
-                    onChanged: (val) => setModalState(() => teacherOnly = val ?? false),
+                    child: Column(
+                      children: [
+                        RadioListTile<bool>(
+                          value: true,
+                          activeColor: const Color(0xFFF2B78A),
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('This Teacher Only (This Slot)', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                          subtitle: Text('Only concludes this specific instructor routine slot.', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 11.5)),
+                        ),
+                        RadioListTile<bool>(
+                          value: false,
+                          activeColor: const Color(0xFFF2B78A),
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('All Classes for ${routine.courseName}', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                          subtitle: Text('Concludes all routine slots for this course across the semester.', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 11.5)),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -1974,10 +1970,12 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                 ),
               ],
             ),
-          );
-        },
-      ),
-    );
+          ),
+        ),
+      );
+    },
+  ),
+);
   }
 
   /// Dialog allowing students to update or replace their entire routine mid-semester
@@ -1999,12 +1997,15 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
         bool isProcessing = false;
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   Center(
                     child: Container(
                       width: 40,
@@ -2306,8 +2307,10 @@ class _RoutineScreenState extends ConsumerState<RoutineScreen> {
                   ],
                 ],
               ),
-            );
-          },
+            ),
+          ),
+        );
+      },
         );
       },
     );
@@ -2558,39 +2561,57 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
-          return Container(
-            height: MediaQuery.of(ctx).size.height * 0.85,
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFF4A3830), borderRadius: BorderRadius.circular(2))),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Container(
+                height: MediaQuery.of(ctx).size.height * 0.85,
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Center(
+                      child: Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFF4A3830), borderRadius: BorderRadius.circular(2))),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.auto_awesome_rounded, color: Color(0xFFF2B78A), size: 20),
-                            const SizedBox(width: 8),
-                            Text('Confirm Scanned Routine', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17)),
-                          ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.auto_awesome_rounded, color: Color(0xFFF2B78A), size: 20),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Confirm Scanned Routine',
+                                      style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${classes.length} class(es) detected from schedule',
+                                style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 12),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 2),
-                        Text('${classes.length} class(es) detected from schedule', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 12)),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Color(0xFFABA093)),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
                       ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Color(0xFFABA093)),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 12),
                 Expanded(
                   child: ListView.builder(
@@ -2675,11 +2696,11 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
                                       items: const [
                                         DropdownMenuItem(
                                           value: false,
-                                          child: Text('Every Week'),
+                                          child: Text('Every Week', overflow: TextOverflow.ellipsis),
                                         ),
                                         DropdownMenuItem(
                                           value: true,
-                                          child: Text('Alternating (Bi-Weekly)'),
+                                          child: Text('Alternating (Bi-Weekly)', overflow: TextOverflow.ellipsis),
                                         ),
                                       ],
                                       onChanged: (val) {
@@ -2741,11 +2762,11 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
                                           items: [
                                             const DropdownMenuItem<String?>(
                                               value: null,
-                                              child: Text('No instructor assigned'),
+                                              child: Text('No instructor assigned', overflow: TextOverflow.ellipsis),
                                             ),
                                             ...teachersList.map((t) => DropdownMenuItem<String?>(
                                               value: t.id,
-                                              child: Text('${t.name} (${t.initials})'),
+                                              child: Text('${t.name} (${t.initials})', overflow: TextOverflow.ellipsis),
                                             )),
                                           ],
                                           onChanged: (val) {
@@ -2852,10 +2873,12 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
                     ),
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
-          );
-        },
+          ),
+        );
+      },
       ),
     );
   }
@@ -2951,8 +2974,11 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
                         activeRoutines.where((r) => r.dayOfWeek == _selectedDay).toList(),
                       );
 
-                      return Column(
-                        children: [
+                      return Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1200),
+                          child: Column(
+                            children: [
                           // 7-Day Weekday Tab Bar
                           Container(
                             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -3330,7 +3356,9 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
                                   ),
                           ),
                         ],
-                      );
+                      ),
+                    ),
+                  );
                     },
                   );
                 },

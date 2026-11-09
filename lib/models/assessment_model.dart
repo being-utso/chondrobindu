@@ -174,6 +174,7 @@ class Assessment {
   Assessment copyWith({
     String? id,
     String? courseId,
+    String? courseCode,
     String? userId,
     String? name,
     String? type,
@@ -192,7 +193,7 @@ class Assessment {
     return Assessment(
       id: id ?? this.id,
       courseId: courseId ?? this.courseId,
-      courseCode: courseCode ?? courseCode,
+      courseCode: courseCode ?? this.courseCode,
       userId: userId ?? this.userId,
       name: name ?? this.name,
       type: type ?? this.type,

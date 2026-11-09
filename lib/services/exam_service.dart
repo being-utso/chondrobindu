@@ -51,7 +51,7 @@ class ExamService {
 
   /// Extracts trailing number if name matches baseName + number (e.g. "Weekly Exam 5" with base "Weekly Exam" -> 5)
   static int? extractTrailingNumber(String name, String baseName) {
-    final pattern = RegExp('^' + RegExp.escape(baseName.trim()) + r'\s+(\d+)$', caseSensitive: false);
+    final pattern = RegExp('^${RegExp.escape(baseName.trim())}\\s+(\\d+)\$', caseSensitive: false);
     final match = pattern.firstMatch(name.trim());
     if (match != null && match.group(1) != null) {
       return int.tryParse(match.group(1)!);

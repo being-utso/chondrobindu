@@ -261,22 +261,6 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
     }
   }
 
-  void _sendMessage() {
-    if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFFF2B78A),
-          behavior: SnackBarBehavior.floating,
-          content: Text(
-            'Message sent successfully via $_contactMethod! We will contact you soon.',
-            style: const TextStyle(color: Color(0xFF140F0E), fontWeight: FontWeight.bold),
-          ),
-        ),
-      );
-      _messageController.clear();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     const backgroundColor = Color(0xFF110D0C);
@@ -413,6 +397,7 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                     ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: _contactMethod,
                       dropdownColor: cardColor,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -437,7 +422,7 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                       items: _contactMethods.map((method) {
                         return DropdownMenuItem<String>(
                           value: method,
-                          child: Text(method),
+                          child: Text(method, overflow: TextOverflow.ellipsis),
                         );
                       }).toList(),
                       onChanged: (newVal) {
@@ -522,6 +507,7 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                     ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: _reason,
                       dropdownColor: cardColor,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -546,7 +532,7 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                       items: _reasons.map((reason) {
                         return DropdownMenuItem<String>(
                           value: reason,
-                          child: Text(reason),
+                          child: Text(reason, overflow: TextOverflow.ellipsis),
                         );
                       }).toList(),
                       onChanged: (val) {
@@ -844,6 +830,27 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
                     spacing: 10,
                     runSpacing: 10,
                     children: [
+                      // bKash Button
+                      ElevatedButton.icon(
+                        onPressed: () => _showBkashNagadDialog(context),
+                        icon: const Icon(Icons.volunteer_activism_rounded, size: 16, color: Colors.white),
+                        label: const Text(
+                          'Donate via bKash',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFD82A74),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                      ),
+
                       // Buy Me A Coffee Button
                       ElevatedButton.icon(
                         onPressed: () => _launchUrl('https://being-utso.github.io/contact.html'),

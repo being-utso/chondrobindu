@@ -219,12 +219,15 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -380,12 +383,14 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               ],
 
               const SizedBox(height: 80),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildCountdownBanner(UpcomingExam exam, Color cardColor, Color accentColor, {bool isPinned = false}) {
     final days = exam.daysRemaining;
@@ -950,7 +955,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                             examTabId: isPinnedExamTab ? null : exam.id,
                             clearExamTab: isPinnedExamTab,
                           );
-                      if (context.mounted) {
+                      if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             backgroundColor: const Color(0xFF10B981),
@@ -965,7 +970,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                             homeTabId: isPinnedHomeTab ? null : exam.id,
                             clearHomeTab: isPinnedHomeTab,
                           );
-                      if (context.mounted) {
+                      if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             backgroundColor: const Color(0xFF10B981),
@@ -1057,9 +1062,12 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       ),
       builder: (ctx) {
         return SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1162,18 +1170,15 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               ],
             ),
           ),
-        );
-      },
+        ),
+      ),
+    );
+  },
     );
   }
 
   void _showScheduleExamModal(BuildContext context, {UpcomingExam? existingExam}) {
-    final userProfile = ref.read(userProfileProvider);
-    final List<String> dynamicSubjects = [
-      ...GroupConstants.getExamSubjectsForUser(userProfile.hscGroup, userProfile.primaryTarget),
-      'Combined Model Test',
-      'Other',
-    ];
+    final List<String> dynamicSubjects = _getDynamicSubjectOptions();
 
     final isEditing = existingExam != null;
     final nameCtrl = TextEditingController(text: existingExam?.examName ?? 'BUET Weekly Model Test');
@@ -1227,6 +1232,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: dynamicSubjects.contains(selectedSubject) ? selectedSubject : 'Other',
                       dropdownColor: const Color(0xFF1C1412),
                       style: const TextStyle(color: Colors.white, fontSize: 13),
@@ -1237,7 +1243,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         fillColor: Color(0xFF170F0D),
                       ),
                       items: dynamicSubjects.map((subj) {
-                        return DropdownMenuItem(value: subj, child: Text(subj));
+                        return DropdownMenuItem(value: subj, child: Text(subj, overflow: TextOverflow.ellipsis));
                       }).toList(),
                       onChanged: (val) {
                         if (val != null) {
@@ -1584,73 +1590,77 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 children: [
                   Icon(Icons.event_repeat_rounded, color: Color(0xFFF59E0B), size: 22),
                   SizedBox(width: 10),
-                  Text(
-                    'Shift Future Dates',
-                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Text(
+                      'Shift Future Dates',
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ],
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Shift all uncompleted exams scheduled after "${exam.examName}" in this series by a chosen number of days.',
-                    style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 12.5),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'QUICK SELECT SHIFT',
-                    style: TextStyle(color: Color(0xFFF2B78A), fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: [1, 2, 3, 7, 14, -1, -7].map((days) {
-                      final isSel = daysToShift == days;
-                      return ChoiceChip(
-                        label: Text(days > 0 ? '+$days d' : '$days d'),
-                        selected: isSel,
-                        selectedColor: const Color(0xFFF2B78A),
-                        backgroundColor: const Color(0xFF170F0D),
-                        labelStyle: TextStyle(
-                          color: isSel ? const Color(0xFF110D0C) : Colors.blueGrey.shade300,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        onSelected: (sel) {
-                          if (sel) {
-                            setModalState(() {
-                              daysToShift = days;
-                              shiftDaysCtrl.text = days.toString();
-                            });
-                          }
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: shiftDaysCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(signed: true),
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                    decoration: InputDecoration(
-                      labelText: 'Days to shift (+ for later, - for earlier)',
-                      labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 12),
-                      filled: true,
-                      fillColor: const Color(0xFF170F0D),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Shift all uncompleted exams scheduled after "${exam.examName}" in this series by a chosen number of days.',
+                      style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 12.5),
                     ),
-                    onChanged: (val) {
-                      final parsed = int.tryParse(val);
-                      if (parsed != null) {
-                        setModalState(() {
-                          daysToShift = parsed;
-                        });
-                      }
-                    },
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    const Text(
+                      'QUICK SELECT SHIFT',
+                      style: TextStyle(color: Color(0xFFF2B78A), fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [1, 2, 3, 7, 14, -1, -7].map((days) {
+                        final isSel = daysToShift == days;
+                        return ChoiceChip(
+                          label: Text(days > 0 ? '+$days d' : '$days d'),
+                          selected: isSel,
+                          selectedColor: const Color(0xFFF2B78A),
+                          backgroundColor: const Color(0xFF170F0D),
+                          labelStyle: TextStyle(
+                            color: isSel ? const Color(0xFF110D0C) : Colors.blueGrey.shade300,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          onSelected: (sel) {
+                            if (sel) {
+                              setModalState(() {
+                                daysToShift = days;
+                                shiftDaysCtrl.text = days.toString();
+                              });
+                            }
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: shiftDaysCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(signed: true),
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        labelText: 'Days to shift (+ for later, - for earlier)',
+                        labelStyle: TextStyle(color: Colors.blueGrey.shade400, fontSize: 12),
+                        filled: true,
+                        fillColor: const Color(0xFF170F0D),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onChanged: (val) {
+                        final parsed = int.tryParse(val);
+                        if (parsed != null) {
+                          setModalState(() {
+                            daysToShift = parsed;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -1703,12 +1713,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   }
 
   void _showLogScoreModal(BuildContext context, {UpcomingExam? prefilledExam, List<UpcomingExam>? allUpcomingExams}) {
-    final userProfile = ref.read(userProfileProvider);
-    final List<String> dynamicSubjects = [
-      ...GroupConstants.getExamSubjectsForUser(userProfile.hscGroup, userProfile.primaryTarget),
-      'Combined Model Test',
-      'Other',
-    ];
+    final List<String> dynamicSubjects = _getDynamicSubjectOptions();
 
     final examsAsync = ref.read(examsStreamProvider);
     final allExams = examsAsync.asData?.value ?? [];
@@ -1768,6 +1773,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: (upcomingList.any((e) => e.id == selectedExamOption) || selectedExamOption == 'Other')
                         ? selectedExamOption
                         : 'Other',
@@ -1789,7 +1795,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                           )),
                       const DropdownMenuItem(
                         value: 'Other',
-                        child: Text('Other / Custom Exam'),
+                        child: Text('Other / Custom Exam', overflow: TextOverflow.ellipsis),
                       ),
                     ],
                     onChanged: (val) {
@@ -1869,6 +1875,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   ],
 
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: dynamicSubjects.contains(selectedSubject) ? selectedSubject : 'Other',
                     dropdownColor: const Color(0xFF1C1412),
                     style: const TextStyle(color: Colors.white, fontSize: 13),
@@ -1879,7 +1886,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       fillColor: Color(0xFF170F0D),
                     ),
                     items: dynamicSubjects.map((subj) {
-                      return DropdownMenuItem(value: subj, child: Text(subj));
+                      return DropdownMenuItem(value: subj, child: Text(subj, overflow: TextOverflow.ellipsis));
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -2210,12 +2217,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   }
 
   void _showEditLoggedScoreModal(BuildContext context, ExamRecord record) {
-    final userProfile = ref.read(userProfileProvider);
-    final List<String> dynamicSubjects = [
-      ...GroupConstants.getExamSubjectsForUser(userProfile.hscGroup, userProfile.primaryTarget),
-      'Combined Model Test',
-      'Other',
-    ];
+    final List<String> dynamicSubjects = _getDynamicSubjectOptions();
 
     final nameCtrl = TextEditingController(text: record.examName);
     final marksCtrl = TextEditingController(text: record.marks.toStringAsFixed(record.marks.truncateToDouble() == record.marks ? 0 : 1));
@@ -2254,6 +2256,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: dynamicSubjects.contains(selectedSubject) ? selectedSubject : 'Other',
                     dropdownColor: const Color(0xFF1C1412),
                     style: const TextStyle(color: Colors.white, fontSize: 13),
@@ -2264,7 +2267,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       fillColor: Color(0xFF170F0D),
                     ),
                     items: dynamicSubjects.map((subj) {
-                      return DropdownMenuItem(value: subj, child: Text(subj));
+                      return DropdownMenuItem(value: subj, child: Text(subj, overflow: TextOverflow.ellipsis));
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -2522,7 +2525,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 onPressed: () async {
                   await ref.read(examServiceProvider).deleteExam(r.id);
                   ref.read(examRecordsProvider.notifier).deleteRecord(r.id);
-                  if (context.mounted) {
+                  if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         backgroundColor: const Color(0xFFEF4444),
@@ -2767,12 +2770,15 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       ),
       builder: (ctx) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                 Center(
                   child: Container(
                     width: 38,
@@ -2842,8 +2848,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               ],
             ),
           ),
-        );
-      },
+        ),
+      ),
+    );
+  },
     );
   }
 
@@ -2914,9 +2922,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             ),
           ],
         ),
-        content: Form(
-          key: formKey,
-          child: Column(
+        content: SingleChildScrollView(
+          child: Form(
+            key: formKey,
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2969,6 +2978,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             ],
           ),
         ),
+      ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
@@ -3442,37 +3452,46 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 20,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 20,
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Icon(Icons.event_note_rounded, color: Color(0xFFF2B78A), size: 22),
-                          SizedBox(width: 10),
-                          Text(
-                            'Create Calendar Event',
-                            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                          const Expanded(
+                            child: Row(
+                              children: [
+                                Icon(Icons.event_note_rounded, color: Color(0xFFF2B78A), size: 22),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Create Calendar Event',
+                                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, color: Colors.blueGrey, size: 20),
+                            onPressed: () => Navigator.pop(ctx),
                           ),
                         ],
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, color: Colors.blueGrey, size: 20),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 16),
 
                   // Event Title
@@ -3578,11 +3597,13 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                             InkWell(
                               onTap: () async {
                                 final st = await showTimePicker(context: ctx, initialTime: startTime);
+                                if (!ctx.mounted) return;
                                 if (st != null) {
                                   final et = await showTimePicker(
                                     context: ctx,
                                     initialTime: TimeOfDay(hour: (st.hour + 1) % 24, minute: st.minute),
                                   );
+                                  if (!ctx.mounted) return;
                                   setModalState(() {
                                     startTime = st;
                                     if (et != null) endTime = et;
@@ -3683,8 +3704,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 ],
               ),
             ),
-          );
-        },
+          ),
+        ),
+      );
+    },
       ),
     );
   }
@@ -3776,19 +3799,27 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           children: [
             Icon(Icons.edit_note_rounded, color: Color(0xFFF2B78A), size: 22),
             SizedBox(width: 8),
-            Text('Edit Event Remarks', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            Expanded(
+              child: Text(
+                'Edit Event Remarks',
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
-        content: TextField(
-          controller: editCtrl,
-          maxLines: 3,
-          style: const TextStyle(color: Colors.white, fontSize: 13.5),
-          decoration: InputDecoration(
-            hintText: 'Enter updated notes or remarks...',
-            hintStyle: TextStyle(color: Colors.blueGrey.shade500),
-            filled: true,
-            fillColor: const Color(0xFF170F0D),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        content: SingleChildScrollView(
+          child: TextField(
+            controller: editCtrl,
+            maxLines: 3,
+            style: const TextStyle(color: Colors.white, fontSize: 13.5),
+            decoration: InputDecoration(
+              hintText: 'Enter updated notes or remarks...',
+              hintStyle: TextStyle(color: Colors.blueGrey.shade500),
+              filled: true,
+              fillColor: const Color(0xFF170F0D),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            ),
           ),
         ),
         actions: [
@@ -3865,15 +3896,6 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     );
   }
 
-  String _formatAssessmentTime(DateTime? dt) {
-    if (dt == null) return '--:--';
-    final hour = dt.hour;
-    final minute = dt.minute;
-    final period = hour >= 12 ? 'PM' : 'AM';
-    final h12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final mStr = minute.toString().padLeft(2, '0');
-    return '$h12:$mStr $period';
-  }
 
   Widget _buildAssessmentCard({
     required BuildContext context,
@@ -3949,30 +3971,38 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1C1412),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFF4A3830)),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1C1412),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF4A3830)),
+                        ),
+                        child: Text(
+                          '${routine.startTime} - ${routine.endTime}',
+                          style: const TextStyle(
+                              color: Color(0xFFD8CFC7),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold),
+                        ),
                       ),
-                      child: Text(
-                        '${routine.startTime} - ${routine.endTime}',
-                        style: const TextStyle(
-                            color: Color(0xFFD8CFC7),
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    if (routine.roomNumber != null && routine.roomNumber!.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Text('Room: ${routine.roomNumber}',
-                          style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11.5)),
+                      if (routine.roomNumber != null && routine.roomNumber!.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Room: ${routine.roomNumber}',
+                            style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11.5),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Row(
                   children: [
                     Text(routine.classType,
@@ -4187,12 +4217,15 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         ),
                       )
                     else
-                      Text(
-                        'No topic recorded yet',
-                        style: TextStyle(
-                            color: Colors.blueGrey.shade500,
-                            fontSize: 11,
-                            fontStyle: FontStyle.italic),
+                      Expanded(
+                        child: Text(
+                          'No topic recorded yet',
+                          style: TextStyle(
+                              color: Colors.blueGrey.shade500,
+                              fontSize: 11,
+                              fontStyle: FontStyle.italic),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     const SizedBox(width: 8),
                     InkWell(
@@ -5093,59 +5126,67 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-              left: 20,
-              right: 20,
-              top: 20,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+                  left: 20,
+                  right: 20,
+                  top: 20,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.more_time_rounded, color: Color(0xFF10B981), size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            existingRecord != null ? 'Edit Extra / Makeup Class' : 'Add Extra / Makeup Class',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(2),
                           ),
-                          Text(
-                            'For ${_uniSelectedDay.day} ${_getMonthName(_uniSelectedDay.month)} ${_uniSelectedDay.year}',
-                            style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 12),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.more_time_rounded, color: Color(0xFF10B981), size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  existingRecord != null ? 'Edit Extra / Makeup Class' : 'Add Extra / Makeup Class',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  'For ${_uniSelectedDay.day} ${_getMonthName(_uniSelectedDay.month)} ${_uniSelectedDay.year}',
+                                  style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
                   const SizedBox(height: 18),
                   const Text('SELECT COURSE', style: TextStyle(color: Color(0xFFF2B78A), fontSize: 11, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: selectedCourseId,
                     dropdownColor: const Color(0xFF1C1412),
                     style: const TextStyle(color: Colors.white, fontSize: 13.5),
@@ -5317,8 +5358,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 ],
               ),
             ),
-          );
-        },
+          ),
+        ),
+      );
+    },
       ),
     );
   }
@@ -5456,13 +5499,16 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-              left: 20,
-              right: 20,
-              top: 16,
-            ),
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+                  left: 20,
+                  right: 20,
+                  top: 16,
+                ),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -5848,8 +5894,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 ],
               ),
             ),
-          );
-        },
+          ),
+        ),
+      );
+    },
       ),
     );
   }
@@ -5922,12 +5970,15 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       ),
       builder: (ctx) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                 Center(
                   child: Container(
                     width: 40,
@@ -6327,8 +6378,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               ],
             ),
           ),
-        );
-      },
+        ),
+      ),
+    );
+  },
     );
   }
 
@@ -6379,13 +6432,16 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-              left: 20,
-              right: 20,
-              top: 20,
-            ),
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+                  left: 20,
+                  right: 20,
+                  top: 20,
+                ),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -6669,6 +6725,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () async {
+                        final formattedStartTime = startTime.format(context);
+                        final formattedEndTime = endTime.format(context);
                         Navigator.pop(ctx);
 
                         SnackBarService.showSuccess(
@@ -6696,8 +6754,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                             courseId: routine.courseId,
                             courseName: routine.courseName,
                             dayOfWeek: targetDayOfWeek,
-                            startTime: startTime.format(context),
-                            endTime: endTime.format(context),
+                            startTime: formattedStartTime,
+                            endTime: formattedEndTime,
                             classType: classType,
                             roomNumber: roomCtrl.text.trim().isNotEmpty ? roomCtrl.text.trim() : null,
                             isAlternating: routine.isAlternating,
@@ -6725,8 +6783,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 ],
               ),
             ),
-          );
-        },
+          ),
+        ),
+      );
+    },
       ),
     );
   }
@@ -6764,10 +6824,13 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             }
           }
 
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-              left: 20,
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+                  left: 20,
               right: 20,
               top: 16,
             ),
@@ -7350,8 +7413,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 ],
               ),
             ),
-          );
-        },
+          ),
+        ),
+      );
+    },
       ),
     );
   }
@@ -7715,8 +7780,11 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         ],
                       ),
                       body: SafeArea(
-                        child: Stack(
-                          children: [
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1200),
+                            child: Stack(
+                              children: [
                             SingleChildScrollView(
                               physics: const BouncingScrollPhysics(),
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -8482,7 +8550,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                           ],
                         ),
                       ),
-                    );
+                    ),
+                  ),
+                );
                   },
                 );
               },
@@ -8705,48 +8775,57 @@ class _CreateAssessmentDialogState extends State<CreateAssessmentDialog> {
     const borderColor = Color(0xFF4A3830);
     const accentColor = Color(0xFFF2B78A);
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 600),
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: accentColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: accentColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.add_task_rounded, color: accentColor, size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Schedule Assessment',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
-                      child: const Icon(Icons.add_task_rounded, color: accentColor, size: 20),
                     ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Schedule Assessment',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Color(0xFFABA093), size: 20),
+                      onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Color(0xFFABA093), size: 20),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
             const SizedBox(height: 16),
 
             // Course Dropdown
@@ -8832,7 +8911,7 @@ class _CreateAssessmentDialogState extends State<CreateAssessmentDialog> {
                       items: availableTypes.map((type) {
                         return DropdownMenuItem(
                           value: type,
-                          child: Text(type),
+                          child: Text(type, overflow: TextOverflow.ellipsis),
                         );
                       }).toList(),
                       onChanged: (val) {
@@ -9105,12 +9184,15 @@ class _CreateAssessmentDialogState extends State<CreateAssessmentDialog> {
                           children: [
                             const Icon(Icons.warning_amber_rounded, color: Color(0xFFF2B78A), size: 22),
                             const SizedBox(width: 8),
-                            Text(
-                              'Assessment Name Conflict',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                            Expanded(
+                              child: Text(
+                                'Assessment Name Conflict',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -9297,6 +9379,8 @@ class _CreateAssessmentDialogState extends State<CreateAssessmentDialog> {
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }
