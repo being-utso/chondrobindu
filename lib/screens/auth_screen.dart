@@ -4,17 +4,115 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../core/theme/app_colors.dart';
+import '../models/user_profile.dart';
+import '../providers/theme_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/auth_service.dart';
+import '../services/data_seed_service.dart';
 import '../services/tour_service.dart';
+import '../utils/safe_haptics.dart';
 import '../widgets/app_logo.dart';
-import '../widgets/app_preloader.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'main_nav.dart';
 
 enum AuthMode { signIn, signUp }
+enum AcademicTrack { university, college }
 
-/// Unified Authentication Screen featuring Email/Password, Google Sign-In, and Phone Auth (OTP).
+class AdmissionTargetOption {
+  final String id;
+  final String name;
+  final IconData icon;
+  final String tag;
+
+  const AdmissionTargetOption({
+    required this.id,
+    required this.name,
+    required this.icon,
+    required this.tag,
+  });
+}
+
+/// Dynamic Admission Targets catalog mapped strictly by HSC Division / Group
+const Map<String, List<AdmissionTargetOption>> kAdmissionTargetsByGroup = {
+  'Science': [
+    AdmissionTargetOption(
+      id: 'eng',
+      name: 'BUET / Engineering',
+      icon: Icons.precision_manufacturing_rounded,
+      tag: 'Core Eng',
+    ),
+    AdmissionTargetOption(
+      id: 'med',
+      name: 'Medical / Dental',
+      icon: Icons.medical_services_rounded,
+      tag: 'MBBS / BDS',
+    ),
+    AdmissionTargetOption(
+      id: 'varsity_a',
+      name: 'Varsity A-Unit (Science)',
+      icon: Icons.biotech_rounded,
+      tag: 'DU / JU / RU',
+    ),
+    AdmissionTargetOption(
+      id: 'iba_sci',
+      name: 'IBA / BBA',
+      icon: Icons.leaderboard_rounded,
+      tag: 'Aptitude',
+    ),
+  ],
+  'Humanities': [
+    AdmissionTargetOption(
+      id: 'varsity_b',
+      name: 'Varsity B-Unit (Arts & Law)',
+      icon: Icons.gavel_rounded,
+      tag: 'DU / Law / Arts',
+    ),
+    AdmissionTargetOption(
+      id: 'bup_fass',
+      name: 'BUP FASS / FBS',
+      icon: Icons.menu_book_rounded,
+      tag: 'Security Studies',
+    ),
+    AdmissionTargetOption(
+      id: 'iba_hum',
+      name: 'IBA / General',
+      icon: Icons.psychology_rounded,
+      tag: 'Aptitude & GK',
+    ),
+  ],
+  'Commerce': [
+    AdmissionTargetOption(
+      id: 'varsity_c',
+      name: 'Varsity C-Unit (Business)',
+      icon: Icons.account_balance_rounded,
+      tag: 'DU FBS',
+    ),
+    AdmissionTargetOption(
+      id: 'iba_comm',
+      name: 'IBA / BBA (DU/JU)',
+      icon: Icons.trending_up_rounded,
+      tag: 'Finance & Mgmt',
+    ),
+    AdmissionTargetOption(
+      id: 'bup_fbs',
+      name: 'BUP FBS',
+      icon: Icons.corporate_fare_rounded,
+      tag: 'Business Adm.',
+    ),
+  ],
+};
+
+/// Refactored Authentication & Academic Onboarding Portal
+/// Features:
+/// 1. Unified smooth scrollable page wrapper (`min-h-screen overflow-y-auto`).
+/// 2. Desktop 960px centered dual-pane card:
+///    - Left Pane (45%): Deep Natural Indigo (#2F4A6D) Brand Poster with Chondrobindu mark,
+///      feature bullets, discipline quote, dynamically matching the expanded height of the right pane.
+///    - Right Pane (55%): Warm Chalk (#F7F5F0 Light / #202733 Dark) authentication card.
+/// 3. Interactive segmented switcher ([ Sign In | Create Account ]).
+/// 4. Full conditional academic track logic (University vs College / Admission).
+/// 5. Conditional target cards with contrast specs (#EDEAE0 text, #2A3444 surface, #C88256 rust border).
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 
@@ -26,38 +124,77 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
 
   AuthMode _authMode = AuthMode.signIn;
+  AcademicTrack _academicTrack = AcademicTrack.university;
+  String _hscGroup = 'Science';
+  bool _isAdmissionCandidate = true;
+  String _selectedPrimaryTarget = 'BUET / Engineering';
+  String? _selectedSecondaryTarget;
+
   bool _isLoading = false;
   bool _isGoogleLoading = false;
   bool _obscurePassword = true;
 
+  // Text Editing Controllers
   final _nameController = TextEditingController();
-  final _institutionController = TextEditingController();
-  final _majorController = TextEditingController();
-  final _termController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
+  // University Fields
+  final _uniInstitutionController = TextEditingController(text: 'BUET');
+  final _deptBatchController = TextEditingController(text: "EEE '25");
+  final _levelTermController = TextEditingController(text: 'L-1 • T-1');
+
+  // College Fields
+  final _collegeNameController = TextEditingController(text: 'Notre Dame College');
+  final _hscBatchController = TextEditingController(text: '2025');
 
   @override
   void dispose() {
     _nameController.dispose();
-    _institutionController.dispose();
-    _majorController.dispose();
-    _termController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _uniInstitutionController.dispose();
+    _deptBatchController.dispose();
+    _levelTermController.dispose();
+    _collegeNameController.dispose();
+    _hscBatchController.dispose();
     super.dispose();
   }
 
-  void _toggleAuthMode() {
+  void _switchAuthMode(AuthMode mode) {
+    if (_authMode == mode) return;
+    SafeHaptics.selectionClick();
     setState(() {
-      _authMode = _authMode == AuthMode.signIn ? AuthMode.signUp : AuthMode.signIn;
+      _authMode = mode;
       _formKey.currentState?.reset();
     });
   }
 
-  Future<void> _submitEmailAuth() async {
+  void _switchAcademicTrack(AcademicTrack track) {
+    if (_academicTrack == track) return;
+    SafeHaptics.selectionClick();
+    setState(() {
+      _academicTrack = track;
+    });
+  }
+
+  void _onHscGroupChanged(String newGroup) {
+    if (_hscGroup == newGroup) return;
+    SafeHaptics.selectionClick();
+    setState(() {
+      _hscGroup = newGroup;
+      final targets = kAdmissionTargetsByGroup[newGroup] ?? [];
+      if (targets.isNotEmpty) {
+        _selectedPrimaryTarget = targets.first.name;
+        _selectedSecondaryTarget = null;
+      }
+    });
+  }
+
+  Future<void> _submitAuth() async {
     if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
+    SafeHaptics.mediumImpact();
 
     setState(() => _isLoading = true);
 
@@ -72,36 +209,40 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         final credential = await authService.signUpWithEmail(email, password);
         final user = credential.user;
         final fullName = _nameController.text.trim();
-        final institution = _institutionController.text.trim();
-        final major = _majorController.text.trim();
-        final term = _termController.text.trim();
+        final nickname = fullName.isNotEmpty
+            ? (fullName.contains(' ') ? fullName.split(' ').first : fullName)
+            : 'Student';
 
         if (user != null) {
-          final nickname = fullName.isNotEmpty
-              ? (fullName.contains(' ') ? fullName.split(' ').first : fullName)
-              : 'Student';
+          final isUni = _academicTrack == AcademicTrack.university;
+          final userProfile = UserProfile(
+            uid: user.uid,
+            fullName: fullName.isNotEmpty ? fullName : 'Student',
+            nickname: nickname,
+            username: email.split('@').first,
+            email: email,
+            phone: '',
+            institutionType: isUni ? InstitutionType.university : InstitutionType.college,
+            universityName: isUni ? _uniInstitutionController.text.trim() : null,
+            major: isUni ? _deptBatchController.text.trim() : null,
+            department: isUni ? _deptBatchController.text.trim() : null,
+            term: isUni ? _levelTermController.text.trim() : null,
+            college: !isUni ? _collegeNameController.text.trim() : '',
+            batch: !isUni ? _hscBatchController.text.trim() : '2025',
+            academicGroup: !isUni ? _hscGroup : null,
+            primaryTarget: !isUni && _isAdmissionCandidate ? _selectedPrimaryTarget : 'Undergraduate',
+            secondaryTarget: !isUni && _isAdmissionCandidate ? (_selectedSecondaryTarget ?? 'None') : 'None',
+            isUniversityStudent: isUni,
+            isOnboarded: true,
+          );
 
-          await ref.read(userProfileProvider.notifier).saveProfile(
-                UserProfile(
-                  fullName: fullName.isNotEmpty ? fullName : 'Student',
-                  nickname: nickname,
-                  username: email.split('@').first,
-                  email: email,
-                  phone: '',
-                  college: institution,
-                  universityName: institution,
-                  major: major,
-                  term: term.isNotEmpty ? term : 'Term 1',
-                  isUniversityStudent: true,
-                  isOnboarded: true,
-                  hscBatch: 'Varsity',
-                  hscGroup: 'Science',
-                  district: 'Dhaka',
-                  primaryTarget: 'Undergraduate',
-                  secondaryTarget: 'None',
-                ),
-                uid: user.uid,
-              );
+          await ref.read(userProfileProvider.notifier).saveProfile(userProfile, uid: user.uid);
+          try {
+            await ref.read(dataSeedServiceProvider).seedInitialTrackData(
+                  user.uid,
+                  isUni ? InstitutionType.university : InstitutionType.college,
+                );
+          } catch (_) {}
 
           await TourService().initializeForNewUser(user.uid);
 
@@ -110,40 +251,27 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           }
         }
       }
-    } on TimeoutException catch (e) {
-      if (mounted) {
-        _showErrorSnackBar('Error loading profile: Timed out waiting for response (${e.message ?? e.toString()})');
-      }
     } on FirebaseAuthException catch (e) {
-      if (mounted) {
-        _handleFirebaseAuthError(e);
-      }
+      if (mounted) _handleFirebaseAuthError(e);
     } catch (e) {
-      if (mounted) {
-        _showErrorSnackBar('Error loading profile: ${e.toString()}');
-      }
+      if (mounted) _showErrorSnackBar(e.toString());
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _signInWithGoogle() async {
     setState(() => _isGoogleLoading = true);
+    SafeHaptics.selectionClick();
     final authService = ref.read(authServiceProvider);
 
     try {
       final credential = await authService.signInWithGoogle();
-      if (credential == null || credential.user == null) {
-        // User cancelled or closed the sign-in popup
-        return;
-      }
+      if (credential == null || credential.user == null) return;
 
       final user = credential.user!;
       final uid = user.uid;
 
-      // Check if user profile exists in Firestore and has completed onboarding with 10s timeout failsafe
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
@@ -151,96 +279,61 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           .timeout(const Duration(seconds: 10));
 
       final data = doc.data();
-
       if (doc.exists && data != null) {
         final profile = UserProfile.fromMap(data);
-        final bool isComplete = profile.isOnboarded &&
-            profile.fullName.trim().isNotEmpty &&
-            (profile.isUniversityStudent
-                ? (profile.universityName?.trim().isNotEmpty ?? false)
-                : profile.college.trim().isNotEmpty);
-
         await ref.read(userProfileProvider.notifier).saveProfile(
               profile.copyWith(
                 profileImageUrl: (profile.profileImageUrl != null && profile.profileImageUrl!.isNotEmpty)
                     ? profile.profileImageUrl
                     : user.photoURL,
-                isOnboarded: isComplete,
               ),
               uid: uid,
             );
       } else {
-        // New Google Sign-In user (first-time web or mobile login):
-        // Initialize user record with default profile values before attempting to parse or load profile into state
         final initialProfile = UserProfile.fromFirebaseUser(user);
-
-        await ref.read(userProfileProvider.notifier).saveProfile(
-              initialProfile,
-              uid: uid,
-            );
-
+        await ref.read(userProfileProvider.notifier).saveProfile(initialProfile, uid: uid);
         await TourService().initializeForNewUser(uid);
       }
-    } on TimeoutException catch (e) {
-      if (mounted) {
-        _showErrorSnackBar('Error loading profile: Timed out waiting for profile response (${e.message ?? e.toString()})');
-      }
     } on FirebaseAuthException catch (e) {
-      if (mounted) {
-        if (e.code != 'popup-closed-by-user' && e.code != 'cancelled-popup-request') {
-          _handleFirebaseAuthError(e);
-        }
+      if (mounted && e.code != 'popup-closed-by-user' && e.code != 'cancelled-popup-request') {
+        _handleFirebaseAuthError(e);
       }
     } catch (e) {
-      if (mounted) {
-        final errText = e.toString();
-        if (errText.toLowerCase().contains('closing/hidden') ||
-            errText.toLowerCase().contains('database is closing')) {
-          _showErrorSnackBar('Web browser storage error: IndexedDB was closed or restricted. Please try again.');
-        } else {
-          _showErrorSnackBar('Error loading profile: $errText');
-        }
-      }
+      if (mounted) _showErrorSnackBar(e.toString());
     } finally {
-      if (mounted) {
-        setState(() => _isGoogleLoading = false);
-      }
+      if (mounted) setState(() => _isGoogleLoading = false);
     }
   }
 
-  void _showPhoneAuthBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => const _PhoneAuthBottomSheet(),
-    );
-  }
-
   void _showVerificationDialog(String email) {
+    final colors = AppColors.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1412),
+        backgroundColor: colors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: Color(0xFF382A24)),
+          side: BorderSide(color: colors.surfaceBorder),
         ),
-        icon: const Icon(Icons.mark_email_read_rounded, color: Color(0xFFF2B78A), size: 48),
+        icon: Icon(Icons.mark_email_read_rounded, color: colors.secondary, size: 48),
         title: Text(
           'Verification Email Sent',
-          style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+          style: GoogleFonts.plusJakartaSans(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
         ),
         content: Text(
-          'We have sent a verification link to $email.\n\nPlease check your inbox and click the link to verify your email address.',
+          'We have sent a verification link to $email.\n\nPlease check your inbox and verify to access all features.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 13.5),
+          style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13.5),
         ),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF2B78A),
-              foregroundColor: const Color(0xFF110D0C),
+              backgroundColor: colors.primary,
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(ctx),
@@ -252,989 +345,1267 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   void _handleFirebaseAuthError(FirebaseAuthException e) {
-    String message = 'Authentication error. Please try again.';
+    String message = 'Authentication error. Please check your credentials.';
     switch (e.code) {
       case 'user-not-found':
+        message = 'No scholar account found with this email.';
+        break;
       case 'wrong-password':
       case 'invalid-credential':
         message = 'Invalid email or password.';
         break;
       case 'email-already-in-use':
-        message = 'An account is already registered with this email.';
+        message = 'An account with this email already exists.';
+        break;
+      case 'weak-password':
+        message = 'Password should be at least 6 characters.';
         break;
       case 'invalid-email':
         message = 'Please enter a valid email address.';
         break;
-      case 'weak-password':
-        message = 'Password must be at least 6 characters long.';
-        break;
-      case 'user-disabled':
-        message = 'This user account has been disabled.';
+      case 'network-request-failed':
+        message = 'Network error. Please check your connection.';
         break;
       default:
-        if (e.message != null && e.message!.isNotEmpty) {
-          message = e.message!;
-        }
+        message = e.message ?? message;
     }
     _showErrorSnackBar(message);
   }
 
-  void _showForgotPasswordDialog() {
-    final resetEmailController = TextEditingController(text: _emailController.text.trim());
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1412),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFF382A24)),
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13),
         ),
-        title: Text(
-          'Reset Password',
-          style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Enter your registered email address to receive a password reset link.',
-              style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 13),
+        backgroundColor: const Color(0xFFBA1A1A),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isDesktop = screenWidth >= 800;
+
+    return Scaffold(
+      backgroundColor: colors.background,
+      body: SafeArea(
+        child: SizedBox(
+          width: double.infinity,
+          height: double.infinity,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.symmetric(
+              horizontal: isDesktop ? 32.0 : 16.0,
+              vertical: isDesktop ? 40.0 : 20.0,
             ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: resetEmailController,
-              keyboardType: TextInputType.emailAddress,
-              style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14),
-              decoration: _buildInputDecoration(
-                hintText: 'Enter your email',
-                prefixIcon: Icons.email_outlined,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 960),
+                child: isDesktop
+                    ? _buildDesktopDualPane(colors, isDark)
+                    : _buildMobilePortal(colors, isDark),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // =========================================================================
+  // 1. DESKTOP 960px DUAL-PANE CARD
+  // =========================================================================
+  Widget _buildDesktopDualPane(ChondrobinduThemeColors colors, bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.surfaceBorder, width: 1.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Left Pane (45% width): Deep Natural Indigo Brand Poster
+            Expanded(
+              flex: 45,
+              child: _buildLeftBrandPoster(colors, isDark),
+            ),
+
+            // Vertical 1px Divider
+            Container(
+              width: 1.0,
+              color: colors.surfaceBorder,
+            ),
+
+            // Right Pane (55% width): Warm Chalk Authentication Card
+            Expanded(
+              flex: 55,
+              child: Container(
+                color: colors.surface,
+                padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 36.0),
+                child: AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  alignment: Alignment.topCenter,
+                  child: _buildAuthFormContent(colors, isDark, isDesktop: true),
+                ),
               ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093))),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF2B78A),
-              foregroundColor: const Color(0xFF110D0C),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () async {
-              final email = resetEmailController.text.trim();
-              if (email.isEmpty || !email.contains('@')) {
-                _showErrorSnackBar('Please enter a valid email address.');
-                return;
-              }
-              Navigator.pop(ctx);
-              try {
-                await ref.read(authServiceProvider).sendPasswordResetEmail(email);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: const Color(0xFF10B981),
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      content: Text(
-                        'Password reset email sent! Check your inbox.',
-                        style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  // Left Brand Poster (#2F4A6D Deep Natural Indigo)
+  Widget _buildLeftBrandPoster(ChondrobinduThemeColors colors, bool isDark) {
+    return Container(
+      color: const Color(0xFF2F4A6D),
+      padding: const EdgeInsets.all(36.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Top Tag
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1F2A3A).withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF8FA8C8).withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFFB68A),
+                        shape: BoxShape.circle,
                       ),
                     ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  _showErrorSnackBar('Failed to send reset email: $e');
-                }
-              }
-            },
-            child: Text('Send Link', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 6),
+                    Text(
+                      '• CHONDROBINDU ACADEMIC OS',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: const Color(0xFFEDEAE0),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
+
+              // Logo Mark
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7F5F0),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFDCD7C8)),
+                ),
+                padding: const EdgeInsets.all(8),
+                child: const AppLogo(size: 36, showContainer: false),
+              ),
+              const SizedBox(height: 20),
+
+              // Hero Title
+              Text(
+                'Built for rigorous semesters & deep focus.',
+                style: GoogleFonts.plusJakartaSans(
+                  color: const Color(0xFFEDEAE0),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Feature Bullets
+              _buildFeatureBullet(Icons.account_tree_rounded, '3-Level Syllabus Tree'),
+              const SizedBox(height: 12),
+              _buildFeatureBullet(Icons.calendar_month_rounded, 'Exam-Aware Routine & CT Ledger'),
+              const SizedBox(height: 12),
+              _buildFeatureBullet(Icons.analytics_rounded, 'Live Pomodoro & CGPA Forecaster'),
+            ],
+          ),
+
+          const SizedBox(height: 32),
+
+          // Classical Discipline Quote
+          Container(
+            padding: const EdgeInsets.only(top: 16),
+            decoration: const BoxDecoration(
+              border: Border(
+                top: BorderSide(color: Color(0x338FA8C8), width: 1.0),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '“Discipline is choosing between what you want now and what you want most.”',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: const Color(0xFFEDEAE0).withValues(alpha: 0.8),
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '— SCHOLASTIC MAXIM',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: const Color(0xFFEDEAE0).withValues(alpha: 0.5),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFFEF4444),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        content: Row(
-          children: [
-            const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(message, style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13)),
-            ),
-          ],
+  Widget _buildFeatureBullet(IconData icon, String text) {
+    return Row(
+      children: [
+        Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            color: const Color(0x3389502A),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: const Color(0x66FFB68A)),
+          ),
+          child: Icon(icon, color: const Color(0xFFFFB68A), size: 15),
         ),
-      ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.plusJakartaSans(
+              color: const Color(0xFFEDEAE0).withValues(alpha: 0.95),
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFF110D0C);
-    const cardColor = Color(0xFF1C1412);
-    const accentColor = Color(0xFFF2B78A);
-    const borderColor = Color(0xFF382A24);
-
-    final isSignIn = _authMode == AuthMode.signIn;
-
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 1. App Branded Hero Header with Master Logo
-                const Center(
-                  child: AppLogo(size: 76),
-                ),
-                const SizedBox(height: 12),
-                Center(
-                  child: Text(
-                    'Chondrobindu',
+  // =========================================================================
+  // 2. MOBILE RESPONSIVE WRAPPER
+  // =========================================================================
+  Widget _buildMobilePortal(ChondrobinduThemeColors colors, bool isDark) {
+    return Column(
+      children: [
+        // Compact Branded Header
+        Padding(
+          padding: const EdgeInsets.only(bottom: 20.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const AppLogo(size: 32, showContainer: false),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'চন্দ্রবিন্দু',
                     style: GoogleFonts.plusJakartaSans(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.5,
+                      color: colors.primary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Center(
-                  child: Text(
-                    'Academic operating system & deep study tracker',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: const Color(0xFFABA093),
-                      fontSize: 12.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // 2. Email & Password Form Card
-                Container(
-                  padding: const EdgeInsets.all(20.0),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: borderColor),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isSignIn ? 'Sign In' : 'Create an Account',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          isSignIn
-                              ? 'Access your synchronized study syllabus & exams'
-                              : 'Structure your semester, courses, and focus sessions.',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: const Color(0xFFABA093),
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-
-                        // Full Name (Only on Sign Up)
-                        if (!isSignIn) ...[
-                          _buildInputLabel('Full Name'),
-                          const SizedBox(height: 6),
-                          TextFormField(
-                            controller: _nameController,
-                            style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
-                            textCapitalization: TextCapitalization.words,
-                            decoration: _buildInputDecoration(
-                              hintText: 'e.g. Shahriyer Sayem',
-                              prefixIcon: Icons.person_outline_rounded,
-                            ),
-                            validator: (val) {
-                              if (!isSignIn && (val == null || val.trim().isEmpty)) {
-                                return 'Please enter your full name';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 14),
-
-                          // Institution / University
-                          _buildInputLabel('Institution / University'),
-                          const SizedBox(height: 6),
-                          TextFormField(
-                            controller: _institutionController,
-                            style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
-                            textCapitalization: TextCapitalization.words,
-                            decoration: _buildInputDecoration(
-                              hintText: 'e.g. BUET, DU, etc.',
-                              prefixIcon: Icons.account_balance_outlined,
-                            ),
-                            validator: (val) {
-                              if (!isSignIn && (val == null || val.trim().isEmpty)) {
-                                return 'Please enter your institution/university';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 14),
-
-                          // Department / Major
-                          _buildInputLabel('Department / Major'),
-                          const SizedBox(height: 6),
-                          TextFormField(
-                            controller: _majorController,
-                            style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
-                            textCapitalization: TextCapitalization.words,
-                            decoration: _buildInputDecoration(
-                              hintText: 'e.g. Electrical & Electronic Engineering',
-                              prefixIcon: Icons.school_outlined,
-                            ),
-                            validator: (val) {
-                              if (!isSignIn && (val == null || val.trim().isEmpty)) {
-                                return 'Please enter your department/major';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 14),
-
-                          // Current Term / Semester (Optional)
-                          _buildInputLabel('Current Term / Semester (Optional)'),
-                          const SizedBox(height: 6),
-                          TextFormField(
-                            controller: _termController,
-                            style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
-                            textCapitalization: TextCapitalization.words,
-                            decoration: _buildInputDecoration(
-                              hintText: 'e.g. Level 1 / Term 2',
-                              prefixIcon: Icons.calendar_today_outlined,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                        ],
-
-                        // Email Field
-                        _buildInputLabel('Email Address'),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
-                          decoration: _buildInputDecoration(
-                            hintText: 'you@example.com',
-                            prefixIcon: Icons.email_outlined,
-                          ),
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) {
-                              return 'Please enter your email';
-                            }
-                            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
-                              return 'Please enter a valid email address';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Password Field
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _buildInputLabel('Password'),
-                            if (isSignIn)
-                              GestureDetector(
-                                onTap: _showForgotPasswordDialog,
-                                child: Text(
-                                  'Forgot password?',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: accentColor,
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
-                          decoration: _buildInputDecoration(
-                            hintText: '••••••••',
-                            prefixIcon: Icons.lock_outline_rounded,
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
-                                color: const Color(0xFFABA093),
-                                size: 18,
-                              ),
-                              onPressed: () =>
-                                  setState(() => _obscurePassword = !_obscurePassword),
-                            ),
-                          ),
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) {
-                              return 'Please enter your password';
-                            }
-                            if (val.trim().length < 6) {
-                              return 'Password must be at least 6 characters';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Primary Action Button
-                        SizedBox(
-                          width: double.infinity,
-                          height: 46,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _submitEmailAuth,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: accentColor,
-                              foregroundColor: const Color(0xFF110D0C),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 0,
-                            ),
-                            child: _isLoading
-                                ? const AppPreloader(
-                                    size: 20,
-                                    strokeWidth: 2,
-                                    color: Color(0xFF110D0C),
-                                  )
-                                : Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        isSignIn ? 'Sign In' : 'Create Account',
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14.5,
-                                          color: const Color(0xFF110D0C),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      const Icon(Icons.arrow_forward_rounded, size: 17, color: Color(0xFF110D0C)),
-                                    ],
-                                  ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-
-                // Toggle Sign In / Sign Up mode
-                Center(
-                  child: TextButton(
-                    onPressed: _isLoading ? null : _toggleAuthMode,
-                    child: RichText(
-                      text: TextSpan(
-                        text: isSignIn
-                            ? "Don't have an account? "
-                            : 'Already have an account? ',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: const Color(0xFFABA093),
-                          fontSize: 13,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: isSignIn ? 'Create Account' : 'Sign In',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: accentColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                // 3. Social / Phone Divider
-                Row(
-                  children: [
-                    Expanded(
-                      child: Divider(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        thickness: 1,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14.0),
-                      child: Text(
-                        'Or continue with',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: const Color(0xFFABA093),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Divider(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        thickness: 1,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // 4. Alternative Buttons: Google & Phone
-                Row(
-                  children: [
-                    // Continue with Google Button
-                    Expanded(
-                      child: SizedBox(
-                        height: 46,
-                        child: OutlinedButton(
-                          onPressed: _isGoogleLoading ? null : _signInWithGoogle,
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: const Color(0xFF241C1A),
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: borderColor),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: _isGoogleLoading
-                              ? const AppPreloader(
-                                  size: 18,
-                                  strokeWidth: 2,
-                                  color: accentColor,
-                                )
-                              : Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Text(
-                                      'G',
-                                      style: TextStyle(
-                                        color: Color(0xFFEA4335),
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 18,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Google',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-
-                    // Continue with Phone Button
-                    Expanded(
-                      child: SizedBox(
-                        height: 46,
-                        child: OutlinedButton(
-                          onPressed: _showPhoneAuthBottomSheet,
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: const Color(0xFF241C1A),
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: borderColor),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.phone_iphone_rounded,
-                                color: accentColor,
-                                size: 19,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Phone',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (kDebugMode) ...[
-                  const SizedBox(height: 12),
-                  Center(
-                    child: TextButton.icon(
-                      key: const Key('qa_bypass_button'),
-                      icon: const Icon(Icons.developer_mode, color: Color(0xFFF2B78A), size: 16),
-                      label: Text(
-                        'QA Bypass to Main Dashboard',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: const Color(0xFFF2B78A),
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      onPressed: () {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-                        );
-                      },
+                  Text(
+                    'CHONDROBINDU ACADEMIC OS',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.secondary,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.0,
                     ),
                   ),
                 ],
-                const SizedBox(height: 20),
+              ),
+            ],
+          ),
+        ),
+
+        // Mobile Card Wrapper
+        Container(
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colors.surfaceBorder),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(20.0),
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: _buildAuthFormContent(colors, isDark, isDesktop: false),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // =========================================================================
+  // 3. CORE FORM CONTENT (Switchable Sign In vs Create Account)
+  // =========================================================================
+  Widget _buildAuthFormContent(
+    ChondrobinduThemeColors colors,
+    bool isDark, {
+    required bool isDesktop,
+  }) {
+    final isSignIn = _authMode == AuthMode.signIn;
+
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Segmented Pill Switcher [ Sign In | Create Account ]
+          _buildSegmentedSwitcher(colors, isDark),
+          const SizedBox(height: 24),
+
+          // Header Text
+          Text(
+            isSignIn ? 'Welcome back' : 'Create Scholar Account',
+            style: GoogleFonts.plusJakartaSans(
+              color: colors.textPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            isSignIn
+                ? 'Sign in to synchronize your academic workspace.'
+                : 'Initialize your academic profile, syllabus & track.',
+            style: GoogleFonts.plusJakartaSans(
+              color: colors.textMuted,
+              fontSize: 12.5,
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // Google OAuth Button
+          _buildGoogleSignInButton(colors, isDark, isSignIn),
+          const SizedBox(height: 18),
+
+          // Divider with "or"
+          Row(
+            children: [
+              Expanded(child: Divider(color: colors.surfaceBorder, height: 1)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                child: Text(
+                  isSignIn ? 'OR SIGN IN WITH EMAIL' : 'OR REGISTER WITH EMAIL',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.textMuted,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+              Expanded(child: Divider(color: colors.surfaceBorder, height: 1)),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          // Dynamic Form Fields: Sign In vs Create Account
+          if (isSignIn)
+            _buildSignInFields(colors)
+          else
+            _buildCreateAccountFields(colors, isDark, isDesktop),
+
+          const SizedBox(height: 24),
+
+          // Primary Submit Button ("Enter Workspace →" / "Create Account & Initialize →")
+          _buildPrimarySubmitButton(colors, isSignIn),
+        ],
+      ),
+    );
+  }
+
+  // Segmented Switcher [ Sign In | Create Account ]
+  Widget _buildSegmentedSwitcher(ChondrobinduThemeColors colors, bool isDark) {
+    final isSignIn = _authMode == AuthMode.signIn;
+
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: colors.recessed,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colors.surfaceBorder, width: 1.0),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: () => _switchAuthMode(AuthMode.signIn),
+              borderRadius: BorderRadius.circular(8),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isSignIn ? colors.surface : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: isSignIn
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  'Sign In',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: isSignIn ? colors.textPrimary : colors.textMuted,
+                    fontWeight: isSignIn ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: InkWell(
+              onTap: () => _switchAuthMode(AuthMode.signUp),
+              borderRadius: BorderRadius.circular(8),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: !isSignIn ? colors.surface : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: !isSignIn
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  'Create Account',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: !isSignIn ? colors.textPrimary : colors.textMuted,
+                    fontWeight: !isSignIn ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Google OAuth Button
+  Widget _buildGoogleSignInButton(ChondrobinduThemeColors colors, bool isDark, bool isSignIn) {
+    return OutlinedButton(
+      style: OutlinedButton.styleFrom(
+        backgroundColor: colors.surface,
+        foregroundColor: colors.textPrimary,
+        side: BorderSide(color: colors.surfaceBorder),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+      ),
+      onPressed: _isGoogleLoading ? null : _signInWithGoogle,
+      child: _isGoogleLoading
+          ? SizedBox(
+              height: 18,
+              width: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: colors.primary),
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.network(
+                  'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                  width: 16,
+                  height: 16,
+                  errorBuilder: (_, __, ___) => Icon(Icons.g_mobiledata_rounded, color: colors.primary, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  isSignIn ? 'Continue with Google' : 'Sign up with Google',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
-          ),
+    );
+  }
+
+  // Sign In Form Fields
+  Widget _buildSignInFields(ChondrobinduThemeColors colors) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildFieldLabel('Email address', colors),
+        const SizedBox(height: 6),
+        _buildTextInput(
+          controller: _emailController,
+          hintText: 'scholar@university.edu',
+          keyboardType: TextInputType.emailAddress,
+          colors: colors,
+          validator: (val) {
+            if (val == null || val.trim().isEmpty) return 'Email is required';
+            if (!val.contains('@')) return 'Enter a valid email';
+            return null;
+          },
         ),
-      ),
+        const SizedBox(height: 14),
+
+        _buildFieldLabel('Password', colors),
+        const SizedBox(height: 6),
+        _buildPasswordInput(_passwordController, colors),
+      ],
     );
   }
 
-  Widget _buildInputLabel(String label) {
-    return Text(
-      label,
-      style: GoogleFonts.plusJakartaSans(
-        color: Colors.white,
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-      ),
-    );
-  }
-
-  InputDecoration _buildInputDecoration({
-    required String hintText,
-    required IconData prefixIcon,
-    Widget? suffixIcon,
-  }) {
-    return InputDecoration(
-      hintText: hintText,
-      hintStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 13),
-      prefixIcon: Icon(prefixIcon, color: const Color(0xFFF2B78A), size: 18),
-      suffixIcon: suffixIcon,
-      filled: true,
-      fillColor: const Color(0xFF241C1A),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.0),
-        borderSide: const BorderSide(color: Color(0xFF4A3830)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.0),
-        borderSide: const BorderSide(color: Color(0xFF4A3830)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.0),
-        borderSide: const BorderSide(color: Color(0xFFF2B78A), width: 1.5),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.0),
-        borderSide: const BorderSide(color: Color(0xFFEF4444)),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.0),
-        borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
-      ),
-    );
-  }
-}
-
-/// Phone Authentication Modal BottomSheet managing 2-step OTP flow.
-class _PhoneAuthBottomSheet extends ConsumerStatefulWidget {
-  const _PhoneAuthBottomSheet();
-
-  @override
-  ConsumerState<_PhoneAuthBottomSheet> createState() => _PhoneAuthBottomSheetState();
-}
-
-class _PhoneAuthBottomSheetState extends ConsumerState<_PhoneAuthBottomSheet> {
-  final _phoneController = TextEditingController(text: '+880');
-  final _otpController = TextEditingController();
-
-  bool _isCodeSent = false;
-  bool _isLoading = false;
-  String? _verificationId;
-  String? _errorMessage;
-
-  @override
-  void dispose() {
-    _phoneController.dispose();
-    _otpController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _sendOtp() async {
-    final phone = _phoneController.text.trim();
-    if (phone.length < 10) {
-      setState(() => _errorMessage = 'Please enter a valid phone number with country code');
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    final authService = ref.read(authServiceProvider);
-
-    try {
-      await authService.verifyPhone(
-        phoneNumber: phone,
-        codeSent: (verificationId) {
-          if (mounted) {
-            setState(() {
-              _verificationId = verificationId;
-              _isCodeSent = true;
-              _isLoading = false;
-            });
-          }
-        },
-        onError: (err) {
-          if (mounted) {
-            setState(() {
-              _errorMessage = err;
-              _isLoading = false;
-            });
-          }
-        },
-        verificationCompleted: (credential) async {
-          if (mounted) {
-            Navigator.pop(context);
-          }
-        },
-      );
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = '$e';
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _verifyOtp() async {
-    final smsCode = _otpController.text.trim();
-    if (smsCode.length < 6 || _verificationId == null) {
-      setState(() => _errorMessage = 'Please enter the 6-digit SMS code');
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    final authService = ref.read(authServiceProvider);
-
-    try {
-      final credential = await authService.signInWithOTP(
-        verificationId: _verificationId!,
-        smsCode: smsCode,
-      );
-
-      final user = credential.user;
-      if (user != null) {
-        final phone = _phoneController.text.trim();
-        await ref.read(userProfileProvider.notifier).saveProfile(
-              UserProfile(
-                fullName: 'Phone User',
-                nickname: 'Student',
-                username: 'user_${phone.replaceAll(RegExp(r'\D'), '')}',
-                email: '',
-                phone: phone,
-                primaryTarget: 'Engineering',
-                secondaryTarget: 'None',
-                isOnboarded: true,
-              ),
-              uid: user.uid,
-            );
-      }
-
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    } on FirebaseAuthException catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = e.code == 'invalid-verification-code'
-              ? 'Invalid SMS code. Please check and try again.'
-              : (e.message ?? 'Verification failed');
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Failed to verify OTP: $e';
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const accentColor = Color(0xFFF2B78A);
-    const cardColor = Color(0xFF1C1412);
-    const borderColor = Color(0xFF382A24);
-
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(24.0),
-        decoration: const BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border(
-            top: BorderSide(color: borderColor),
-            left: BorderSide(color: borderColor),
-            right: BorderSide(color: borderColor),
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Header Handle
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4A3830),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.phone_iphone_rounded, color: accentColor, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Column(
+  // Create Account Form Fields
+  Widget _buildCreateAccountFields(
+    ChondrobinduThemeColors colors,
+    bool isDark,
+    bool isDesktop,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Name & Email (2-column on desktop, single column on mobile)
+        if (isDesktop)
+          Row(
+            children: [
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _isCodeSent ? 'Enter 6-Digit Code' : 'Phone Authentication',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      _isCodeSent
-                          ? 'Sent to ${_phoneController.text}'
-                          : 'Sign in quickly with an SMS OTP code',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: const Color(0xFFABA093),
-                        fontSize: 12,
-                      ),
+                    _buildFieldLabel('Full Name', colors),
+                    const SizedBox(height: 6),
+                    _buildTextInput(
+                      controller: _nameController,
+                      hintText: 'e.g. Shahriyer Sayem',
+                      colors: colors,
+                      validator: (val) => val == null || val.trim().isEmpty ? 'Required' : null,
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildFieldLabel('Email address', colors),
+                    const SizedBox(height: 6),
+                    _buildTextInput(
+                      controller: _emailController,
+                      hintText: 'scholar@buet.ac.bd',
+                      keyboardType: TextInputType.emailAddress,
+                      colors: colors,
+                      validator: (val) => val == null || !val.contains('@') ? 'Valid email required' : null,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          )
+        else ...[
+          _buildFieldLabel('Full Name', colors),
+          const SizedBox(height: 6),
+          _buildTextInput(
+            controller: _nameController,
+            hintText: 'e.g. Shahriyer Sayem',
+            colors: colors,
+            validator: (val) => val == null || val.trim().isEmpty ? 'Full name is required' : null,
+          ),
+          const SizedBox(height: 12),
+          _buildFieldLabel('Email address', colors),
+          const SizedBox(height: 6),
+          _buildTextInput(
+            controller: _emailController,
+            hintText: 'scholar@buet.ac.bd',
+            keyboardType: TextInputType.emailAddress,
+            colors: colors,
+            validator: (val) => val == null || !val.contains('@') ? 'Valid email required' : null,
+          ),
+        ],
+
+        const SizedBox(height: 12),
+
+        // Create Password
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildFieldLabel('Create Password', colors),
+            Text(
+              'Min. 6 characters',
+              style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        _buildPasswordInput(_passwordController, colors),
+
+        const SizedBox(height: 16),
+        Divider(color: colors.surfaceBorder.withValues(alpha: 0.6), height: 1),
+        const SizedBox(height: 14),
+
+        // Academic Track Switcher
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'ACADEMIC TRACK',
+              style: GoogleFonts.jetBrainsMono(
+                color: colors.textMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+            ),
+            Text(
+              _academicTrack == AcademicTrack.university
+                  ? 'University (4.00 CGPA)'
+                  : 'College / Admission (5.00)',
+              style: GoogleFonts.jetBrainsMono(
+                color: colors.secondary,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        // Track Selector Buttons [ University (4.00) ] vs [ College / Admission (5.00) ]
+        Row(
+          children: [
+            Expanded(
+              child: _buildTrackOptionButton(
+                label: '🏛️ University (4.00)',
+                isSelected: _academicTrack == AcademicTrack.university,
+                colors: colors,
+                onTap: () => _switchAcademicTrack(AcademicTrack.university),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildTrackOptionButton(
+                label: '📚 College / Admission (5.00)',
+                isSelected: _academicTrack == AcademicTrack.college,
+                colors: colors,
+                onTap: () => _switchAcademicTrack(AcademicTrack.college),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Conditional Track Fields
+        if (_academicTrack == AcademicTrack.university)
+          _buildUniversityFields(colors)
+        else
+          _buildCollegeAdmissionFields(colors, isDark),
+      ],
+    );
+  }
+
+  Widget _buildTrackOptionButton({
+    required String label,
+    required bool isSelected,
+    required ChondrobinduThemeColors colors,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? colors.primary : colors.recessed,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? colors.primary : colors.surfaceBorder,
+            width: 1.0,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.plusJakartaSans(
+            color: isSelected ? Colors.white : colors.textMuted,
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // University Track Specific Fields
+  Widget _buildUniversityFields(ChondrobinduThemeColors colors) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildFieldLabel('Institution', colors, isSmall: true),
+              const SizedBox(height: 4),
+              _buildTextInput(
+                controller: _uniInstitutionController,
+                hintText: 'BUET',
+                colors: colors,
+                isDense: true,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildFieldLabel('Dept / Batch', colors, isSmall: true),
+              const SizedBox(height: 4),
+              _buildTextInput(
+                controller: _deptBatchController,
+                hintText: "EEE '25",
+                colors: colors,
+                isDense: true,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildFieldLabel('Level / Term', colors, isSmall: true),
+              const SizedBox(height: 4),
+              _buildTextInput(
+                controller: _levelTermController,
+                hintText: 'L-1 • T-1',
+                colors: colors,
+                isDense: true,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // College / Admission Track Specific Fields
+  Widget _buildCollegeAdmissionFields(ChondrobinduThemeColors colors, bool isDark) {
+    final targets = kAdmissionTargetsByGroup[_hscGroup] ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. Last Attended College / Institution
+        _buildFieldLabel('LAST ATTENDED COLLEGE / INSTITUTION', colors, isSmall: true),
+        const SizedBox(height: 4),
+        _buildTextInput(
+          controller: _collegeNameController,
+          hintText: 'e.g. Notre Dame College, Dhaka College',
+          colors: colors,
+          isDense: true,
+        ),
+        const SizedBox(height: 10),
+
+        // 2. HSC Batch & 3. HSC Group / Division (Science, Humanities, Commerce)
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildFieldLabel('HSC BATCH', colors, isSmall: true),
+                  const SizedBox(height: 4),
+                  _buildTextInput(
+                    controller: _hscBatchController,
+                    hintText: 'e.g. 2025',
+                    colors: colors,
+                    isDense: true,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildFieldLabel('HSC GROUP / DIVISION', colors, isSmall: true),
+                  const SizedBox(height: 4),
+                  Container(
+                    height: 38,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: colors.recessed,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colors.surfaceBorder),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _hscGroup,
+                        isExpanded: true,
+                        dropdownColor: colors.surface,
+                        icon: Icon(Icons.keyboard_arrow_down_rounded, color: colors.textMuted, size: 18),
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'Science', child: Text('Science')),
+                          DropdownMenuItem(value: 'Humanities', child: Text('Humanities')),
+                          DropdownMenuItem(value: 'Commerce', child: Text('Commerce')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) _onHscGroupChanged(val);
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // 4. Admission Candidate Checkbox Toggle
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: colors.recessed.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: colors.surfaceBorder),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: Checkbox(
+                      value: _isAdmissionCandidate,
+                      activeColor: colors.primary,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                      onChanged: (val) {
+                        SafeHaptics.selectionClick();
+                        setState(() => _isAdmissionCandidate = val ?? true);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Admission Candidate',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colors.secondary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'Entrance Prep',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.secondary,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // 5. Conditional Target Cards (Shown ONLY when Admission Candidate is checked)
+        if (_isAdmissionCandidate) ...[
+          const SizedBox(height: 12),
+          Divider(color: colors.surfaceBorder.withValues(alpha: 0.6), height: 1),
+          const SizedBox(height: 10),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'PRIMARY ADMISSION TARGET',
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.textMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              Text(
+                '1 Selected',
+                style: GoogleFonts.jetBrainsMono(color: colors.secondary, fontSize: 10),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Primary Target Grid
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: targets.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 2.3,
+            ),
+            itemBuilder: (ctx, index) {
+              final target = targets[index];
+              final isSelected = target.name == _selectedPrimaryTarget;
+
+              // Crystal clear contrast requirements:
+              // Selected: #EDEAE0 text on #2A3444 surface with #C88256 rust border
+              // Inactive: colors.textMuted on colors.recessed with colors.surfaceBorder
+              final bgColor = isSelected
+                  ? (isDark ? const Color(0xFF2A3444) : colors.primary.withValues(alpha: 0.12))
+                  : colors.recessed;
+              final borderSideColor = isSelected
+                  ? (isDark ? const Color(0xFFC88256) : colors.primary)
+                  : colors.surfaceBorder;
+              final textColor = isSelected
+                  ? (isDark ? const Color(0xFFEDEAE0) : colors.primary)
+                  : colors.textMuted;
+
+              return InkWell(
+                onTap: () {
+                  SafeHaptics.selectionClick();
+                  setState(() {
+                    _selectedPrimaryTarget = target.name;
+                    if (_selectedSecondaryTarget == target.name) {
+                      _selectedSecondaryTarget = null;
+                    }
+                  });
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: borderSideColor,
+                      width: isSelected ? 1.5 : 1.0,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Icon(
+                            target.icon,
+                            color: isSelected ? (isDark ? const Color(0xFFC88256) : colors.primary) : colors.textMuted,
+                            size: 15,
+                          ),
+                          if (isSelected)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFFC88256) : colors.primary,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: Text(
+                                'TARGET 1',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: isDark ? const Color(0xFF13171E) : Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
+                          else
+                            Text(
+                              target.tag,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: colors.secondary,
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        target.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: textColor,
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+
+          // Secondary Target (Optional backup selection)
+          Text(
+            'SECONDARY TARGET (OPTIONAL)',
+            style: GoogleFonts.jetBrainsMono(
+              color: colors.textMuted,
+              fontSize: 9.5,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: targets.where((t) => t.name != _selectedPrimaryTarget).map((t) {
+              final isSec = t.name == _selectedSecondaryTarget;
+              return InkWell(
+                onTap: () {
+                  SafeHaptics.selectionClick();
+                  setState(() {
+                    _selectedSecondaryTarget = isSec ? null : t.name;
+                  });
+                },
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isSec ? colors.secondary.withValues(alpha: 0.15) : colors.recessed,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isSec ? colors.secondary : colors.surfaceBorder,
+                    ),
+                  ),
+                  child: Text(
+                    isSec ? '✓ ${t.name}' : '+ ${t.name}',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: isSec ? colors.secondary : colors.textMuted,
+                      fontSize: 10.5,
+                      fontWeight: isSec ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // Primary Submit Button
+  Widget _buildPrimarySubmitButton(ChondrobinduThemeColors colors, bool isSignIn) {
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: colors.primary,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        elevation: 0,
+      ),
+      onPressed: _isLoading ? null : _submitAuth,
+      child: _isLoading
+          ? const SizedBox(
+              height: 18,
+              width: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  isSignIn ? 'Enter Workspace' : 'Create Account & Initialize',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.arrow_forward_rounded, size: 16),
               ],
             ),
-            const SizedBox(height: 20),
+    );
+  }
 
-            if (_errorMessage != null) ...[
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEF4444), fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-            ],
+  // Helpers
+  Widget _buildFieldLabel(String text, ChondrobinduThemeColors colors, {bool isSmall = false}) {
+    return Text(
+      text,
+      style: GoogleFonts.plusJakartaSans(
+        color: colors.textPrimary,
+        fontSize: isSmall ? 10.5 : 12,
+        fontWeight: FontWeight.w600,
+        letterSpacing: isSmall ? 0.4 : 0,
+      ),
+    );
+  }
 
-            if (!_isCodeSent) ...[
-              // Step 1: Input Phone Number
-              Text(
-                'Phone Number (with country code)',
-                style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 12, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                style: GoogleFonts.jetBrainsMono(color: Colors.white, fontSize: 14, letterSpacing: 0.5),
-                decoration: InputDecoration(
-                  hintText: '+8801700000000',
-                  hintStyle: GoogleFonts.jetBrainsMono(color: const Color(0xFF6E5B52), fontSize: 13),
-                  filled: true,
-                  fillColor: const Color(0xFF241C1A),
-                  prefixIcon: const Icon(Icons.phone_rounded, color: accentColor, size: 18),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF4A3830)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF4A3830)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: accentColor, width: 1.5),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
+  Widget _buildTextInput({
+    required TextEditingController controller,
+    required String hintText,
+    required ChondrobinduThemeColors colors,
+    TextInputType keyboardType = TextInputType.text,
+    bool isDense = false,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      validator: validator,
+      style: GoogleFonts.plusJakartaSans(
+        color: colors.textPrimary,
+        fontSize: isDense ? 12 : 13,
+      ),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: GoogleFonts.plusJakartaSans(
+          color: colors.textMuted.withValues(alpha: 0.7),
+          fontSize: isDense ? 12 : 13,
+        ),
+        filled: true,
+        fillColor: colors.recessed,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: isDense ? 10 : 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: colors.surfaceBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: colors.surfaceBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: colors.primary, width: 1.2),
+        ),
+      ),
+    );
+  }
 
-              SizedBox(
-                height: 46,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _sendOtp,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: accentColor,
-                    foregroundColor: const Color(0xFF110D0C),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
-                  ),
-                  child: _isLoading
-                      ? const AppPreloader(size: 20, strokeWidth: 2, color: Color(0xFF110D0C))
-                      : Text('Send Verification Code', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: const Color(0xFF110D0C))),
-                ),
-              ),
-            ] else ...[
-              // Step 2: Input 6-digit OTP
-              Text(
-                '6-Digit SMS Code',
-                style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 12, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: _otpController,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                maxLength: 6,
-                style: GoogleFonts.jetBrainsMono(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 8,
-                ),
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: '123456',
-                  hintStyle: GoogleFonts.jetBrainsMono(color: const Color(0xFF6E5B52), fontSize: 18, letterSpacing: 6),
-                  filled: true,
-                  fillColor: const Color(0xFF241C1A),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF4A3830)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF4A3830)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: accentColor, width: 1.5),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              SizedBox(
-                height: 46,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _verifyOtp,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: accentColor,
-                    foregroundColor: const Color(0xFF110D0C),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
-                  ),
-                  child: _isLoading
-                      ? const AppPreloader(size: 20, strokeWidth: 2, color: Color(0xFF110D0C))
-                      : Text('Verify & Sign In', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: const Color(0xFF110D0C))),
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              TextButton(
-                onPressed: () => setState(() => _isCodeSent = false),
-                child: Text('Change phone number', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 12.5)),
-              ),
-            ],
-            const SizedBox(height: 8),
-          ],
+  Widget _buildPasswordInput(TextEditingController controller, ChondrobinduThemeColors colors) {
+    return TextFormField(
+      controller: controller,
+      obscureText: _obscurePassword,
+      validator: (val) {
+        if (val == null || val.isEmpty) return 'Password is required';
+        if (val.length < 6) return 'Minimum 6 characters';
+        return null;
+      },
+      style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
+      decoration: InputDecoration(
+        hintText: '••••••••',
+        hintStyle: GoogleFonts.plusJakartaSans(
+          color: colors.textMuted.withValues(alpha: 0.7),
+          fontSize: 13,
+        ),
+        filled: true,
+        fillColor: colors.recessed,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: colors.surfaceBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: colors.surfaceBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: colors.primary, width: 1.2),
+        ),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+            color: colors.textMuted,
+            size: 18,
+          ),
+          onPressed: () {
+            setState(() => _obscurePassword = !_obscurePassword);
+          },
         ),
       ),
     );

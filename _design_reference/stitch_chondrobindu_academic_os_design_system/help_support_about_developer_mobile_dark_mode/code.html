@@ -1,0 +1,362 @@
+<!DOCTYPE html><html class="dark" lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_stack" name="shell-type"><style>@layer base{html,body{width:100vw;margin:0;padding:0;background-color:#0f141b;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "on-surface": "#edeae0", "surface-dim": "#0f141b", "secondary": "#c88256", "background": "#0f141b", "surface-container-highest": "#2e3846", "surface-tint": "#afc9ea", "inverse-on-surface": "#111c2b", "on-secondary-container": "#ffdbc8", "tertiary": "#85d8a6", "on-primary": "#18324c", "primary-container": "#253346", "on-tertiary-fixed": "#002111", "surface": "#0f141b", "on-primary-fixed": "#001d36", "secondary-fixed-dim": "#ffb68a", "on-secondary-fixed-variant": "#6e3913", "on-error": "#ffffff", "on-background": "#edeae0", "primary": "#8fa8c8", "surface-container": "#1b2028", "on-tertiary-fixed-variant": "#005231", "tertiary-fixed": "#a1f4c1", "primary-fixed": "#d1e4ff", "on-secondary": "#522300", "error": "#b84a39", "error-container": "#93000a", "tertiary-fixed-dim": "#85d8a6", "on-primary-container": "#afc9ea", "outline-variant": "#2e3846", "surface-container-low": "#13171e", "on-secondary-fixed": "#321300", "surface-bright": "#252a33", "on-tertiary": "#003920", "surface-container-lowest": "#090e16", "on-primary-fixed-variant": "#304864", "surface-variant": "#202733", "on-error-container": "#ffdad6", "surface-container-high": "#202733", "on-tertiary-container": "#85d8a6", "outline": "#94a3b8", "secondary-container": "#713b15", "inverse-primary": "#48607d", "tertiary-container": "#123b28", "on-surface-variant": "#94a3b8", "secondary-fixed": "#ffdbc8", "primary-fixed-dim": "#afc9ea", "inverse-surface": "#edeae0" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: { "gutter": "1.5rem", "gutter-mobile": "0.75rem", "margin-mobile": "1rem", "margin": "2.5rem", "space-xs": "0.25rem", "space-lg": "1.5rem", "space-xl": "2.5rem", "space-md": "1rem", "space-sm": "0.5rem" }, fontFamily: { "mono-code-md": ["JetBrains Mono"], "body-md": ["Inter"], "headline-sm": ["Plus Jakarta Sans"], "body-sm": ["Inter"], "display-hero-mobile": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "label-caps": ["Plus Jakarta Sans"], "mono-badge-sm": ["JetBrains Mono"], "mono-timer-display-mobile": ["JetBrains Mono"], "mono-timer-display": ["JetBrains Mono"], "display-hero": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"], "body-lg": ["Inter"], "headline-lg-mobile": ["Plus Jakarta Sans"] }, fontSize: { "mono-code-md": ["13px", { "lineHeight": "18px", "fontWeight": "500" }], "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }], "headline-sm": ["18px", { "lineHeight": "24px", "letterSpacing": "-0.005em", "fontWeight": "600" }], "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }], "display-hero-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }], "label-caps": ["11px", { "lineHeight": "14px", "letterSpacing": "0.08em", "fontWeight": "700" }], "mono-badge-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "600" }], "mono-timer-display-mobile": ["40px", { "lineHeight": "44px", "letterSpacing": "-0.03em", "fontWeight": "500" }], "mono-timer-display": ["56px", { "lineHeight": "60px", "letterSpacing": "-0.04em", "fontWeight": "500" }], "display-hero": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.03em", "fontWeight": "700" }], "headline-md": ["22px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "body-lg": ["16px", { "lineHeight": "26px", "fontWeight": "400" }], "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.015em", "fontWeight": "600" }] } } } };</script><style>body { min-height: max(884px, 100dvh); }</style></head><body class="bg-background font-body-md text-body-md text-on-surface antialiased flex flex-col min-h-screen"><header class="fixed top-0 w-full z-50 pt-safe bg-[#0f141b]/90 backdrop-blur-xl border-b border-[#2e3846]/60 shadow-[0_1px_12px_rgba(0,0,0,0.4)]"><div class="h-16 px-gutter-mobile flex items-center justify-between gap-space-sm"><div class="flex items-center gap-space-xs min-w-0 flex-1"><button aria-label="Back to Workspace" class="h-10 px-2.5 shrink-0 flex items-center gap-1 text-on-surface-variant hover:text-[#edeae0] transition-colors rounded-lg bg-[#202733] border border-[#2e3846] active:bg-[#13171e] font-headline-sm text-body-sm" onclick="window.history.back()" title="Back to Workspace" type="button"><span class="material-symbols-outlined text-[20px] text-primary">arrow_back</span><span class="font-medium text-[13px] tracking-tight text-[#edeae0]">Workspace</span></button><div class="flex flex-col min-w-0 pr-space-xs ml-1"><div class="flex items-center gap-space-xs"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBY9xnWPiJ_bAKXRk0lbHwWa2duQMXCCT41MAYcWTKmFUuD0gE5xIxN-8UhZRu-IeHADtWt9OV4lrpiMKPIjYWh4O-KbbAnWTCLMRrW8v9PfkI85mk6J5Prv6PHV5UwAxW4TxqQEyQ4J3oFkBI4669FD0t1NC6ZGe6gWwVmnhQjY1Oaahbrl5kqlW4a9sBXyuuNUqodBUlUT3-nx_bJ-tjUA1B9PtHF8NpFgRneUtwOUVRMN20z1evf" alt="Chondrobindu Logo" class="h-7 w-auto object-contain shrink-0"><h1 class="font-headline-sm text-headline-sm text-[#edeae0] truncate leading-tight">Help &amp; About</h1></div><span class="font-mono-badge-sm text-mono-badge-sm text-primary tracking-wider uppercase truncate">TERM 24.2 • DOCS &amp; ABOUT</span></div></div><div class="flex items-center gap-space-xs shrink-0"><button aria-label="Notifications" class="relative w-11 h-11 flex items-center justify-center text-on-surface-variant hover:text-[#edeae0] transition-colors rounded-full active:bg-[#202733]" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-secondary ring-2 ring-[#0f141b]"></span></button></div></div></header><main class="flex-1 flex flex-col relative w-full pt-16 pb-safe bg-background"><div class="flex flex-col w-full px-margin-mobile pb-space-xl">
+<!-- Segmented Switcher Pill Container -->
+<div class="my-space-md bg-[#13171e] border border-[#2e3846] p-space-xs rounded-xl flex items-center justify-between shadow-sm">
+<button class="flex-1 py-2.5 px-space-sm text-center font-headline-sm text-body-sm rounded-lg bg-[#202733] border border-[#2e3846] text-[#edeae0] shadow-sm transition-all duration-200 flex items-center justify-center gap-space-xs font-semibold" id="tab-btn-help" onclick="switchSection('help')">
+<span class="material-symbols-outlined text-[18px] text-primary">support</span>
+<span class="">Help &amp; Support</span>
+</button>
+<button class="flex-1 py-2.5 px-space-sm text-center font-headline-sm text-body-sm rounded-lg text-on-surface-variant hover:text-[#edeae0] transition-all duration-200 flex items-center justify-center gap-space-xs" id="tab-btn-about" onclick="switchSection('about')">
+<span class="material-symbols-outlined text-[18px]">person</span>
+<span class="">About Developer</span>
+</button>
+</div>
+<!-- VIEW A: Help & Support -->
+<section class="flex flex-col gap-space-lg" id="view-help">
+<!-- Quick Search / Helper Banner -->
+<div class="bg-[#202733] border border-[#2e3846] rounded-xl p-space-md flex items-center gap-space-md shadow-lg">
+<div class="w-10 h-10 rounded-lg bg-[#13171e] border border-[#2e3846] text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">menu_book</span>
+</div>
+<div class="min-w-0 flex-1">
+<h2 class="font-headline-sm text-headline-sm text-[#edeae0] leading-tight">Knowledge Base</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Reference manual &amp; operational logic</p>
+</div>
+<span class="font-mono-badge-sm text-mono-badge-sm px-2 py-1 bg-[#13171e] border border-[#2e3846] text-primary rounded font-medium">DOCS v1.0</span>
+</div>
+<!-- FAQ Accordion -->
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between px-space-xs">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Frequently Asked Questions</span>
+<span class="font-mono-badge-sm text-mono-badge-sm text-secondary">4 ENTRIES</span>
+</div>
+<!-- FAQ Item 1 -->
+<div class="bg-[#202733] border border-[#2e3846] rounded-xl overflow-hidden shadow-sm transition-all duration-200">
+<button class="w-full text-left p-space-md flex items-center justify-between gap-space-sm" onclick="toggleAccordion('faq-1')">
+<div class="flex items-center gap-space-sm min-w-0">
+<span class="font-mono-code-md text-mono-code-md text-secondary bg-[#3d2516] border border-secondary/30 px-1.5 py-0.5 rounded shrink-0">01</span>
+<span class="font-headline-sm text-body-md text-[#edeae0] font-semibold">How does 3-level syllabus progress calculation work?</span>
+</div>
+<span class="material-symbols-outlined text-outline text-[20px] shrink-0 transition-transform duration-200" id="faq-1-icon">expand_more</span>
+</button>
+<div class="hidden px-space-md pb-space-md pt-0 text-on-surface-variant font-body-sm text-body-sm" id="faq-1">
+<p class="leading-relaxed bg-[#13171e] border border-[#2e3846]/60 p-space-sm rounded-lg text-[#cbd5e1]">
+            Syllabus completion aggregates in three calibrated tiers: <strong class="text-primary font-medium">Topic Mastery</strong> (granular sub-sections), <strong class="text-primary font-medium">Module Completion</strong> (weighted academic chapters), and overall <strong class="text-primary font-medium">Course Credit Depth</strong>. Each credit unit applies mathematically weighted co-efficients to preserve rigor across theoretical and sessional laboratory courses.
+          </p>
+</div>
+</div>
+<!-- FAQ Item 2 -->
+<div class="bg-[#202733] border border-[#2e3846] rounded-xl overflow-hidden shadow-sm transition-all duration-200">
+<button class="w-full text-left p-space-md flex items-center justify-between gap-space-sm" onclick="toggleAccordion('faq-2')">
+<div class="flex items-center gap-space-sm min-w-0">
+<span class="font-mono-code-md text-mono-code-md text-secondary bg-[#3d2516] border border-secondary/30 px-1.5 py-0.5 rounded shrink-0">02</span>
+<span class="font-headline-sm text-body-md text-[#edeae0] font-semibold">How are holidays and exam windows handled in routine?</span>
+</div>
+<span class="material-symbols-outlined text-outline text-[20px] shrink-0 transition-transform duration-200" id="faq-2-icon">expand_more</span>
+</button>
+<div class="hidden px-space-md pb-space-md pt-0 text-on-surface-variant font-body-sm text-body-sm" id="faq-2">
+<p class="leading-relaxed bg-[#13171e] border border-[#2e3846]/60 p-space-sm rounded-lg text-[#cbd5e1]">
+            Scheduled terms auto-suppress recurring lectures during designated Term Final prep leaves, government Gazetted holidays, and Ramadan recess windows. The daily agenda automatically prioritizes syllabus consolidation and study blocks over lecture checkpoints.
+          </p>
+</div>
+</div>
+<!-- FAQ Item 3 -->
+<div class="bg-[#202733] border border-[#2e3846] rounded-xl overflow-hidden shadow-sm transition-all duration-200">
+<button class="w-full text-left p-space-md flex items-center justify-between gap-space-sm" onclick="toggleAccordion('faq-3')">
+<div class="flex items-center gap-space-sm min-w-0">
+<span class="font-mono-code-md text-mono-code-md text-secondary bg-[#3d2516] border border-secondary/30 px-1.5 py-0.5 rounded shrink-0">03</span>
+<span class="font-headline-sm text-body-md text-[#edeae0] font-semibold">How does CGPA Target Forecaster calculate required grades?</span>
+</div>
+<span class="material-symbols-outlined text-outline text-[20px] shrink-0 transition-transform duration-200" id="faq-3-icon">expand_more</span>
+</button>
+<div class="hidden px-space-md pb-space-md pt-0 text-on-surface-variant font-body-sm text-body-sm" id="faq-3">
+<p class="leading-relaxed bg-[#13171e] border border-[#2e3846]/60 p-space-sm rounded-lg text-[#cbd5e1]">
+            The target forecaster uses reverse credit-weighted linear optimization against your target cumulative index. It establishes minimum letter grades needed in upcoming credits, factoring historical standard deviations to give realistic grade requirements.
+          </p>
+</div>
+</div>
+<!-- FAQ Item 4 -->
+<div class="bg-[#202733] border border-[#2e3846] rounded-xl overflow-hidden shadow-sm transition-all duration-200">
+<button class="w-full text-left p-space-md flex items-center justify-between gap-space-sm" onclick="toggleAccordion('faq-4')">
+<div class="flex items-center gap-space-sm min-w-0">
+<span class="font-mono-code-md text-mono-code-md text-secondary bg-[#3d2516] border border-secondary/30 px-1.5 py-0.5 rounded shrink-0">04</span>
+<span class="font-headline-sm text-body-md text-[#edeae0] font-semibold">Can I export my journal reflections?</span>
+</div>
+<span class="material-symbols-outlined text-outline text-[20px] shrink-0 transition-transform duration-200" id="faq-4-icon">expand_more</span>
+</button>
+<div class="hidden px-space-md pb-space-md pt-0 text-on-surface-variant font-body-sm text-body-sm" id="faq-4">
+<p class="leading-relaxed bg-[#13171e] border border-[#2e3846]/60 p-space-sm rounded-lg text-[#cbd5e1]">
+            Yes. Journal entries and focus session retrospectives can be exported as structured Plain Markdown (`.md`) or cryptographic offline JSON backups directly to your local file storage.
+          </p>
+</div>
+</div>
+</div>
+<!-- Mobile Quick Shortcuts & Gestures Card -->
+<div class="bg-[#202733] border border-[#2e3846] rounded-xl p-space-md shadow-lg flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[20px]">touch_app</span>
+<h3 class="font-headline-sm text-headline-sm text-[#edeae0]">Tactile Shortcuts &amp; Gestures</h3>
+</div>
+<span class="font-mono-badge-sm text-mono-badge-sm text-outline">FLUID OS</span>
+</div>
+<div class="grid grid-cols-1 gap-space-xs">
+<div class="flex items-center justify-between p-space-sm bg-[#13171e] border border-[#2e3846]/60 rounded-lg">
+<div class="flex items-center gap-space-sm min-w-0">
+<span class="w-7 h-7 rounded bg-[#202733] border border-[#2e3846] flex items-center justify-center text-primary font-mono-code-md text-mono-code-md shrink-0">2×</span>
+<span class="font-body-sm text-body-sm text-[#edeae0]">Double Tap lecture card</span>
+</div>
+<span class="font-mono-badge-sm text-mono-badge-sm text-secondary bg-[#3d2516] border border-secondary/30 px-2 py-0.5 rounded">Quick Log Attendance</span>
+</div>
+<div class="flex items-center justify-between p-space-sm bg-[#13171e] border border-[#2e3846]/60 rounded-lg">
+<div class="flex items-center gap-space-sm min-w-0">
+<span class="material-symbols-outlined text-[18px] text-primary w-7 h-7 rounded bg-[#202733] border border-[#2e3846] flex items-center justify-center shrink-0">swipe_left</span>
+<span class="font-body-sm text-body-sm text-[#edeae0]">Swipe Left on module</span>
+</div>
+<span class="font-mono-badge-sm text-mono-badge-sm text-primary bg-[#1e2c3e] border border-primary/30 px-2 py-0.5 rounded">Mark Done</span>
+</div>
+<div class="flex items-center justify-between p-space-sm bg-[#13171e] border border-[#2e3846]/60 rounded-lg">
+<div class="flex items-center gap-space-sm min-w-0">
+<span class="material-symbols-outlined text-[18px] text-primary w-7 h-7 rounded bg-[#202733] border border-[#2e3846] flex items-center justify-center shrink-0">timer</span>
+<span class="font-body-sm text-body-sm text-[#edeae0]">Long Press timer wheel</span>
+</div>
+<span class="font-mono-badge-sm text-mono-badge-sm text-secondary bg-[#3d2516] border border-secondary/30 px-2 py-0.5 rounded">Instant Zen 50m</span>
+</div>
+</div>
+</div>
+<!-- Feedback & Issue Reporter Card -->
+<div class="bg-[#202733] border border-[#2e3846] rounded-xl p-space-md shadow-lg flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-[#edeae0]">Direct Atelier Dispatch</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Transmit bug telemetry or feature requests</p>
+</div>
+<span class="material-symbols-outlined text-secondary text-[24px]">send</span>
+</div>
+<!-- Category Filter Pills -->
+<div class="flex items-center gap-space-xs" id="feedback-chips">
+<button class="feedback-chip active font-mono-badge-sm text-mono-badge-sm px-3 py-1.5 rounded-full bg-primary text-[#18324c] font-semibold transition-all border border-primary" onclick="selectChip(this)" type="button">🐞 Bug Report</button>
+<button class="feedback-chip font-mono-badge-sm text-mono-badge-sm px-3 py-1.5 rounded-full bg-[#13171e] text-[#cbd5e1] border border-[#2e3846] font-medium transition-all hover:border-primary/50" onclick="selectChip(this)" type="button">✨ Feature Idea</button>
+<button class="feedback-chip font-mono-badge-sm text-mono-badge-sm px-3 py-1.5 rounded-full bg-[#13171e] text-[#cbd5e1] border border-[#2e3846] font-medium transition-all hover:border-primary/50" onclick="selectChip(this)" type="button">💬 General Note</button>
+</div>
+<!-- Feedback Input -->
+<div class="flex flex-col gap-space-xs">
+<label class="font-label-caps text-label-caps text-on-surface-variant uppercase" for="feedback-notes">Academic Context &amp; Details</label>
+<textarea class="w-full bg-[#13171e] border border-[#2e3846] text-[#edeae0] placeholder:text-[#64748b] font-body-sm text-body-sm p-space-sm rounded-lg focus:outline-none focus:border-primary resize-none transition-colors" id="feedback-notes" placeholder="Detail the issue, routine glitch, or study workflow improvement..." rows="3"></textarea>
+</div>
+<button class="w-full h-11 bg-primary hover:bg-[#9db8d9] text-[#18324c] font-headline-sm text-body-md font-semibold rounded-lg flex items-center justify-center gap-space-xs active:translate-y-0.5 transition-all shadow-md" id="submit-feedback-btn" onclick="simulateSubmitFeedback()" type="button">
+<span class="material-symbols-outlined text-[18px]">outgoing_mail</span>
+<span class="">Submit Dispatch</span>
+</button>
+<!-- Quick Outbound Channels -->
+<div class="flex items-center justify-between pt-space-xs text-on-surface-variant font-body-sm text-body-sm">
+<span class="font-mono-badge-sm text-mono-badge-sm text-outline">ALTERNATE CHANNELS:</span>
+<div class="flex items-center gap-space-md">
+<a class="text-primary hover:text-secondary flex items-center gap-1 font-mono-badge-sm text-mono-badge-sm transition-colors" href="https://github.com" rel="noopener noreferrer" target="_blank">
+<span class="">GitHub Issues</span>
+<span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</a>
+<a class="text-primary hover:text-secondary flex items-center gap-1 font-mono-badge-sm text-mono-badge-sm transition-colors" href="mailto:support@chondrobindu.org">
+<span class="">Direct Email</span>
+<span class="material-symbols-outlined text-[14px]">mail</span>
+</a>
+</div>
+</div>
+</div>
+</section>
+<!-- VIEW B: About Developer & Project Credits -->
+<section class="hidden flex flex-col gap-space-lg" id="view-about">
+<!-- Brand Identity Card -->
+<div class="bg-[#202733] border border-[#2e3846] rounded-xl p-space-lg shadow-lg flex flex-col items-center text-center relative overflow-hidden">
+<!-- Top Subtle Monogram Backdrop -->
+<div class="w-16 h-16 rounded-full bg-[#13171e] border border-[#2e3846] flex items-center justify-center text-primary mb-space-sm shadow-inner">
+<span class="font-headline-lg-mobile text-headline-lg-mobile font-bold tracking-tighter">ঁ</span>
+</div>
+<h2 class="font-headline-md text-headline-md text-[#edeae0] tracking-tight">চন্দ্রবিন্দু • CHONDROBINDU</h2>
+<div class="flex items-center gap-space-xs my-space-xs">
+<span class="font-mono-badge-sm text-mono-badge-sm px-2 py-0.5 rounded bg-[#123b28] border border-tertiary/30 text-tertiary font-semibold">v1.0.0 PRODUCTION</span>
+<span class="font-mono-badge-sm text-mono-badge-sm px-2 py-0.5 rounded bg-[#3d2516] border border-secondary/30 text-secondary">STABLE BUILD</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-xs mt-space-xs leading-relaxed">
+        Precision Academic OS &amp; Deep Focus Tracker crafted specifically for engineering and college scholars.
+      </p>
+<div class="w-full mt-space-md pt-space-md flex items-center justify-around bg-[#13171e] border border-[#2e3846]/60 rounded-lg p-space-sm text-left">
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant block uppercase">Core Engine</span>
+<span class="font-mono-code-md text-mono-code-md text-primary font-semibold">Flutter 3.x</span>
+</div>
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant block uppercase">Data Vault</span>
+<span class="font-mono-code-md text-mono-code-md text-primary font-semibold">Local SQLite</span>
+</div>
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant block uppercase">Security</span>
+<span class="font-mono-code-md text-mono-code-md text-primary font-semibold">AES-256</span>
+</div>
+</div>
+</div>
+<!-- Developer Spotlight Card -->
+<div class="bg-[#202733] border border-[#2e3846] rounded-xl p-space-md shadow-lg flex flex-col gap-space-md">
+<div class="flex items-start gap-space-md">
+<!-- Developer Avatar Placeholder with detailed prompt -->
+<div class="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 shadow-sm bg-[#13171e] ring-1 ring-[#2e3846]">
+<img class="w-full h-full object-cover" data-alt="Monochromatic portrait photo of an engineering scholar student sitting by a notebook in a modern sunlit design workshop, natural soft shadows, warm mineral tones, clean aesthetic, candid, looking gently at camera" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWFKa2SGN7UdP5Qou-sc7b8DEo5buqu4IJQIaCCdwpBiPuP-RiKUWNNvot331b5Ip1k_vE2Ntiy1RAOJaZGRRbdB9Wfl2hg35Yiru3OXlScSsrn-FAd53DNShMj5GiYm1AOrBnOLnGjerfH1tZubgVdsd1ycs4zVfMj9EyE4XQhhW5U2tTcDpMK6b7eE_1Rzz1r291hDRwN3TJc8UnagKMuhofAjgpRz26p9GZvl4">
+</div>
+<div class="min-w-0 flex-1">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-sm text-headline-sm text-[#edeae0] truncate font-bold">Shahriyer Sayem (Utso)</h3>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Undergraduate Student, Dept. of EEE</p>
+<div class="mt-1 flex items-center gap-space-xs">
+<span class="font-mono-badge-sm text-mono-badge-sm bg-[#13171e] border border-[#2e3846] text-primary px-2 py-0.5 rounded font-medium">BUET EEE '25</span>
+<span class="font-mono-badge-sm text-mono-badge-sm bg-[#13171e] border border-[#2e3846] text-on-surface-variant px-2 py-0.5 rounded">ID: 2506034</span>
+</div>
+</div>
+</div>
+<!-- Creator Reflection / Note -->
+<div class="bg-[#13171e] border border-[#2e3846]/60 p-space-md rounded-lg flex flex-col gap-space-xs">
+<span class="font-label-caps text-label-caps text-secondary uppercase tracking-wider flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">edit_note</span>
+          Creator Atelier Note
+        </span>
+<blockquote class="font-body-md text-body-md text-[#edeae0] italic leading-relaxed">
+          “A distraction-free, paper-and-ink academic operating system built to navigate the rigorous semester demands of university students. No algorithms competing for attention—just pure academic trajectory.”
+        </blockquote>
+</div>
+<!-- Action Pills -->
+<div class="grid grid-cols-2 gap-space-sm pt-space-xs">
+<a class="h-10 bg-[#171c24] hover:bg-[#252f3e] border border-[#2e3846] text-[#edeae0] rounded-lg flex items-center justify-center gap-space-xs font-headline-sm text-body-sm active:translate-y-0.5 transition-all shadow-sm" href="https://github.com" rel="noopener noreferrer" target="_blank">
+<span class="material-symbols-outlined text-[18px] text-primary">terminal</span>
+<span class="">GitHub</span>
+</a>
+<a class="h-10 bg-[#253346] hover:bg-[#31435c] border border-[#2e3846] text-[#edeae0] rounded-lg flex items-center justify-center gap-space-xs font-headline-sm text-body-sm active:translate-y-0.5 transition-all shadow-sm" href="https://linkedin.com" rel="noopener noreferrer" target="_blank">
+<span class="material-symbols-outlined text-[18px] text-primary">link</span>
+<span class="">LinkedIn</span>
+</a>
+<a class="h-10 bg-[#171c24] hover:bg-[#252f3e] border border-[#2e3846] text-primary rounded-lg flex items-center justify-center gap-space-xs font-headline-sm text-body-sm active:translate-y-0.5 transition-all shadow-sm" href="mailto:contact@utso.dev">
+<span class="material-symbols-outlined text-[18px]">mail</span>
+<span class="text-[#edeae0]">Email</span>
+</a>
+<button class="h-10 bg-secondary hover:bg-[#d99064] text-[#321300] font-semibold rounded-lg flex items-center justify-center gap-space-xs font-headline-sm text-body-sm active:translate-y-0.5 transition-all shadow-sm" id="update-checker-btn" onclick="checkForUpdates()" type="button">
+<span class="material-symbols-outlined text-[18px]">sync</span>
+<span class="">Check Updates</span>
+</button>
+</div>
+</div>
+<!-- Colophon & Architecture Specifications -->
+<div class="bg-[#202733] border border-[#2e3846] rounded-xl p-space-md shadow-lg flex flex-col gap-space-sm">
+<div class="flex items-center justify-between pb-space-xs">
+<h4 class="font-headline-sm text-body-md text-[#edeae0] font-semibold">Colophon &amp; Offline Governance</h4>
+<span class="material-symbols-outlined text-outline text-[18px]">verified_user</span>
+</div>
+<div class="space-y-space-xs font-body-sm text-body-sm text-on-surface-variant">
+<div class="flex justify-between py-1 bg-[#13171e] border border-[#2e3846]/60 px-2 rounded">
+<span class="">Telemetry Policy</span>
+<span class="font-mono-code-md text-mono-code-md text-[#edeae0] font-medium">Zero Outbound Trackers</span>
+</div>
+<div class="flex justify-between py-1 bg-[#13171e] border border-[#2e3846]/60 px-2 rounded">
+<span class="">Offline State</span>
+<span class="font-mono-code-md text-mono-code-md text-[#edeae0] font-medium">100% Client-Side Sync</span>
+</div>
+<div class="flex justify-between py-1 bg-[#13171e] border border-[#2e3846]/60 px-2 rounded">
+<span class="">Design System</span>
+<span class="font-mono-code-md text-mono-code-md text-secondary font-medium">Indigo Dye &amp; Lime Wash</span>
+</div>
+<div class="flex justify-between py-1 bg-[#13171e] border border-[#2e3846]/60 px-2 rounded">
+<span class="">Licensing</span>
+<span class="font-mono-code-md text-mono-code-md text-[#edeae0] font-medium">MIT Open Atelier</span>
+</div>
+</div>
+<div class="pt-space-sm text-center">
+<span class="font-mono-badge-sm text-mono-badge-sm text-outline uppercase tracking-widest">
+          EST. DHAKA • BANGLADESH UNIVERSITY OF ENGINEERING &amp; TECHNOLOGY
+        </span>
+</div>
+</div>
+</section>
+</div>
+<script>
+  function switchSection(target) {
+    const viewHelp = document.getElementById('view-help');
+    const viewAbout = document.getElementById('view-about');
+    const btnHelp = document.getElementById('tab-btn-help');
+    const btnAbout = document.getElementById('tab-btn-about');
+
+    if (target === 'help') {
+      viewHelp.classList.remove('hidden');
+      viewAbout.classList.add('hidden');
+
+      btnHelp.className = 'flex-1 py-2.5 px-space-sm text-center font-headline-sm text-body-sm rounded-lg bg-[#202733] border border-[#2e3846] text-[#edeae0] shadow-sm transition-all duration-200 flex items-center justify-center gap-space-xs font-semibold';
+      btnAbout.className = 'flex-1 py-2.5 px-space-sm text-center font-headline-sm text-body-sm rounded-lg text-on-surface-variant hover:text-[#edeae0] transition-all duration-200 flex items-center justify-center gap-space-xs';
+      btnHelp.querySelector('.material-symbols-outlined').classList.add('text-primary');
+      btnAbout.querySelector('.material-symbols-outlined').classList.remove('text-primary');
+    } else {
+      viewHelp.classList.add('hidden');
+      viewAbout.classList.remove('hidden');
+
+      btnAbout.className = 'flex-1 py-2.5 px-space-sm text-center font-headline-sm text-body-sm rounded-lg bg-[#202733] border border-[#2e3846] text-[#edeae0] shadow-sm transition-all duration-200 flex items-center justify-center gap-space-xs font-semibold';
+      btnHelp.className = 'flex-1 py-2.5 px-space-sm text-center font-headline-sm text-body-sm rounded-lg text-on-surface-variant hover:text-[#edeae0] transition-all duration-200 flex items-center justify-center gap-space-xs';
+      btnAbout.querySelector('.material-symbols-outlined').classList.add('text-primary');
+      btnHelp.querySelector('.material-symbols-outlined').classList.remove('text-primary');
+    }
+  }
+
+  function toggleAccordion(id) {
+    const content = document.getElementById(id);
+    const icon = document.getElementById(id + '-icon');
+    const isHidden = content.classList.contains('hidden');
+
+    if (isHidden) {
+      content.classList.remove('hidden');
+      icon.style.transform = 'rotate(180deg)';
+    } else {
+      content.classList.add('hidden');
+      icon.style.transform = 'rotate(0deg)';
+    }
+  }
+
+  function selectChip(element) {
+    const chips = document.querySelectorAll('.feedback-chip');
+    chips.forEach(chip => {
+      chip.className = 'feedback-chip font-mono-badge-sm text-mono-badge-sm px-3 py-1.5 rounded-full bg-[#13171e] text-[#cbd5e1] border border-[#2e3846] font-medium transition-all hover:border-primary/50';
+    });
+    element.className = 'feedback-chip active font-mono-badge-sm text-mono-badge-sm px-3 py-1.5 rounded-full bg-primary text-[#18324c] font-semibold transition-all border border-primary';
+  }
+
+  function simulateSubmitFeedback() {
+    const btn = document.getElementById('submit-feedback-btn');
+    const textarea = document.getElementById('feedback-notes');
+    
+    if (!textarea.value.trim()) {
+      textarea.focus();
+      return;
+    }
+
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">check_circle</span><span>Dispatched to Atelier</span>';
+    btn.classList.remove('bg-primary', 'text-[#18324c]');
+    btn.classList.add('bg-tertiary', 'text-[#003920]');
+
+    setTimeout(() => {
+      textarea.value = '';
+      btn.innerHTML = originalContent;
+      btn.classList.remove('bg-tertiary', 'text-[#003920]');
+      btn.classList.add('bg-primary', 'text-[#18324c]');
+    }, 2400);
+  }
+
+  function checkForUpdates() {
+    const btn = document.getElementById('update-checker-btn');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">refresh</span><span>Verifying...</span>';
+    
+    setTimeout(() => {
+      btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">done_all</span><span>Latest v1.0.0</span>';
+      setTimeout(() => {
+        btn.innerHTML = original;
+      }, 2000);
+    }, 1200);
+  }
+</script></main>
+
+</body></html>

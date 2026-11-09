@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/theme/app_colors.dart';
 import '../providers/nav_provider.dart';
 import '../widgets/desktop_nav_bar.dart';
-import 'home_screen.dart';
 import 'courses_screen.dart';
-import 'timer_screen.dart';
-import 'planner_screen.dart';
+import 'home_screen.dart';
 import 'insights_screen.dart';
+import 'journal_screen.dart';
+import 'planner_screen.dart';
+import 'timer_screen.dart';
 
-/// Unified stateful desktop navigation shell.
-/// Embeds [DesktopNavBar] pinned at the top and an [IndexedStack] body
-/// supporting 5 core workspaces:
+/// Unified stateful desktop navigation shell (width >= 800px).
+/// Embeds [DesktopNavBar] (60px) pinned at the top and an [IndexedStack] body
+/// supporting 6 core workspaces:
 /// 0: Home Command Center
-/// 1: Courses & Syllabus Directory
+/// 1: Courses & Granular Syllabus Workspace
 /// 2: Deep Focus Timer
 /// 3: Timetable Matrix & Planner
-/// 4: Academic Analytics & Insights
+/// 4: Academic Journal & Brain Dump
+/// 5: Academic Analytics & Insights
 class MainShell extends ConsumerStatefulWidget {
   final int initialIndex;
 
@@ -33,6 +36,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     CoursesScreen(),
     TimerScreen(),
     PlannerScreen(),
+    JournalScreen(),
     InsightsScreen(),
   ];
 
@@ -79,12 +83,13 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     // Keep synchronized with Riverpod navigationIndexProvider for external triggers (e.g. "Start Focus →")
     final navIndex = ref.watch(navigationIndexProvider);
     final activeIndex = (navIndex >= 0 && navIndex < _screens.length) ? navIndex : _selectedIndex;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF151211),
+      backgroundColor: colors.background,
       appBar: DesktopNavBar(
         selectedIndex: activeIndex,
         onDestinationSelected: _onDestinationSelected,

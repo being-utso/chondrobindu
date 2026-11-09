@@ -1,0 +1,328 @@
+<!DOCTYPE html><html class="dark" lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_stack" name="shell-type"><style>@layer base{html,body{width:100vw;margin:0;padding:0;background-color:#0f141b;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "on-surface": "#edeae0", "surface-dim": "#0f141b", "secondary": "#c88256", "background": "#0f141b", "surface-container-highest": "#2e3846", "surface-tint": "#afc9ea", "inverse-on-surface": "#111c2b", "on-secondary-container": "#ffdbc8", "tertiary": "#85d8a6", "on-primary": "#18324c", "primary-container": "#253346", "on-tertiary-fixed": "#002111", "surface": "#0f141b", "on-primary-fixed": "#001d36", "secondary-fixed-dim": "#ffb68a", "on-secondary-fixed-variant": "#6e3913", "on-error": "#ffffff", "on-background": "#edeae0", "primary": "#8fa8c8", "surface-container": "#1b2028", "on-tertiary-fixed-variant": "#005231", "tertiary-fixed": "#a1f4c1", "primary-fixed": "#d1e4ff", "on-secondary": "#522300", "error": "#b84a39", "error-container": "#93000a", "tertiary-fixed-dim": "#85d8a6", "on-primary-container": "#afc9ea", "outline-variant": "#2e3846", "surface-container-low": "#13171e", "on-secondary-fixed": "#321300", "surface-bright": "#252a33", "on-tertiary": "#003920", "surface-container-lowest": "#090e16", "on-primary-fixed-variant": "#304864", "surface-variant": "#202733", "on-error-container": "#ffdad6", "surface-container-high": "#202733", "on-tertiary-container": "#85d8a6", "outline": "#94a3b8", "secondary-container": "#713b15", "inverse-primary": "#48607d", "tertiary-container": "#123b28", "on-surface-variant": "#94a3b8", "secondary-fixed": "#ffdbc8", "primary-fixed-dim": "#afc9ea", "inverse-surface": "#edeae0" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: { "gutter": "1.5rem", "gutter-mobile": "0.75rem", "margin-mobile": "1rem", "margin": "2.5rem", "space-xs": "0.25rem", "space-lg": "1.5rem", "space-xl": "2.5rem", "space-md": "1rem", "space-sm": "0.5rem" }, fontFamily: { "mono-code-md": ["JetBrains Mono"], "body-md": ["Inter"], "headline-sm": ["Plus Jakarta Sans"], "body-sm": ["Inter"], "display-hero-mobile": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "label-caps": ["Plus Jakarta Sans"], "mono-badge-sm": ["JetBrains Mono"], "mono-timer-display-mobile": ["JetBrains Mono"], "mono-timer-display": ["JetBrains Mono"], "display-hero": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"], "body-lg": ["Inter"], "headline-lg-mobile": ["Plus Jakarta Sans"] }, fontSize: { "mono-code-md": ["13px", { "lineHeight": "18px", "fontWeight": "500" }], "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }], "headline-sm": ["18px", { "lineHeight": "24px", "letterSpacing": "-0.005em", "fontWeight": "600" }], "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }], "display-hero-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }], "label-caps": ["11px", { "lineHeight": "14px", "letterSpacing": "0.08em", "fontWeight": "700" }], "mono-badge-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "600" }], "mono-timer-display-mobile": ["40px", { "lineHeight": "44px", "letterSpacing": "-0.03em", "fontWeight": "500" }], "mono-timer-display": ["56px", { "lineHeight": "60px", "letterSpacing": "-0.04em", "fontWeight": "500" }], "display-hero": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.03em", "fontWeight": "700" }], "headline-md": ["22px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "body-lg": ["16px", { "lineHeight": "26px", "fontWeight": "400" }], "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.015em", "fontWeight": "600" }] } } } };</script><style>body { min-height: max(884px, 100dvh); }</style></head><body class="bg-background font-body-md text-body-md text-on-surface antialiased flex flex-col min-h-screen"><header class="fixed top-0 w-full z-50 pt-safe bg-[#0f141b]/90 backdrop-blur-xl border-b border-[#2e3846]/60 shadow-[0_1px_12px_rgba(0,0,0,0.4)]"><div class="h-16 px-gutter-mobile flex items-center justify-between gap-space-sm"><div class="flex items-center gap-space-sm"><button aria-label="Go back" class="w-11 h-11 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors rounded-full active:bg-[#202733]" onclick="window.history.back()" type="button"><span class="material-symbols-outlined text-[24px]">arrow_back</span></button><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBY9xnWPiJ_bAKXRk0lbHwWa2duQMXCCT41MAYcWTKmFUuD0gE5xIxN-8UhZRu-IeHADtWt9OV4lrpiMKPIjYWh4O-KbbAnWTCLMRrW8v9PfkI85mk6J5Prv6PHV5UwAxW4TxqQEyQ4J3oFkBI4669FD0t1NC6ZGe6gWwVmnhQjY1Oaahbrl5kqlW4a9sBXyuuNUqodBUlUT3-nx_bJ-tjUA1B9PtHF8NpFgRneUtwOUVRMN20z1evf" alt="Chondrobindu Logo" class="w-7 h-7 object-cover rounded-lg mr-1 shrink-0"><h1 class="font-headline-sm text-headline-sm text-[#edeae0] truncate leading-tight">Profile &amp; Preferences</h1></div><div class="flex items-center gap-space-xs"><button aria-label="Notifications" class="relative w-11 h-11 flex items-center justify-center text-on-surface-variant hover:text-[#edeae0] transition-colors rounded-full active:bg-[#202733]" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-secondary ring-2 ring-[#0f141b]"></span></button></div></div></header><main class="flex-1 flex flex-col relative w-full pt-16 pb-safe bg-background"><div class="flex flex-col w-full pb-10">
+<!-- Sub-bar Meta Header -->
+<div class="px-gutter-mobile pt-3 pb-2 flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-mono-badge-sm text-mono-badge-sm text-primary tracking-wider uppercase">TERM 24.2 • SCHOLAR PASSPORT</span>
+<span class="font-headline-sm text-headline-sm text-[#edeae0]">Academic Profile</span>
+</div>
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#13171e] border border-[#2e3846] text-tertiary font-mono-badge-sm text-mono-badge-sm shadow-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
+<span class="">Cloud Synced</span>
+</div>
+</div>
+<div class="px-gutter-mobile flex flex-col gap-space-md mt-1">
+<!-- Student Identity Hero Card -->
+<div class="relative bg-[#202733] border border-[#2e3846] rounded-xl p-space-lg shadow-lg flex flex-col items-center text-center overflow-hidden">
+<!-- Watermark Seal Ornament -->
+<div class="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-[#2e3846]/25 pointer-events-none flex items-center justify-center">
+<span class="material-symbols-outlined text-[72px] text-primary/15">school</span>
+</div>
+<!-- Avatar with Camera Badge -->
+<div class="relative mb-3.5">
+<div class="w-24 h-24 rounded-full overflow-hidden shadow-md ring-2 ring-[#2e3846] bg-[#13171e] p-1">
+<img class="w-full h-full object-cover rounded-full" data-alt="Introspective South Asian male university engineering student wearing minimalist round spectacles and a dark indigo linen shirt, sitting in a quiet sunlit library atelier with lime-washed walls and architectural sketches in soft morning light." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyx8NqLa8C9w7NAFzJCR8Pk39craL_TW58JJqMQQUgm0VzmYiasfgnB5Zp4WaS2UfrN9rEgVUno4ds9r7fBRwa3f92ntaC0o1SZj6Yh_qhs_vIGownCmfjqyKKEhObeDWKsROzxHGJEwm4ZEAfLbVMqcm5kVCzAlQllwRD3cFpXgbHKqj3bGhc-JDGwzpYawvgDmOm4XOq99C_xCGhs39RHYrTpKRG7Cj3wpHLK44">
+</div>
+<button aria-label="Change profile photo" class="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-md active:scale-95 transition-transform ring-2 ring-[#202733]" type="button">
+<span class="material-symbols-outlined text-[16px]">photo_camera</span>
+</button>
+</div>
+<!-- Name & Credentials -->
+<div class="flex flex-col items-center gap-1 max-w-full">
+<h2 class="font-headline-md text-headline-md text-[#edeae0] tracking-tight truncate w-full font-bold">
+          Shahriyer Sayem (Utso)
+        </h2>
+<div class="flex items-center gap-1.5 flex-wrap justify-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant font-mono-code-md">ssayem1911@gmail.com</span>
+<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#123b28] border border-tertiary/30 text-tertiary font-label-caps text-[10px]">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+            Verified
+          </span>
+</div>
+<div class="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#13171e] border border-[#2e3846] text-primary font-mono-badge-sm text-mono-badge-sm">
+<span class="material-symbols-outlined text-[14px]">terminal</span>
+<span class="">EEE Undergraduate • BUET</span>
+</div>
+</div>
+</div>
+<!-- Academic Passport Card -->
+<div class="relative bg-[#202733] border border-[#2e3846] rounded-xl p-space-md shadow-lg overflow-hidden">
+<!-- Top Passport Label Banner -->
+<div class="flex items-center justify-between pb-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[20px]">badge</span>
+<span class="font-label-caps text-label-caps text-primary tracking-widest uppercase">Academic Passport</span>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-[#3d2516] border border-secondary/30 text-secondary font-mono-badge-sm text-[10px] tracking-wide">
+          UNIVERSITY TRACK
+        </span>
+</div>
+<!-- Detail Grid (2 Columns, Paper Plate Inset) -->
+<div class="grid grid-cols-2 gap-2 bg-[#13171e] border border-[#2e3846]/60 p-space-sm rounded-lg mb-3.5">
+<div class="bg-[#202733] border border-[#2e3846] p-2.5 rounded shadow-sm flex flex-col">
+<span class="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">Institution</span>
+<span class="font-headline-sm text-[16px] text-[#edeae0] mt-0.5 font-mono-code-md font-semibold">BUET</span>
+<span class="font-body-sm text-[11px] text-outline truncate">Dhaka, Bangladesh</span>
+</div>
+<div class="bg-[#202733] border border-[#2e3846] p-2.5 rounded shadow-sm flex flex-col">
+<span class="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">Student ID</span>
+<span class="font-headline-sm text-[16px] text-[#edeae0] mt-0.5 font-mono-code-md font-semibold">2506034</span>
+<span class="font-body-sm text-[11px] text-outline">Reg. Active</span>
+</div>
+<div class="bg-[#202733] border border-[#2e3846] p-2.5 rounded shadow-sm flex flex-col">
+<span class="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">Dept &amp; Batch</span>
+<span class="font-headline-sm text-[16px] text-[#edeae0] mt-0.5 font-mono-code-md font-semibold">EEE '25</span>
+<span class="font-body-sm text-[11px] text-outline">Dept. of EEE</span>
+</div>
+<div class="bg-[#202733] border border-[#2e3846] p-2.5 rounded shadow-sm flex flex-col">
+<span class="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">Current Term</span>
+<span class="font-headline-sm text-[16px] text-secondary mt-0.5 font-mono-code-md font-semibold">L-1 T-1</span>
+<span class="font-body-sm text-[11px] text-outline">Freshman Year</span>
+</div>
+</div>
+<!-- Action Row -->
+<div class="flex items-center gap-2">
+<button class="flex-1 h-10 px-4 rounded bg-[#171c24] hover:bg-[#252f3e] border border-[#2e3846] text-[#edeae0] font-label-caps text-label-caps flex items-center justify-center gap-2 shadow-sm active:bg-[#13171e] transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px] text-primary">edit_note</span>
+<span class="">Edit Profile</span>
+</button>
+<button aria-label="Export student passport as PDF or CSV" class="h-10 w-11 rounded bg-[#171c24] hover:bg-[#252f3e] border border-[#2e3846] text-[#edeae0] flex items-center justify-center shadow-sm active:bg-[#13171e] transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px] text-primary">download_for_offline</span>
+</button>
+</div>
+</div>
+<!-- PREFERENCES SECTION -->
+<div class="flex items-center justify-between pt-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant tracking-wider uppercase">Scholar Preferences</span>
+<span class="font-mono-badge-sm text-mono-badge-sm text-outline">v2.4.12-rc</span>
+</div>
+<!-- Card A: Appearance & Theme -->
+<div class="bg-[#202733] border border-[#2e3846] rounded-xl p-space-md shadow-lg flex flex-col gap-3">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded bg-[#13171e] border border-[#2e3846] flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">palette</span>
+</div>
+<div class="flex flex-col">
+<h3 class="font-headline-sm text-[15px] text-[#edeae0] leading-tight font-semibold">Visual Theme</h3>
+<p class="font-body-sm text-[12px] text-on-surface-variant">Lime Wash plaster and iron-gall palette</p>
+</div>
+</div>
+<!-- 3 Visual Choice Tiles -->
+<div class="grid grid-cols-3 gap-2 pt-1" id="theme-selector"><button class="theme-btn relative flex flex-col justify-between p-2.5 rounded-xl bg-[#edeae0] border border-[#dcd7c8] text-left shadow-sm transition-all hover:opacity-95 text-[#1f2a3a]" onclick="selectTheme(this)" type="button"><div class="w-full bg-[#f7f5f0] border border-[#dcd7c8] rounded-md p-1.5 mb-2 flex items-center justify-between shadow-xs"><span class="material-symbols-outlined text-[14px] text-[#a5673f]">light_mode</span><div class="flex flex-col gap-1 w-10"><span class="w-full h-1 rounded-full bg-[#dcd7c8]"></span><span class="w-3/4 h-1 rounded-full bg-[#8fa8c8]"></span></div></div><div class="flex flex-col w-full text-center items-center"><span class="font-headline-sm text-[12px] text-[#1f2a3a] font-bold">Lime Wash</span><span class="font-mono-badge-sm text-[10px] text-[#5a6578] mt-0.5">Light</span></div></button><button class="theme-btn relative flex flex-col justify-between p-2.5 rounded-xl bg-[#171c24] border-2 border-primary text-left shadow-[0_0_12px_rgba(143,168,200,0.25)] transition-all" onclick="selectTheme(this)" type="button"><div class="w-full bg-[#202733] border border-[#2e3846] rounded-md p-1.5 mb-2 flex items-center justify-between"><span class="material-symbols-outlined text-[14px] text-[#c88256]">dark_mode</span><div class="flex flex-col gap-1 w-10"><span class="w-full h-1 rounded-full bg-[#2e3846]"></span><span class="w-3/4 h-1 rounded-full bg-[#3a4659]"></span></div></div><div class="flex flex-col w-full text-center items-center"><span class="font-headline-sm text-[12px] text-[#edeae0] font-bold">Indigo Slate</span><span class="font-mono-badge-sm text-[10px] text-secondary mt-0.5 font-medium flex items-center justify-center gap-1">Night</span></div></button><button class="theme-btn relative flex flex-col justify-between rounded-xl bg-[#171c24] border border-[#2e3846] overflow-hidden text-left shadow-sm transition-all hover:border-primary/50 min-h-[92px] p-0" onclick="selectTheme(this)" type="button"><div class="relative w-full flex-1 flex"><div class="w-1/2 bg-[#edeae0] flex items-center justify-center pt-2 pb-1"><span class="material-symbols-outlined text-[15px] text-[#a5673f]">light_mode</span></div><div class="w-px bg-[#2e3846]"></div><div class="w-1/2 bg-[#171c24] flex items-center justify-center pt-2 pb-1"><span class="material-symbols-outlined text-[15px] text-primary">dark_mode</span></div></div><div class="w-full bg-[#202733] border-t border-[#2e3846] py-1.5 px-2 text-center flex flex-col items-center"><span class="font-headline-sm text-[12px] text-[#edeae0] font-bold leading-tight">System</span><span class="font-mono-badge-sm text-[10px] text-outline mt-0.5">Auto sync</span></div></button></div>
+</div>
+<!-- Card B: Academic & Grading Calibration -->
+<div class="bg-[#202733] border border-[#2e3846] rounded-xl p-space-md shadow-lg flex flex-col gap-3">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded bg-[#13171e] border border-[#2e3846] flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[18px]">calculate</span>
+</div>
+<div class="flex flex-col">
+<h3 class="font-headline-sm text-[15px] text-[#edeae0] leading-tight font-semibold">Academic Calibration</h3>
+<p class="font-body-sm text-[12px] text-on-surface-variant">Grade conversion &amp; term boundaries</p>
+</div>
+</div>
+<div class="flex flex-col gap-2.5 pt-1">
+<!-- Scale Selector Row -->
+<div class="flex items-center justify-between p-2.5 rounded-lg bg-[#13171e] border border-[#2e3846]/60">
+<div class="flex flex-col">
+<span class="font-body-sm text-[13px] text-[#edeae0] font-medium">Grading System</span>
+<span class="font-mono-badge-sm text-[11px] text-on-surface-variant">Standard Bangladesh UGC</span>
+</div>
+<span class="font-mono-code-md text-mono-code-md text-primary font-bold px-2 py-1 rounded bg-[#202733] border border-[#2e3846]">
+            4.00 Scale
+          </span>
+</div>
+<!-- Target CGPA Stepper Row -->
+<div class="flex items-center justify-between p-2.5 rounded-lg bg-[#13171e] border border-[#2e3846]/60">
+<div class="flex flex-col">
+<span class="font-body-sm text-[13px] text-[#edeae0] font-medium">Target Term CGPA</span>
+<span class="font-mono-badge-sm text-[11px] text-on-surface-variant">Calculates safe study margins</span>
+</div>
+<div class="flex items-center gap-1.5 bg-[#202733] border border-[#2e3846] px-1 py-0.5 rounded shadow-sm">
+<button class="w-7 h-7 rounded flex items-center justify-center text-primary hover:text-[#edeae0] active:bg-[#13171e] text-base font-bold transition-colors" onclick="adjustGpa(-0.05)" type="button">−</button>
+<span class="font-mono-code-md text-mono-code-md font-bold text-secondary w-10 text-center" id="cgpa-target">3.72</span>
+<button class="w-7 h-7 rounded flex items-center justify-center text-primary hover:text-[#edeae0] active:bg-[#13171e] text-base font-bold transition-colors" onclick="adjustGpa(0.05)" type="button">+</button>
+</div>
+</div>
+<!-- Semester timeline tracking badge -->
+<div class="p-2.5 rounded-lg bg-[#13171e] border border-[#2e3846]/60 flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-[10px] text-on-surface-variant uppercase">Semester Window</span>
+<span class="font-mono-badge-sm text-mono-badge-sm text-secondary font-semibold">Week 04 / 14 (28%)</span>
+</div>
+<span class="font-body-sm text-body-sm text-[#edeae0] font-medium">Aug 2026 – Dec 2026</span>
+<div class="w-full h-1.5 bg-[#202733] border border-[#2e3846]/40 rounded-full overflow-hidden mt-0.5">
+<div class="h-full bg-secondary rounded-full" style="width: 28%;"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Card C: Focus Atelier Settings -->
+<div class="bg-[#202733] border border-[#2e3846] rounded-xl p-space-md shadow-lg flex flex-col gap-3">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded bg-[#13171e] border border-[#2e3846] flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[18px]">timer</span>
+</div>
+<div class="flex flex-col">
+<h3 class="font-headline-sm text-[15px] text-[#edeae0] leading-tight font-semibold">Focus Atelier Settings</h3>
+<p class="font-body-sm text-[12px] text-on-surface-variant">Default deep cognitive session tempo</p>
+</div>
+</div>
+<div class="flex flex-col gap-2 pt-1">
+<!-- Interval config -->
+<div class="flex items-center justify-between p-2.5 rounded-lg bg-[#13171e] border border-[#2e3846]/60">
+<span class="font-body-sm text-[13px] text-[#edeae0]">Standard Cycle</span>
+<span class="font-mono-code-md text-[12px] text-primary px-2.5 py-1 rounded bg-[#202733] border border-[#2e3846] font-medium">
+            25m Focus / 5m Break
+          </span>
+</div>
+<!-- Ambient Sound selection -->
+<div class="flex items-center justify-between p-2.5 rounded-lg bg-[#13171e] border border-[#2e3846]/60">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-outline">graphic_eq</span>
+<span class="font-body-sm text-[13px] text-[#edeae0]">Background Noise</span>
+</div>
+<div class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#202733] border border-[#2e3846] text-primary font-mono-badge-sm text-mono-badge-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+<span class="text-[#edeae0]">Brown Noise</span>
+</div>
+</div>
+<!-- Auto start break toggle switch -->
+<div class="flex items-center justify-between p-2.5 rounded-lg bg-[#13171e] border border-[#2e3846]/60">
+<div class="flex flex-col">
+<span class="font-body-sm text-[13px] text-[#edeae0]">Auto-start Breaks</span>
+<span class="font-mono-badge-sm text-[10px] text-outline">Seamless transition on bell</span>
+</div>
+<!-- Tactile custom styled switch -->
+<button aria-checked="true" class="w-12 h-6 rounded-full bg-primary relative p-0.5 transition-colors focus:outline-none" id="toggle-breaks" onclick="toggleSwitch(this)" role="switch" type="button">
+<span class="block w-5 h-5 rounded-full bg-[#18324c] shadow-sm transform translate-x-6 transition-transform"></span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card D: Account & Cloud Backup -->
+<div class="bg-[#202733] border border-[#2e3846] rounded-xl p-space-md shadow-lg flex flex-col gap-3">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded bg-[#13171e] border border-[#2e3846] flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">cloud_sync</span>
+</div>
+<div class="flex flex-col">
+<h3 class="font-headline-sm text-[15px] text-[#edeae0] leading-tight font-semibold">Sync &amp; Vault Backup</h3>
+<p class="font-body-sm text-[12px] text-on-surface-variant">End-to-end encrypted timetable store</p>
+</div>
+</div>
+<div class="p-2.5 rounded-lg bg-[#13171e] border border-[#2e3846]/60 flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span class="font-body-sm text-[12px] text-[#edeae0]">Vault Sync Status</span>
+</div>
+<span class="font-mono-badge-sm text-mono-badge-sm text-tertiary font-medium">Just now</span>
+</div>
+<div class="flex items-center justify-between pt-1 font-mono-badge-sm text-mono-badge-sm text-outline">
+<span class="">Local Cache: 14.2 MB</span>
+<span class="text-primary font-semibold">1,420 entries synced</span>
+</div>
+</div>
+<!-- Action: Force Sync -->
+<button class="w-full h-10 rounded bg-[#171c24] hover:bg-[#252f3e] border border-[#2e3846] text-primary font-label-caps text-label-caps flex items-center justify-center gap-2 shadow-sm active:bg-[#13171e] transition-colors" onclick="triggerSync(this)" type="button">
+<span class="material-symbols-outlined text-[16px]" id="sync-icon">sync</span>
+<span class="text-[#edeae0]" id="sync-label">Sync Archive Now</span>
+</button>
+<!-- Danger Zone Sign Out Button (Deep Terracotta Crimson) -->
+<div class="pt-2">
+<button class="w-full h-11 rounded bg-[#b84a39] hover:bg-[#c9513e] text-white font-label-caps text-label-caps flex items-center justify-center gap-2 shadow-lg active:opacity-90 transition-opacity" onclick="confirmSignOut()" type="button">
+<img src="https://lh3.googleusercontent.com/aida-public/AB6AXuBY9xnWPiJ_bAKXRk0lbHwWa2duQMXCCT41MAYcWTKmFUuD0gE5xIxN-8UhZRu-IeHADtWt9OV4lrpiMKPIjYWh4O-KbbAnWTCLMRrW8v9PfkI85mk6J5Prv6PHV5UwAxW4TxqQEyQ4J3oFkBI4669FD0t1NC6ZGe6gWwVmnhQjY1Oaahbrl5kqlW4a9sBXyuuNUqodBUlUT3-nx_bJ-tjUA1B9PtHF8NpFgRneUtwOUVRMN20z1evf" alt="Chondrobindu" class="w-5 h-5 rounded object-cover">
+<span class="">Sign Out of Chondrobindu</span>
+</button>
+<p class="font-body-sm text-[11px] text-outline text-center mt-2">
+          Encrypted local session token will be shredded.
+        </p>
+</div>
+</div>
+</div>
+</div>
+<script>
+  function selectTheme(selectedBtn) {
+    const buttons = document.querySelectorAll('.theme-btn');
+    buttons.forEach(btn => {
+      btn.className = "theme-btn relative flex flex-col items-center text-center p-2.5 rounded-lg bg-[#13171e] border border-[#2e3846] text-on-surface-variant shadow-sm transition-all hover:border-primary/50";
+      const nameSpan = btn.querySelectorAll('span')[1];
+      if (nameSpan) {
+        nameSpan.className = "font-headline-sm text-[12px] text-[#edeae0] font-semibold";
+      }
+      const statusSpan = btn.querySelector('span:last-child');
+      if (statusSpan && statusSpan.textContent.includes('Active')) {
+        statusSpan.className = "font-mono-badge-sm text-[10px] text-outline mt-0.5";
+        statusSpan.textContent = statusSpan.textContent.replace(' • Active', '').replace('Active', 'Preset');
+      }
+    });
+    selectedBtn.className = "theme-btn relative flex flex-col items-center text-center p-2.5 rounded-lg bg-[#171c24] border-2 border-primary text-[#edeae0] shadow-[0_0_12px_rgba(143,168,200,0.25)] transition-all";
+    const activeName = selectedBtn.querySelectorAll('span')[1];
+    if (activeName) {
+      activeName.className = "font-headline-sm text-[12px] text-primary font-bold";
+    }
+    const activeSpan = selectedBtn.querySelector('span:last-child');
+    if (activeSpan) {
+      activeSpan.className = "font-mono-badge-sm text-[10px] text-secondary mt-0.5 font-medium";
+      if (!activeSpan.textContent.includes('Active')) {
+        activeSpan.textContent = activeSpan.textContent + ' • Active';
+      }
+    }
+  }
+
+  function adjustGpa(delta) {
+    const el = document.getElementById('cgpa-target');
+    if (!el) return;
+    let val = parseFloat(el.textContent) + delta;
+    val = Math.min(4.00, Math.max(2.00, val));
+    el.textContent = val.toFixed(2);
+  }
+
+  function toggleSwitch(btn) {
+    const isChecked = btn.getAttribute('aria-checked') === 'true';
+    const thumb = btn.querySelector('span');
+    if (isChecked) {
+      btn.setAttribute('aria-checked', 'false');
+      btn.classList.remove('bg-primary');
+      btn.classList.add('bg-[#2e3846]');
+      thumb.classList.remove('translate-x-6');
+      thumb.classList.add('translate-x-0');
+      thumb.classList.remove('bg-[#18324c]');
+      thumb.classList.add('bg-[#94a3b8]');
+    } else {
+      btn.setAttribute('aria-checked', 'true');
+      btn.classList.remove('bg-[#2e3846]');
+      btn.classList.add('bg-primary');
+      thumb.classList.remove('translate-x-0');
+      thumb.classList.add('translate-x-6');
+      thumb.classList.remove('bg-[#94a3b8]');
+      thumb.classList.add('bg-[#18324c]');
+    }
+  }
+
+  function triggerSync(btn) {
+    const icon = document.getElementById('sync-icon');
+    const label = document.getElementById('sync-label');
+    if (!icon || !label) return;
+    icon.classList.add('animate-spin');
+    label.textContent = "Archiving Ledger...";
+    setTimeout(() => {
+      icon.classList.remove('animate-spin');
+      label.textContent = "Sync Complete (All Up to Date)";
+      setTimeout(() => {
+        label.textContent = "Sync Archive Now";
+      }, 2500);
+    }, 1200);
+  }
+
+  function confirmSignOut() {
+    if (confirm("Seal and shred the local scholar session for Shahriyer Sayem?")) {
+      window.location.reload();
+    }
+  }
+</script></main>
+
+
+
+</body></html>

@@ -1,0 +1,348 @@
+<!DOCTYPE html><html class="dark" lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><meta content="mobile_tab" name="shell-type"><style>@layer base{html,body{width:100vw;margin:0;padding:0;background-color:#171C24;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "on-surface": "#EDEAE0", "surface-dim": "#13171E", "secondary": "#C88256", "background": "#171C24", "surface-container-highest": "#2E3846", "surface-tint": "#8FA8C8", "inverse-on-surface": "#171C24", "on-secondary-container": "#EDEAE0", "tertiary": "#4E9F72", "on-primary": "#171C24", "primary-container": "#202733", "on-tertiary-fixed": "#0f141b", "surface": "#171C24", "on-primary-fixed": "#171C24", "secondary-fixed-dim": "#C88256", "on-secondary-fixed-variant": "#C88256", "on-error": "#EDEAE0", "on-background": "#EDEAE0", "primary": "#8FA8C8", "surface-container": "#13171E", "on-tertiary-fixed-variant": "#4E9F72", "tertiary-fixed": "rgba(78,159,114,0.2)", "primary-fixed": "#2E3846", "on-secondary": "#171C24", "error": "#ffb4ab", "error-container": "#93000a", "tertiary-fixed-dim": "#4E9F72", "on-primary-container": "#EDEAE0", "outline-variant": "#2E3846", "surface-container-low": "#1a212c", "on-secondary-fixed": "#EDEAE0", "surface-bright": "#202733", "on-tertiary": "#171C24", "surface-container-lowest": "#202733", "on-primary-fixed-variant": "#8FA8C8", "surface-variant": "#202733", "on-error-container": "#ffdad6", "surface-container-high": "#13171E", "on-tertiary-container": "#4E9F72", "outline": "#43474d", "secondary-container": "#C88256", "inverse-primary": "#8FA8C8", "tertiary-container": "#4E9F72", "on-surface-variant": "#94A3B8", "secondary-fixed": "rgba(200,130,86,0.2)", "primary-fixed-dim": "#8FA8C8", "inverse-surface": "#EDEAE0" }, borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, spacing: { "gutter": "1.5rem", "gutter-mobile": "0.75rem", "margin-mobile": "1rem", "margin": "2.5rem", "space-xs": "0.25rem", "space-lg": "1.5rem", "space-xl": "2.5rem", "space-md": "1rem", "space-sm": "0.5rem" }, fontFamily: { "mono-code-md": ["JetBrains Mono"], "body-md": ["Inter"], "headline-sm": ["Plus Jakarta Sans"], "body-sm": ["Inter"], "display-hero-mobile": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "label-caps": ["Plus Jakarta Sans"], "mono-badge-sm": ["JetBrains Mono"], "mono-timer-display-mobile": ["JetBrains Mono"], "mono-timer-display": ["JetBrains Mono"], "display-hero": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"], "body-lg": ["Inter"], "headline-lg-mobile": ["Plus Jakarta Sans"] }, fontSize: { "mono-code-md": ["13px", { "lineHeight": "18px", "fontWeight": "500" }], "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }], "headline-sm": ["18px", { "lineHeight": "24px", "letterSpacing": "-0.005em", "fontWeight": "600" }], "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }], "display-hero-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }], "label-caps": ["11px", { "lineHeight": "14px", "letterSpacing": "0.08em", "fontWeight": "700" }], "mono-badge-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "600" }], "mono-timer-display-mobile": ["40px", { "lineHeight": "44px", "letterSpacing": "-0.03em", "fontWeight": "500" }], "mono-timer-display": ["56px", { "lineHeight": "60px", "letterSpacing": "-0.04em", "fontWeight": "500" }], "display-hero": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.03em", "fontWeight": "700" }], "headline-md": ["22px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "body-lg": ["16px", { "lineHeight": "26px", "fontWeight": "400" }], "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.015em", "fontWeight": "600" }] } } } };</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head><body class="bg-[#171C24] font-body-md text-body-md text-[#EDEAE0] antialiased flex flex-col min-h-screen"><header class="fixed top-0 w-full z-50 pt-safe bg-[#171C24]/90 backdrop-blur-xl border-b border-[#2E3846]"><div class="h-16 px-gutter-mobile flex items-center justify-between gap-space-sm"><div class="flex items-center gap-space-sm min-w-0"><img alt="Chondrobindu Brand Mark" class="h-8 w-auto object-contain flex-shrink-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOt9F4gBC_eaL4d8ozfGKXw0ITp3cV5xWVfF7XYGyA6e_jliXRkZCqcKlXCQflHcuSr0hRDiUJZKWxyOw8vqcAkl7N-Mh-dcABJgxerlZw0pMUGtWHdplR8oV3oZROyfyqbLNjQKQjtRooZuPwDTiSZMwiOpJsKcB8hDAIawrJXRdVimwo-_-x-XfEKhD8LM69F5M0sg_OtjtLqdUhkFEOnLszth6-Z3AmOh2apcyum7ubig1WcPKf"><div class="flex flex-col truncate"><span class="font-headline-sm text-headline-sm text-[#EDEAE0] tracking-tight truncate leading-none">চন্দ্রবিন্দু</span><span class="font-mono-badge-sm text-mono-badge-sm text-[#C88256] uppercase tracking-widest leading-tight">Chondrobindu</span></div></div><div class="flex items-center gap-space-xs"><button aria-label="Journal" class="w-11 h-11 flex items-center justify-center text-[#94A3B8] hover:text-[#EDEAE0] transition-colors rounded-full" type="button"><span class="material-symbols-outlined text-[22px]">edit_note</span></button><button aria-label="Toggle Dark Mode" class="w-11 h-11 flex items-center justify-center text-[#94A3B8] hover:text-[#EDEAE0] transition-colors rounded-full" onclick="document.documentElement.classList.toggle('dark')" type="button"><span class="material-symbols-outlined text-[20px]">dark_mode</span></button><button aria-label="Notifications" class="relative w-11 h-11 flex items-center justify-center text-[#94A3B8] hover:text-[#EDEAE0] transition-colors rounded-full" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-[#C88256] ring-2 ring-[#171C24]"></span></button><button aria-label="Academic Profile" class="w-11 h-11 flex items-center justify-center ml-space-xs rounded-full relative" id="mobile-profile-btn" onclick="const m=document.getElementById('profile-modal-sheet');if(m){m.classList.toggle('hidden');}" type="button"><img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-1 ring-[#2E3846]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCe7-vF3Qii7vVa_l-MYj308PNZ1jARB0fXNCvPdnZo8NAk6zxreIblKIm3sITwkiHk7ehszt2HVu2AoBp8FQghQTUem_r53sOm0yi550B3CsTP7vPe1_xK0EN_F5B3NvZWfo-e8dtH7Z5-002_5WNbaQbBiOAY7z9LFHfYAXBPMi_g5mhOcOYbDKclUVkI4tcjnY48ybefAS09DCqlEBOc1cN6rHqQJRRAFPp8gew"></button></div></div></header><div class="hidden fixed inset-0 z-50 flex items-start justify-end p-4 pt-16 bg-black/60 backdrop-blur-sm" id="profile-modal-sheet" onclick="if(event.target===this){this.classList.add('hidden');}"><div class="w-full max-w-xs bg-[#202733] border border-[#2E3846] rounded-xl shadow-2xl p-space-md flex flex-col space-y-3"><div class="flex items-center gap-space-sm pb-2 border-b border-[#2E3846]"><img alt="Shahriyer Sayem Utso" class="w-11 h-11 rounded-full object-cover ring-1 ring-[#2E3846]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCe7-vF3Qii7vVa_l-MYj308PNZ1jARB0fXNCvPdnZo8NAk6zxreIblKIm3sITwkiHk7ehszt2HVu2AoBp8FQghQTUem_r53sOm0yi550B3CsTP7vPe1_xK0EN_F5B3NvZWfo-e8dtH7Z5-002_5WNbaQbBiOAY7z9LFHfYAXBPMi_g5mhOcOYbDKclUVkI4tcjnY48ybefAS09DCqlEBOc1cN6rHqQJRRAFPp8gew"><div class="flex flex-col min-w-0"><h4 class="font-headline-sm text-body-md font-semibold text-[#EDEAE0] truncate leading-tight">Shahriyer Sayem Utso</h4><span class="font-body-sm text-[11px] text-[#94A3B8] truncate">ssayem1911@gmail.com</span><span class="font-mono-badge-sm text-[10px] text-[#C88256] mt-0.5">BUET EEE '25</span></div></div><div class="flex flex-col space-y-1 text-body-sm font-medium"><a class="flex items-center gap-2 px-2.5 py-2 rounded-full hover:bg-[#13171E] text-[#EDEAE0] transition-colors" href="#"><span class="material-symbols-outlined text-[18px] text-[#C88256]">person</span><span class="">Profile &amp; Preferences</span></a><a class="flex items-center gap-2 px-2.5 py-2 rounded-full hover:bg-[#13171E] text-[#EDEAE0] transition-colors" href="#"><span class="material-symbols-outlined text-[18px] text-[#C88256]">help_outline</span><span class="">Help &amp; Support</span></a><a class="flex items-center gap-2 px-2.5 py-2 rounded-full hover:bg-[#13171E] text-[#EDEAE0] transition-colors" href="#"><span class="material-symbols-outlined text-[18px] text-[#C88256]">code</span><span class="">About Developer</span></a><div class="pt-1 border-t border-[#2E3846]"></div><a class="flex items-center gap-2 px-2.5 py-2 rounded-full text-error hover:bg-error-container/20 transition-colors" href="#"><span class="material-symbols-outlined text-[18px]">logout</span><span class="">Sign Out</span></a></div></div></div><main class="flex-1 flex flex-col relative w-full pt-16 pb-24 bg-[#171C24]"><div class="w-full max-w-md mx-auto px-margin-mobile pt-space-md"><div class="mb-space-md flex items-center justify-between"><span class="font-label-caps text-label-caps uppercase text-[#C88256] tracking-widest font-semibold">Workspace</span><span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8] bg-[#13171E] border border-[#2E3846] px-2.5 py-0.5 rounded-full">Term 24.2</span></div><h1 class="font-headline-lg-mobile text-headline-lg-mobile text-[#EDEAE0] mb-space-sm">Home</h1></div><div class="w-full max-w-md mx-auto px-margin-mobile flex-1"><div class="flex flex-col w-full pb-6 space-y-space-lg">
+<!-- SECTION 1: HEADER BANNER & DAILY INVOCATION -->
+<div class="flex flex-col space-y-space-xs">
+<!-- Context Indicator Chip -->
+<div class="inline-flex items-center gap-1.5 self-start px-2.5 py-1 rounded-full bg-[#13171E] border border-[#2E3846] text-[#EDEAE0]"><span class="w-2 h-2 rounded-full bg-[#C88256] flex-shrink-0"></span><span class="font-mono-badge-sm text-mono-badge-sm tracking-tight text-[#EDEAE0] font-medium">Level 1 • Term 1 • EEE • Batch '25 • Week 04</span></div>
+<!-- Scholar Greeting -->
+<div class="pt-1 flex items-baseline justify-between">
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-[#EDEAE0] tracking-tight">
+        Good Evening, Shahriyer
+      </h2>
+<span class="font-mono-badge-sm text-mono-badge-sm text-[#C88256] bg-[#C88256]/15 border border-[#C88256]/30 px-2 py-0.5 rounded-full">
+        Week 04
+      </span>
+</div>
+<!-- Daily Classical Adage -->
+<p class="font-body-sm text-body-sm text-[#94A3B8] italic leading-relaxed pt-0.5">
+      “Discipline is choosing between what you want now and what you want most.”
+      <span class="not-italic text-[#C88256] font-mono-badge-sm text-[10px] ml-1 uppercase tracking-wider">— A. Lincoln</span>
+</p>
+</div>
+<!-- SECTION 2: TOP METRIC TILES (Bento Grid) -->
+<div class="flex flex-col space-y-space-sm">
+<div class="grid grid-cols-2 gap-space-sm">
+<!-- Card 1: Study Streak -->
+<div class="bg-[#202733] border border-[#2E3846] p-space-md rounded-xl flex flex-col justify-between">
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-caps text-label-caps text-[#C88256] uppercase tracking-wider">Momentum</span>
+<div class="w-7 h-7 rounded-full bg-[#C88256]/20 flex items-center justify-center text-[#C88256]">
+<span class="material-symbols-outlined text-[17px]" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+</div>
+</div>
+<div>
+<div class="flex items-baseline gap-1">
+<span class="font-mono-code-md text-[26px] leading-tight font-bold text-[#EDEAE0] tracking-tight">12</span>
+<span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">days</span>
+</div>
+<span class="font-body-sm text-[12px] text-[#94A3B8] block mt-0.5">Unbroken study run</span>
+</div>
+<!-- 7-Day Sparkline Bars -->
+<div class="flex items-end gap-1.5 pt-3 mt-1">
+<div class="flex-1 bg-[#C88256] rounded-[1px] h-3.5"></div>
+<div class="flex-1 bg-[#C88256] rounded-[1px] h-5"></div>
+<div class="flex-1 bg-[#C88256] rounded-[1px] h-4"></div>
+<div class="flex-1 bg-[#C88256] rounded-[1px] h-6"></div>
+<div class="flex-1 bg-[#C88256] rounded-[1px] h-5.5"></div>
+<div class="flex-1 bg-[#C88256] rounded-[1px] h-7"></div>
+<div class="flex-1 bg-[#13171E] border border-[#2E3846] rounded-[1px] h-7 relative overflow-hidden">
+<div class="absolute bottom-0 inset-x-0 bg-[#C88256] rounded-[1px] h-4"></div>
+</div>
+</div>
+</div>
+<!-- Card 2: Cumulative Focus -->
+<div class="bg-[#202733] border border-[#2E3846] p-space-md rounded-xl flex flex-col justify-between">
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-caps text-label-caps text-[#8FA8C8] uppercase tracking-wider">Deep Hours</span>
+<div class="w-7 h-7 rounded-full bg-[#8FA8C8]/20 flex items-center justify-center text-[#8FA8C8]">
+<span class="material-symbols-outlined text-[17px]">timelapse</span>
+</div>
+</div>
+<div>
+<div class="flex items-baseline gap-1">
+<span class="font-mono-code-md text-[26px] leading-tight font-bold text-[#EDEAE0] tracking-tight">18.5</span>
+<span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">hrs</span>
+</div>
+<span class="font-body-sm text-[12px] text-[#94A3B8] block mt-0.5">24 total blocks</span>
+</div>
+<div class="pt-3 mt-1">
+<span class="inline-flex items-center gap-1 font-mono-badge-sm text-[10px] text-[#4E9F72] bg-[#4E9F72]/15 border border-[#4E9F72]/30 px-1.5 py-0.5 rounded-full font-medium">
+<span class="material-symbols-outlined text-[12px]">trending_up</span>
+            +2.4h vs wk 03
+          </span>
+</div>
+</div>
+</div>
+<!-- Card 3: CGPA Standing & Target Trajectory -->
+<div class="bg-[#202733] border border-[#2E3846] p-space-md rounded-xl">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[#8FA8C8] text-[18px]">school</span>
+<span class="font-label-caps text-label-caps text-[#8FA8C8] uppercase tracking-wider">CGPA Projection</span>
+</div>
+<span class="font-mono-badge-sm text-mono-badge-sm text-[#C88256] bg-[#C88256]/15 border border-[#C88256]/30 px-2 py-0.5 rounded-full">
+          Goal: 3.75
+        </span>
+</div>
+<div class="flex items-baseline justify-between py-1">
+<div class="flex items-baseline gap-1.5">
+<span class="font-mono-code-md text-headline-sm font-bold text-[#EDEAE0]">3.72</span>
+<span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">/ 4.00 cumulative</span>
+</div>
+<span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">88% of ceiling</span>
+</div>
+<!-- Linear Gauge -->
+<div class="w-full bg-[#13171E] border border-[#2E3846] h-2 rounded-full overflow-hidden mt-1.5 flex">
+<div class="bg-[#8FA8C8] h-full rounded-full transition-all duration-500" style="width: 88%"></div>
+</div>
+</div>
+</div>
+<!-- SECTION 3: RECOMMENDED DEEP WORK TARGET (Focal Atelier Action) -->
+<div class="relative overflow-hidden rounded-xl bg-[#202733] border border-[#2E3846] text-[#EDEAE0] p-space-md">
+<!-- Atmospheric subtle line decoration -->
+<div class="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-[#8FA8C8]/10 pointer-events-none blur-xl"></div>
+<div class="relative z-10 flex flex-col space-y-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<div class="w-5 h-5 rounded-full bg-[#C88256]/25 flex items-center justify-center text-[#C88256]">
+<span class="material-symbols-outlined text-[13px]">bolt</span>
+</div>
+<span class="font-label-caps text-label-caps text-[#C88256] uppercase tracking-widest">
+            Recommended Focus
+          </span>
+</div>
+<span class="font-mono-badge-sm text-[10px] text-[#8FA8C8] bg-[#13171E] border border-[#2E3846] px-2 py-0.5 rounded-full">
+          High Yield
+        </span>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-[#EDEAE0] tracking-tight">
+          EEE 101 · §1.2 Kirchhoff’s Laws
+        </h3>
+<p class="font-body-sm text-body-sm text-[#94A3B8] mt-1">
+          Targeted for Quiz 1 in 4 days <span class="text-[#8FA8C8] font-mono-badge-sm text-[11px]">(Weight: 15% Total Grade)</span>
+</p>
+</div>
+<div class="flex items-center justify-between pt-1">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#C88256] animate-pulse"></span>
+<span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">Suggested: 45 min block</span>
+</div>
+<button class="inline-flex items-center gap-1.5 bg-[#C88256] hover:bg-[#C88256]/90 active:scale-95 text-[#EDEAE0] font-headline-sm text-body-sm px-3.5 py-2 rounded-full shadow-sm transition-all" type="button"><span class="material-symbols-outlined text-[16px]">play_arrow</span><span class="">Start Focus</span></button>
+</div>
+</div>
+</div>
+<!-- SECTION 4: TODAY'S AGENDUM (Architectural Class Schedule) -->
+<div class="flex flex-col space-y-space-sm">
+<div class="flex items-center justify-between">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-[#EDEAE0] tracking-tight">Today’s Agenda</h3>
+<span class="font-body-sm text-[12px] text-[#94A3B8] block">3 sessions slated · Dept. of EEE</span>
+</div>
+<button class="font-mono-badge-sm text-mono-badge-sm text-[#C88256] hover:underline inline-flex items-center gap-0.5" type="button">
+<span class="">Full Roster</span>
+<span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</button>
+</div>
+<!-- Timeline Class Stack -->
+<div class="flex flex-col space-y-2">
+<!-- Item 1: Completed -->
+<div class="bg-[#202733] border border-[#2E3846] p-space-md rounded-xl flex items-start gap-space-md opacity-90">
+<div class="flex flex-col items-center pt-0.5 min-w-[58px]">
+<span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">08:30</span>
+<span class="font-mono-badge-sm text-[10px] text-[#94A3B8]/70">09:50</span>
+<span class="mt-2 w-1.5 h-1.5 rounded-full bg-[#4E9F72]"></span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between gap-1 mb-1">
+<span class="font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] px-2 py-0.5 rounded text-[#8FA8C8]">
+              EEE 101
+            </span>
+<span class="inline-flex items-center gap-1 font-mono-badge-sm text-[10px] text-[#4E9F72] bg-[#4E9F72]/15 border border-[#4E9F72]/30 px-2 py-0.5 rounded-full">
+<span class="material-symbols-outlined text-[12px]">check</span>
+              Done
+            </span>
+</div>
+<h4 class="font-headline-sm text-body-lg font-semibold text-[#EDEAE0] truncate">Electric Circuits I</h4>
+<div class="flex items-center gap-2 mt-1 font-body-sm text-[12px] text-[#94A3B8]">
+<span class="">Room 302</span>
+<span class="">·</span>
+<span class="">Prof. MSR</span>
+</div>
+</div>
+</div>
+<!-- Item 2: Up Next (Active Highlight) -->
+<div class="bg-[#202733] border border-[#C88256]/50 p-space-md rounded-xl flex items-start gap-space-md">
+<div class="flex flex-col items-center pt-0.5 min-w-[58px]">
+<span class="font-mono-badge-sm text-mono-badge-sm text-[#C88256] font-bold">10:10</span>
+<span class="font-mono-badge-sm text-[10px] text-[#C88256]">11:30</span>
+<span class="mt-2 w-2 h-2 rounded-full bg-[#C88256] ring-4 ring-[#C88256]/30 animate-pulse"></span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between gap-1 mb-1">
+<span class="font-mono-badge-sm text-mono-badge-sm bg-[#C88256]/20 border border-[#C88256]/40 text-[#C88256] px-2 py-0.5 rounded font-semibold">
+              CSE 109
+            </span>
+<span class="inline-flex items-center gap-1 font-mono-badge-sm text-[10px] text-[#C88256] bg-[#C88256]/20 border border-[#C88256]/40 px-2 py-0.5 rounded-full font-bold">
+              Up Next
+            </span>
+</div>
+<h4 class="font-headline-sm text-body-lg font-semibold text-[#EDEAE0] truncate">Computer Programming</h4>
+<div class="flex items-center gap-2 mt-1 font-body-sm text-[12px] text-[#94A3B8]">
+<span class="font-medium text-[#8FA8C8]">Lab 3 (Ground Fl.)</span>
+<span class="">·</span>
+<span class="">FAK Sir</span>
+</div>
+</div>
+</div>
+<!-- Item 3: Upcoming Afternoon -->
+<div class="bg-[#202733] border border-[#2E3846] p-space-md rounded-xl flex items-start gap-space-md">
+<div class="flex flex-col items-center pt-0.5 min-w-[58px]">
+<span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">14:00</span>
+<span class="font-mono-badge-sm text-[10px] text-[#94A3B8]/70">16:30</span>
+<span class="mt-2 w-1.5 h-1.5 rounded-full bg-[#2E3846]"></span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between gap-1 mb-1">
+<span class="font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] px-2 py-0.5 rounded text-[#8FA8C8]">
+              EEE 102
+            </span>
+<span class="font-mono-badge-sm text-[10px] text-[#94A3B8] bg-[#13171E] border border-[#2E3846] px-2 py-0.5 rounded-full">
+              Sessional
+            </span>
+</div>
+<h4 class="font-headline-sm text-body-lg font-semibold text-[#EDEAE0] truncate">Circuits Simulation Lab</h4>
+<div class="flex items-center gap-2 mt-1 font-body-sm text-[12px] text-[#94A3B8]">
+<span class="">Sim Lab 2</span>
+<span class="">·</span>
+<span class="">MSR &amp; NJ</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Upcoming Academic Notice Card -->
+<div class="bg-[#13171E] border border-[#2E3846] p-space-sm rounded-lg flex items-center justify-between gap-space-sm">
+<div class="flex items-center gap-2 min-w-0">
+<span class="material-symbols-outlined text-[#C88256] text-[18px] flex-shrink-0">event_note</span>
+<p class="font-body-sm text-[12px] text-[#94A3B8] truncate">
+          Upcoming Test: <span class="font-semibold text-[#EDEAE0]">CE 106 CT-2</span> in 3 days
+        </p>
+</div>
+<span class="font-mono-badge-sm text-[10px] text-[#C88256] bg-[#202733] border border-[#2E3846] px-2 py-0.5 rounded font-medium flex-shrink-0">
+        Oct 01
+      </span>
+</div>
+</div>
+<!-- SECTION 5: ACTIVE COURSES HEALTH & PROGRESSION -->
+<div class="flex flex-col space-y-space-sm pt-1">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-sm text-headline-sm text-[#EDEAE0] tracking-tight">Active Courses Health</h3>
+<span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8] bg-[#13171E] border border-[#2E3846] px-2.5 py-0.5 rounded-full">
+        19.5 Credits
+      </span>
+</div>
+<div class="flex flex-col space-y-space-sm">
+<!-- Course 1: EEE 101 -->
+<div class="bg-[#202733] border border-[#2E3846] p-space-md rounded-xl">
+<div class="flex items-start justify-between">
+<div class="min-w-0">
+<div class="flex items-center gap-2">
+<span class="font-mono-code-md text-mono-code-md text-[#8FA8C8] font-bold">EEE 101</span>
+<span class="font-mono-badge-sm text-[10px] text-[#94A3B8]">3.0 Cr</span>
+</div>
+<h4 class="font-headline-sm text-body-md font-semibold text-[#EDEAE0] mt-0.5 truncate">Electric Circuits I</h4>
+</div>
+<span class="font-mono-code-md text-mono-code-md text-[#8FA8C8] font-bold">72%</span>
+</div>
+<div class="w-full bg-[#13171E] border border-[#2E3846] h-1.5 rounded-full overflow-hidden mt-2.5">
+<div class="bg-[#8FA8C8] h-full rounded-full" style="width: 72%"></div>
+</div>
+<div class="flex items-center justify-between pt-2 mt-0.5 font-body-sm text-[11px] text-[#94A3B8]">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-[#C88256]">flag</span>
+            CT 1 on Sunday
+          </span>
+<span class="font-mono-badge-sm text-[10px]">18 / 25 Modules</span>
+</div>
+</div>
+<!-- Course 2: EEE 102 -->
+<div class="bg-[#202733] border border-[#2E3846] p-space-md rounded-xl">
+<div class="flex items-start justify-between">
+<div class="min-w-0">
+<div class="flex items-center gap-2">
+<span class="font-mono-code-md text-mono-code-md text-[#8FA8C8] font-bold">EEE 102</span>
+<span class="font-mono-badge-sm text-[10px] text-[#94A3B8]">1.5 Cr</span>
+</div>
+<h4 class="font-headline-sm text-body-md font-semibold text-[#EDEAE0] mt-0.5 truncate">Circuits I Sessional</h4>
+</div>
+<span class="font-mono-code-md text-mono-code-md text-[#8FA8C8] font-bold">60%</span>
+</div>
+<div class="w-full bg-[#13171E] border border-[#2E3846] h-1.5 rounded-full overflow-hidden mt-2.5">
+<div class="bg-[#8FA8C8] h-full rounded-full" style="width: 60%"></div>
+</div>
+<div class="flex items-center justify-between pt-2 mt-0.5 font-body-sm text-[11px] text-[#94A3B8]">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-[#8FA8C8]">science</span>
+            Report 4 pending
+          </span>
+<span class="font-mono-badge-sm text-[10px]">06 / 10 Labs</span>
+</div>
+</div>
+<!-- Course 3: CE 106 -->
+<div class="bg-[#202733] border border-[#2E3846] p-space-md rounded-xl">
+<div class="flex items-start justify-between">
+<div class="min-w-0">
+<div class="flex items-center gap-2">
+<span class="font-mono-code-md text-mono-code-md text-[#C88256] font-bold">CE 106</span>
+<span class="font-mono-badge-sm text-[10px] text-[#94A3B8]">3.0 Cr</span>
+</div>
+<h4 class="font-headline-sm text-body-md font-semibold text-[#EDEAE0] mt-0.5 truncate">Engineering Mechanics</h4>
+</div>
+<span class="font-mono-code-md text-mono-code-md text-[#C88256] font-bold">45%</span>
+</div>
+<div class="w-full bg-[#13171E] border border-[#2E3846] h-1.5 rounded-full overflow-hidden mt-2.5">
+<div class="bg-[#C88256] h-full rounded-full" style="width: 45%"></div>
+</div>
+<div class="flex items-center justify-between pt-2 mt-0.5 font-body-sm text-[11px] text-[#94A3B8]">
+<span class="flex items-center gap-1 text-[#C88256] font-medium">
+<span class="material-symbols-outlined text-[13px]">alarm</span>
+            Assignment 2 due Friday
+          </span>
+<span class="font-mono-badge-sm text-[10px]">09 / 20 Modules</span>
+</div>
+</div>
+<!-- Course 4: CSE 109 -->
+<div class="bg-[#202733] border border-[#2E3846] p-space-md rounded-xl">
+<div class="flex items-start justify-between">
+<div class="min-w-0">
+<div class="flex items-center gap-2">
+<span class="font-mono-code-md text-mono-code-md text-[#4E9F72] font-bold">CSE 109</span>
+<span class="font-mono-badge-sm text-[10px] text-[#94A3B8]">3.0 Cr</span>
+</div>
+<h4 class="font-headline-sm text-body-md font-semibold text-[#EDEAE0] mt-0.5 truncate">Computer Programming</h4>
+</div>
+<span class="font-mono-code-md text-mono-code-md text-[#4E9F72] font-bold">85%</span>
+</div>
+<div class="w-full bg-[#13171E] border border-[#2E3846] h-1.5 rounded-full overflow-hidden mt-2.5">
+<div class="bg-[#4E9F72] h-full rounded-full" style="width: 85%"></div>
+</div>
+<div class="flex items-center justify-between pt-2 mt-0.5 font-body-sm text-[11px] text-[#94A3B8]">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-[#4E9F72]">terminal</span>
+            Lab Quiz next week
+          </span>
+<span class="font-mono-badge-sm text-[10px]">17 / 20 Modules</span>
+</div>
+</div>
+</div>
+</div>
+</div></div></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-[#171C24]/90 backdrop-blur-xl border-t border-[#2E3846]" data-active-classes="text-[#8FA8C8] font-semibold"><div class="flex justify-around items-center h-16 max-w-md mx-auto px-space-xs"><a aria-current="page" class="flex flex-col items-center justify-center flex-1 h-12 transition-colors text-[#8FA8C8] font-semibold" data-path="home" href="#"><span class="material-symbols-outlined text-[20px] mb-0.5">home</span><span class="font-mono-badge-sm text-[10px] leading-none">Home</span></a><a class="flex flex-col items-center justify-center flex-1 h-12 text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" data-path="courses" href="#"><span class="material-symbols-outlined text-[20px] mb-0.5">menu_book</span><span class="font-mono-badge-sm text-[10px] leading-none">Courses</span></a><a class="flex flex-col items-center justify-center flex-1 h-12 text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" data-path="timer" href="#"><span class="material-symbols-outlined text-[20px] mb-0.5">timer</span><span class="font-mono-badge-sm text-[10px] leading-none">Timer</span></a><a class="flex flex-col items-center justify-center flex-1 h-12 text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" data-path="planner" href="#"><span class="material-symbols-outlined text-[20px] mb-0.5">calendar_month</span><span class="font-mono-badge-sm text-[10px] leading-none">Planner</span></a><a class="flex flex-col items-center justify-center flex-1 h-12 text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" data-path="journal" href="#"><span class="material-symbols-outlined text-[20px] mb-0.5">edit_note</span><span class="font-mono-badge-sm text-[10px] leading-none">Journal</span></a><a class="flex flex-col items-center justify-center flex-1 h-12 text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" data-path="insights" href="#"><span class="material-symbols-outlined text-[20px] mb-0.5">insights</span><span class="font-mono-badge-sm text-[10px] leading-none">Insights</span></a></div></nav>
+
+
+
+</body></html>

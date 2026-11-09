@@ -1,0 +1,535 @@
+<!DOCTYPE html><html class="dark" lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_standard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@500;600;700&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+          "on-primary": "#18324c",
+          "on-error-container": "#ffdad6",
+          "secondary-container": "#713b15",
+          "secondary-fixed": "#ffdbc8",
+          "on-error": "#690005",
+          "primary-container": "#8fa8c8",
+          "surface-container": "#1b2028",
+          "on-surface": "#dee2ee",
+          "surface-container-lowest": "#090e16",
+          "error": "#ffb4ab",
+          "on-primary-fixed-variant": "#304864",
+          "tertiary-container": "#65b687",
+          "surface-container-highest": "#30353e",
+          "on-tertiary-container": "#004528",
+          "outline": "#8d9198",
+          "on-tertiary-fixed-variant": "#005231",
+          "on-secondary-fixed-variant": "#6e3913",
+          "primary-fixed": "#d1e4ff",
+          "surface-container-low": "#171c24",
+          "on-secondary-fixed": "#321300",
+          "inverse-surface": "#dee2ee",
+          "secondary-fixed-dim": "#ffb68a",
+          "surface-dim": "#0f141b",
+          "background": "#0f141b",
+          "outline-variant": "#43474d",
+          "on-secondary-container": "#f3a778",
+          "tertiary-fixed": "#a1f4c1",
+          "surface-bright": "#343942",
+          "primary": "#afc9ea",
+          "surface-tint": "#afc9ea",
+          "primary-fixed-dim": "#afc9ea",
+          "surface-variant": "#30353e",
+          "on-tertiary-fixed": "#002111",
+          "on-primary-container": "#243d58",
+          "on-primary-fixed": "#001d36",
+          "on-surface-variant": "#c3c6ce",
+          "tertiary": "#85d8a6",
+          "tertiary-fixed-dim": "#85d8a6",
+          "error-container": "#93000a",
+          "inverse-on-surface": "#2c3139",
+          "surface-container-high": "#252a33",
+          "surface": "#0f141b",
+          "on-tertiary": "#003920",
+          "inverse-primary": "#48607d",
+          "secondary": "#ffb68a",
+          "on-background": "#dee2ee",
+          "on-secondary": "#522300"
+        },
+        "borderRadius": {
+          "DEFAULT": "0.25rem",
+          "lg": "0.5rem",
+          "xl": "0.75rem",
+          "full": "9999px"
+        },
+        "spacing": {
+          "space-xs": "0.25rem",
+          "margin-desktop": "2rem",
+          "space-lg": "1.5rem",
+          "gutter": "1rem",
+          "space-md": "1rem",
+          "gutter-desktop": "1.5rem",
+          "space-xl": "2.5rem",
+          "margin": "1rem",
+          "space-sm": "0.5rem"
+        },
+        "fontFamily": {
+          "headline-lg-mobile": ["Plus Jakarta Sans"],
+          "label-caps": ["JetBrains Mono"],
+          "headline-sm": ["Plus Jakarta Sans"],
+          "body-md": ["Inter"],
+          "headline-md": ["Plus Jakarta Sans"],
+          "code-md": ["JetBrains Mono"],
+          "body-lg": ["Inter"],
+          "display-timer-mobile": ["JetBrains Mono"],
+          "display-timer": ["JetBrains Mono"],
+          "body-sm": ["Inter"],
+          "headline-lg": ["Plus Jakarta Sans"],
+          "code-sm": ["JetBrains Mono"]
+        },
+        "fontSize": {
+          "headline-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+          "label-caps": ["11px", {"lineHeight": "14px", "letterSpacing": "0.08em", "fontWeight": "600"}],
+          "headline-sm": ["18px", {"lineHeight": "24px", "letterSpacing": "-0.015em", "fontWeight": "600"}],
+          "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+          "headline-md": ["22px", {"lineHeight": "28px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+          "code-md": ["14px", {"lineHeight": "20px", "letterSpacing": "-0.01em", "fontWeight": "500"}],
+          "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+          "display-timer-mobile": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.03em", "fontWeight": "600"}],
+          "display-timer": ["56px", {"lineHeight": "64px", "letterSpacing": "-0.04em", "fontWeight": "600"}],
+          "body-sm": ["12px", {"lineHeight": "18px", "fontWeight": "400"}],
+          "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.025em", "fontWeight": "700"}],
+          "code-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0em", "fontWeight": "500"}]
+        }
+      }
+    }
+  }
+</script></head><body class="bg-[#0f141b] font-body-md text-body-md text-[#dee2ee] antialiased"><header class="fixed top-0 inset-x-0 z-50 bg-[#13171e]/90 backdrop-blur-md border-b border-[#2E3846]/80 shadow-[0_1px_8px_rgba(0,0,0,0.4)]"><div class="h-14 max-w-[1360px] mx-auto px-margin flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md shrink-0"><img alt="Chondrobindu" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxWvcix_hUQJzEj3zIU5P0qKmKz3cUL7_InL2-qidx05B_SPvqtKhkJf8EyuKQvsShI4CdqkFHTtVrhjGLTP8T5YcpgBGW13xfIvJJ2Ah1Z1FZxuQhUCd6DmSmxEzx2nQXItLlKjqSTgSgGC1lQVJq5GnhkcMYR0IvogCy5jUPxeHQNKXdkwEp6ymgksZ44Rg-N38qIHdQle2lilJ10XOaWxyUvkPvjWSJnIeG5SNHmjGHkVLs81YA"><div class="flex flex-col"><div class="flex items-center gap-space-xs"><span class="font-headline-sm text-headline-sm text-[#afc9ea] font-bold tracking-tight">চন্দ্রবিন্দু</span><span class="text-[#8d9198] font-label-caps text-label-caps">•</span><span class="font-headline-sm text-headline-sm text-[#afc9ea] tracking-wider font-semibold">CHONDROBINDU</span></div><span class="font-label-caps text-label-caps text-[#8d9198] uppercase tracking-widest">Academic OS</span></div></div><div class="hidden lg:flex items-center justify-center"><div class="p-1 bg-[#171c24] rounded-full border border-[#2E3846]/50"><nav class="flex items-center gap-1" data-active-classes="bg-[#304864] text-[#EDEAE0] font-semibold shadow-sm"><a class="px-space-md py-1 rounded-full font-body-sm text-body-sm text-[#c3c6ce] hover:text-[#EDEAE0] transition-colors" data-path="home" href="#">Home</a><a class="px-space-md py-1 rounded-full font-body-sm text-body-sm text-[#c3c6ce] hover:text-[#EDEAE0] transition-colors" data-path="courses" href="#">Courses</a><a class="px-space-md py-1 rounded-full font-body-sm text-body-sm text-[#c3c6ce] hover:text-[#EDEAE0] transition-colors" data-path="timer" href="#">Timer</a><a class="px-space-md py-1 rounded-full font-body-sm text-body-sm text-[#c3c6ce] hover:text-[#EDEAE0] transition-colors" data-path="planner" href="#">Planner</a><a class="px-space-md py-1 rounded-full font-body-sm text-body-sm text-[#c3c6ce] hover:text-[#EDEAE0] transition-colors" data-path="insights" href="#">Insights</a><a aria-current="page" class="px-space-md py-1 rounded-full transition-colors bg-[#304864] text-[#EDEAE0] font-semibold shadow-sm" data-path="journal" href="#">Journal</a></nav></div></div><div class="flex items-center gap-space-md shrink-0"><div class="hidden xl:flex items-center bg-[#202733] border border-[#2E3846] px-space-md py-1.5 rounded-lg w-[260px] justify-between shadow-inner"><div class="flex items-center gap-space-xs overflow-hidden"><span class="material-symbols-outlined text-[#8d9198] text-[18px]">search</span><span class="font-body-sm text-body-sm text-[#8d9198] truncate">Search courses, topics...</span></div><kbd class="bg-[#13171e] border border-[#2E3846] font-label-caps text-label-caps text-[#c3c6ce] px-1.5 py-0.5 rounded shadow-sm">⌘K</kbd></div><div class="hidden md:flex items-center bg-[#171c24] border border-[#2E3846] p-0.5 rounded-full"><button aria-label="Light theme" class="p-1 rounded-full text-[#8d9198] hover:text-[#dee2ee] flex items-center justify-center transition-colors" type="button"><span class="material-symbols-outlined text-[16px]">light_mode</span></button><button aria-label="Dark theme" class="p-1 rounded-full bg-[#202733] text-[#afc9ea] shadow-sm flex items-center justify-center" type="button"><span class="material-symbols-outlined text-[16px]">dark_mode</span></button></div><button aria-label="Notifications" class="relative p-1.5 rounded-lg text-[#c3c6ce] hover:bg-[#202733] hover:text-[#EDEAE0] transition-colors" type="button"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#ffb68a] ring-2 ring-[#13171e]"></span></button><div class="flex items-center gap-space-xs bg-[#202733] border border-[#2E3846] pl-1 pr-2.5 py-1 rounded-full hover:bg-[#252a33] transition-colors cursor-pointer"><img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-1 ring-[#2E3846]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCe7-vF3Qii7vVa_l-MYj308PNZ1jARB0fXNCvPdnZo8NAk6zxreIblKIm3sITwkiHk7ehszt2HVu2AoBp8FQghQTUem_r53sOm0yi550B3CsTP7vPe1_xK0EN_F5B3NvZWfo-e8dtH7Z5-002_5WNbaQbBiOAY7z9LFHfYAXBPMi_g5mhOcOYbDKclUVkI4tcjnY48ybefAS09DCqlEBOc1cN6rHqQJRRAFPp8gew"><span class="font-body-sm text-body-sm font-medium text-[#dee2ee] hidden sm:inline">Shahriyer</span><span class="material-symbols-outlined text-[#8d9198] text-[16px]">expand_more</span></div></div></div></header><main class="w-full pt-14 bg-[#0f141b]"><div class="flex flex-col w-full">
+<div class="w-full max-w-[1360px] mx-auto px-margin md:px-margin py-space-md">
+<!-- Top System Context & Breadcrumbs Header -->
+<div class="flex flex-wrap items-center justify-between gap-space-md mb-space-md">
+<div class="flex items-center gap-space-xs text-[#8d9198] font-label-caps text-label-caps">
+<span class="flex items-center text-[#afc9ea] font-semibold">
+<span class="material-symbols-outlined text-[16px] mr-1">history_edu</span>
+          CHON-LOG // KERNEL 24.2
+        </span>
+<span class="">/</span>
+<span class="text-[#c3c6ce]">ACADEMIC JOURNAL</span>
+<span class="">/</span>
+<span class="text-[#ffb68a] font-semibold">BRAIN DUMP &amp; POST-MORTEM</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<div class="flex items-center gap-1.5 px-space-sm py-0.5 rounded-full bg-[#1b2028] border border-[#2E3846] text-[#c3c6ce] font-label-caps text-label-caps">
+<span class="inline-block w-1.5 h-1.5 rounded-full bg-[#85d8a6] animate-pulse"></span>
+          AUTOSYNC ACTIVE • 4 ENTRIES INDEXED
+        </div>
+<button class="hidden sm:inline-flex items-center gap-1 px-space-sm py-1 rounded bg-[#202733] hover:bg-[#252a33] text-[#afc9ea] border border-[#2E3846] font-label-caps text-label-caps transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">tune</span>
+          VIEW CONFIG
+        </button>
+</div>
+</div>
+<!-- Main 2-Panel Split Workspace Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start">
+<!-- LEFT PANEL: Chronological Timeline & Filter Engine (Col 1-4) -->
+<aside class="lg:col-span-4 w-full flex flex-col gap-space-md lg:sticky lg:top-20">
+<!-- Header Actions: Primary CTA + Search -->
+<div class="p-space-md bg-[#202733] border border-[#2E3846] rounded-xl shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center gap-space-sm">
+<button class="flex-1 h-10 px-space-md bg-[#304864] hover:bg-[#3d597b] text-[#EDEAE0] border border-[#48607d] rounded font-headline-sm text-body-md font-semibold flex items-center justify-between transition-all active:translate-y-0.5 shadow-sm" id="btn-new-entry" type="button">
+<span class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+                New Entry
+              </span>
+<kbd class="px-1.5 py-0.5 rounded bg-[#171c24] text-[#afc9ea] border border-[#2E3846] font-label-caps text-label-caps tracking-wider">⌘N</kbd>
+</button>
+<button class="h-10 w-10 flex items-center justify-center rounded bg-[#171c24] hover:bg-[#252a33] border border-[#2E3846] text-[#afc9ea] transition-colors" title="Quick Templates" type="button">
+<span class="material-symbols-outlined text-[20px]">auto_stories</span>
+</button>
+</div>
+<!-- Indented Search Tray -->
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#8d9198] text-[18px]">search</span>
+<input class="w-full h-10 pl-9 pr-8 bg-[#13171e] border border-[#2E3846] focus:border-[#afc9ea] text-[#EDEAE0] placeholder:text-[#8d9198] font-body-sm text-body-sm rounded focus:outline-none transition-colors" placeholder="Search reflections, formulas or tags..." type="text">
+<span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8d9198] text-[16px] cursor-pointer hover:text-[#dee2ee]">filter_list</span>
+</div>
+</div>
+<!-- Filter Segmented Tabs -->
+<div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-[#c3c6ce] font-label-caps text-label-caps">
+<button class="shrink-0 px-3 py-1.5 rounded-full bg-[#304864] text-[#EDEAE0] font-semibold shadow-xs border border-[#48607d]" type="button">
+            ALL (14)
+          </button>
+<button class="shrink-0 px-3 py-1.5 rounded-full bg-[#1b2028] hover:bg-[#202733] border border-[#2E3846] text-[#c3c6ce] transition-colors" type="button">
+            DAILY REFLECTION (8)
+          </button>
+<button class="shrink-0 px-3 py-1.5 rounded-full bg-[#1b2028] hover:bg-[#202733] border border-[#2E3846] text-[#c3c6ce] transition-colors" type="button">
+            EXAM POST-MORTEM (3)
+          </button>
+<button class="shrink-0 px-3 py-1.5 rounded-full bg-[#1b2028] hover:bg-[#202733] border border-[#2E3846] text-[#c3c6ce] transition-colors" type="button">
+            BRAIN DUMP (3)
+          </button>
+</div>
+<!-- Scrollable List of Academic Journal Entries -->
+<div class="flex flex-col gap-space-sm max-h-[calc(100vh-270px)] overflow-y-auto pr-1">
+<!-- Card 1: Active Entry (Selected) -->
+<article class="p-space-md bg-[#202733] border-l-4 border-l-[#ffb68a] border-y border-r border-[#2E3846] rounded-xl shadow-md cursor-pointer transition-all relative overflow-hidden group">
+<div class="flex items-center justify-between gap-space-xs mb-1.5">
+<span class="font-label-caps text-label-caps text-[#ffb68a] font-semibold">27 SEP 2026 • SUN</span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#713b15]/50 border border-[#a4531d] text-[#ffb68a] font-label-caps text-label-caps font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-[#ffb68a]"></span>
+                ⚡ Deep Flow
+              </span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-[#EDEAE0] font-semibold mb-1 line-clamp-1 group-hover:text-[#afc9ea] transition-colors">
+              Post-CT 4 Reflection &amp; Circuit Lab Prep
+            </h3>
+<p class="font-body-sm text-body-sm text-[#c3c6ce] line-clamp-2 mb-3">
+              CT 4 went smoothly on pointer arithmetic, but KVL superposition derivation was tricky in step 3. Need to consolidate circuit formulas before Wednesday.
+            </p>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="px-2 py-0.5 rounded bg-[#171c24] border border-[#2E3846] font-label-caps text-label-caps text-[#afc9ea] font-medium">#EEE-101</span>
+<span class="px-2 py-0.5 rounded bg-[#171c24] border border-[#2E3846] font-label-caps text-label-caps text-[#afc9ea] font-medium">#CSE-109</span>
+</div>
+<span class="font-label-caps text-label-caps text-[#8d9198]">10:45 PM</span>
+</div>
+</article>
+<!-- Card 2 -->
+<article class="p-space-md bg-[#171c24] hover:bg-[#202733] border border-[#2E3846] rounded-xl shadow-xs hover:shadow-sm cursor-pointer transition-all group">
+<div class="flex items-center justify-between gap-space-xs mb-1.5">
+<span class="font-label-caps text-label-caps text-[#8d9198]">26 SEP 2026 • SAT</span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#1b2735] border border-[#304864] text-[#afc9ea] font-label-caps text-label-caps font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-[#8fa8c8]"></span>
+                🎯 Focused
+              </span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-[#EDEAE0] font-semibold mb-1 line-clamp-1 group-hover:text-[#afc9ea] transition-colors">
+              Calculus Theorem Proofs &amp; Differential Equations
+            </h3>
+<p class="font-body-sm text-body-sm text-[#c3c6ce] line-clamp-2 mb-3">
+              Completed all 12 practice exercises from chapter 4. Vector calculus notations are finally clear after graphing the curl &amp; divergence vectors.
+            </p>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="px-2 py-0.5 rounded bg-[#202733] border border-[#2E3846] font-label-caps text-label-caps text-[#afc9ea] font-medium">#MATH-159</span>
+</div>
+<span class="font-label-caps text-label-caps text-[#8d9198]">04:12 PM</span>
+</div>
+</article>
+<!-- Card 3 -->
+<article class="p-space-md bg-[#171c24] hover:bg-[#202733] border border-[#2E3846] rounded-xl shadow-xs hover:shadow-sm cursor-pointer transition-all group">
+<div class="flex items-center justify-between gap-space-xs mb-1.5">
+<span class="font-label-caps text-label-caps text-[#8d9198]">24 SEP 2026 • THU</span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#713b15]/40 border border-[#a4531d] text-[#ffb68a] font-label-caps text-label-caps font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-[#ffb68a]"></span>
+                Exam Post-Mortem
+              </span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-[#EDEAE0] font-semibold mb-1 line-clamp-1 group-hover:text-[#afc9ea] transition-colors">
+              Physics Mid-Term Debrief &amp; Oscillations Review
+            </h3>
+<p class="font-body-sm text-body-sm text-[#c3c6ce] line-clamp-2 mb-3">
+              Exam timing was tight during problem 2. Need better speed in damped harmonic resonance diagrams. Must build rapid phasor calculation muscle.
+            </p>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="px-2 py-0.5 rounded bg-[#202733] border border-[#2E3846] font-label-caps text-label-caps text-[#afc9ea] font-medium">#PHY-121</span>
+</div>
+<span class="font-label-caps text-label-caps text-[#8d9198]">08:20 PM</span>
+</div>
+</article>
+<!-- Card 4 -->
+<article class="p-space-md bg-[#171c24] hover:bg-[#202733] border border-[#2E3846] rounded-xl shadow-xs hover:shadow-sm cursor-pointer transition-all group">
+<div class="flex items-center justify-between gap-space-xs mb-1.5">
+<span class="font-label-caps text-label-caps text-[#8d9198]">22 SEP 2026 • TUE</span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#713b15]/40 border border-[#a4531d] text-[#ffb68a] font-label-caps text-label-caps font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-[#ffb68a]"></span>
+                ⚡ Deep Flow
+              </span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-[#EDEAE0] font-semibold mb-1 line-clamp-1 group-hover:text-[#afc9ea] transition-colors">
+              Memory Allocator Implementation in C
+            </h3>
+<p class="font-body-sm text-body-sm text-[#c3c6ce] line-clamp-2 mb-3">
+              Re-implemented malloc free-list chunks. Clean memory layout visualized with zero leaks under Valgrind stress runs. Added boundary tag headers.
+            </p>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="px-2 py-0.5 rounded bg-[#202733] border border-[#2E3846] font-label-caps text-label-caps text-[#afc9ea] font-medium">#CSE-109</span>
+</div>
+<span class="font-label-caps text-label-caps text-[#8d9198]">11:15 PM</span>
+</div>
+</article>
+</div>
+</aside>
+<!-- RIGHT PANEL: Main Editorial Canvas (Col 5-12) -->
+<main class="lg:col-span-8 w-full bg-[#171c24] border border-[#2E3846] rounded-2xl shadow-lg p-space-md sm:p-space-lg lg:p-space-xl flex flex-col gap-space-lg relative overflow-hidden">
+<!-- Subtle Indigo Architectural Scrim Background Indicator -->
+<div class="absolute right-0 top-0 w-80 h-80 bg-gradient-to-bl from-[#afc9ea]/10 via-[#304864]/5 to-transparent pointer-events-none"></div>
+<!-- Top Editorial Status & Action Bar -->
+<div class="flex flex-col gap-space-sm pb-space-sm border-b border-[#2E3846]/60">
+<div class="flex flex-wrap items-center justify-between gap-space-sm">
+<div class="flex items-center gap-2 text-[#c3c6ce]">
+<span class="material-symbols-outlined text-[18px] text-[#afc9ea]">calendar_today</span>
+<span class="font-body-md text-body-md font-medium text-[#EDEAE0]">Sunday, 27 Sep 2026</span>
+<span class="font-label-caps text-label-caps text-[#8d9198]">• 10:45 PM</span>
+</div>
+<!-- Utilities: Autosave, Options, Export -->
+<div class="flex items-center gap-space-xs">
+<span class="inline-flex items-center gap-1 text-[#c3c6ce] font-label-caps text-label-caps mr-1">
+<span class="material-symbols-outlined text-[14px] text-[#85d8a6]">check_circle</span>
+                Auto-saved 2m ago
+              </span>
+<button class="p-1.5 rounded hover:bg-[#202733] text-[#c3c6ce] hover:text-[#EDEAE0] transition-colors" title="More Options" type="button">
+<span class="material-symbols-outlined text-[20px]">more_horiz</span>
+</button>
+<button class="inline-flex items-center gap-1 px-space-sm py-1 rounded bg-[#202733] hover:bg-[#252a33] text-[#afc9ea] border border-[#2E3846] font-label-caps text-label-caps font-semibold transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">ios_share</span>
+                Export PDF/MD
+              </button>
+</div>
+</div>
+<!-- Flow State & Course Linking Selectors -->
+<div class="flex flex-wrap items-center justify-between gap-space-sm pt-space-xs">
+<!-- Mood / Flow State Selector -->
+<div class="flex items-center gap-1.5">
+<span class="font-label-caps text-label-caps text-[#8d9198] uppercase mr-1">State:</span>
+<button class="px-2.5 py-1 rounded-full bg-[#713b15]/60 border border-[#a4531d] text-[#ffb68a] font-label-caps text-label-caps font-semibold flex items-center gap-1 shadow-xs" type="button">
+<span class="">⚡</span> Deep Flow
+              </button>
+<button class="px-2.5 py-1 rounded-full bg-[#202733] hover:bg-[#252a33] border border-[#2E3846] text-[#c3c6ce] font-label-caps text-label-caps font-medium transition-colors flex items-center gap-1" type="button">
+<span class="">🎯</span> Focused
+              </button>
+<button class="px-2.5 py-1 rounded-full bg-[#202733] hover:bg-[#252a33] border border-[#2E3846] text-[#c3c6ce] font-label-caps text-label-caps font-medium transition-colors flex items-center gap-1" type="button">
+<span class="">🔋</span> Drained
+              </button>
+</div>
+<!-- Linked Courses Pills -->
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-[#8d9198]">link</span>
+<div class="flex items-center gap-1 bg-[#202733] border border-[#2E3846] px-2 py-0.5 rounded">
+<span class="font-label-caps text-label-caps text-[#afc9ea] font-medium">EEE 101, MATH 159</span>
+</div>
+<button class="px-2 py-0.5 rounded bg-[#1b2028] hover:bg-[#202733] text-[#afc9ea] border border-[#2E3846] font-label-caps text-label-caps font-semibold transition-colors" type="button">
+                + Link Course
+              </button>
+</div>
+</div>
+</div>
+<!-- Academic Context Breadcrumb & Large Document Title -->
+<div class="flex flex-col gap-1">
+<div class="font-code-md text-code-md text-[#94A3B8] tracking-wider uppercase font-mono">
+            UNIVERSITY TRACK // TERM 24.2 // WEEK 04 JOURNAL
+          </div>
+<h1 class="font-display-hero text-headline-lg md:text-display-hero text-[#EDEAE0] font-bold tracking-tight">
+            Post-CT 4 Reflection &amp; Circuit Lab Prep
+          </h1>
+</div>
+<!-- Auto-Synced Daily Summary Banner (Lime Wash & Indigo Studio Telemetry) -->
+<div class="p-space-md bg-[#13171e] border border-[#2E3846] rounded-xl shadow-xs flex flex-col gap-space-sm relative overflow-hidden">
+<div class="flex items-center justify-between gap-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[#afc9ea] text-[18px]">satellite_alt</span>
+<span class="font-label-caps text-label-caps text-[#afc9ea] tracking-widest uppercase">
+                TODAY'S SYNCED TELEMETRY
+              </span>
+</div>
+<span class="font-label-caps text-label-caps text-[#85d8a6] font-semibold">
+              ROUTINE MATRIX ACTIVE
+            </span>
+</div>
+<!-- High-Contrast Metrics Row -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-space-sm pt-1">
+<div class="flex items-center gap-space-xs p-2 rounded bg-[#1b2028] border border-[#2E3846]">
+<span class="material-symbols-outlined text-[#ffb68a] text-[20px]">timer</span>
+<div>
+<div class="font-headline-sm text-body-md font-bold text-[#EDEAE0]">3h 45m</div>
+<div class="font-label-caps text-label-caps text-[#8d9198]">Deep Focus Time</div>
+</div>
+</div>
+<div class="flex items-center gap-space-xs p-2 rounded bg-[#1b2028] border border-[#2E3846]">
+<span class="material-symbols-outlined text-[#85d8a6] text-[20px]">task_alt</span>
+<div>
+<div class="font-headline-sm text-body-md font-bold text-[#EDEAE0]">4 Subtopics</div>
+<div class="font-label-caps text-label-caps text-[#8d9198]">Checked &amp; Solidified</div>
+</div>
+</div>
+<div class="flex items-center gap-space-xs p-2 rounded bg-[#1b2028] border border-[#2E3846]">
+<span class="material-symbols-outlined text-[#afc9ea] text-[20px]">assignment_turned_in</span>
+<div>
+<div class="font-headline-sm text-body-md font-bold text-[#EDEAE0]">CT 4: 10:00 AM</div>
+<div class="font-label-caps text-label-caps text-[#8d9198]">Assessment Logged</div>
+</div>
+</div>
+</div>
+<div class="font-body-sm text-body-sm text-[#8d9198] italic">
+            Recorded automatically via Chondrobindu Focus Studio &amp; Timetable Matrix.
+          </div>
+</div>
+<!-- Notion-Style Structured Reflection Prompts & Freeform Blocks -->
+<div class="flex flex-col gap-space-lg text-[#dee2ee]">
+<!-- Block 1: What clicked today? -->
+<section class="flex flex-col gap-space-xs">
+<div class="flex items-center gap-space-xs">
+<div class="w-1 h-5 rounded-full bg-[#afc9ea]"></div>
+<h2 class="font-headline-md text-headline-sm md:text-headline-md text-[#EDEAE0] font-semibold">
+                1. What clicked today?
+              </h2>
+</div>
+<div class="pl-space-sm md:pl-space-md">
+<p class="font-body-lg text-body-lg text-[#CBD5E1] leading-relaxed">
+                Mastered pointer manipulation across multi-dimensional arrays in CSE 109. Also verified the mesh current equations for the second-order RLC circuit simulation during afternoon lab prep. The relationship between characteristic roots and damping ratio finally has intuitive geometric grounding.
+              </p>
+</div>
+</section>
+<!-- Block 2: Blockers / Formulas to review -->
+<section class="flex flex-col gap-space-xs">
+<div class="flex items-center gap-space-xs">
+<div class="w-1 h-5 rounded-full bg-[#ffb68a]"></div>
+<h2 class="font-headline-md text-headline-sm md:text-headline-md text-[#EDEAE0] font-semibold">
+                2. Blockers / Formulas to review:
+              </h2>
+</div>
+<div class="pl-space-sm md:pl-space-md flex flex-col gap-space-sm">
+<!-- Monospace Formula Callout Box -->
+<div class="p-space-md bg-[#0D1219] border border-[#2E3846] rounded-xl flex flex-col gap-1 shadow-inner">
+<div class="flex items-center justify-between text-[#8d9198]">
+<span class="font-label-caps text-label-caps tracking-wider uppercase font-semibold text-[#afc9ea]">FORMULA REFERENCE // AC CIRCUIT DYNAMICS</span>
+<span class="material-symbols-outlined text-[16px] text-[#afc9ea]">functions</span>
+</div>
+<div class="font-code-md text-code-md text-[#EDEAE0] font-semibold py-1 overflow-x-auto font-mono">
+                  V(t) = L · (di/dt) &nbsp;|&nbsp; Superposition applies strictly to linear bilateral networks
+                </div>
+<div class="font-body-sm text-body-sm text-[#8d9198]">Note: Never ignore initial inductive current <span class="font-code-md text-[#afc9ea] font-medium font-mono"><i>i</i>(0<sup>−</sup>)</span> during instantaneous switch openings at <span class="font-code-md text-[#afc9ea] font-medium font-mono"><i>t</i> = 0</span>.</div>
+</div>
+<!-- Interactive Action Checklist -->
+<div class="flex flex-col gap-2 pt-1 font-body-md text-body-md">
+<label class="flex items-start gap-space-xs cursor-pointer group">
+<input class="mt-1 h-4 w-4 rounded bg-[#13171e] border-[#2E3846] text-[#304864] focus:ring-[#afc9ea] cursor-pointer" type="checkbox">
+<span class="text-[#EDEAE0] group-hover:text-[#afc9ea] transition-colors">
+                    Re-derive Norton equivalent impedance for the sinusoidal AC load before Wednesday's lecture.
+                  </span>
+</label>
+<label class="flex items-start gap-space-xs cursor-pointer group">
+<input checked="" class="mt-1 h-4 w-4 rounded bg-[#13171e] border-[#2E3846] text-[#304864] focus:ring-[#afc9ea] cursor-pointer" type="checkbox">
+<span class="text-[#8d9198] line-through group-hover:text-[#c3c6ce] transition-colors">
+                    Verify sign convention for active dependent voltage-controlled current sources (VCCS).
+                  </span>
+</label>
+</div>
+</div>
+</section>
+<!-- Block 3: Open Brain Dump & Fleeting Inquiries -->
+<section class="flex flex-col gap-space-xs">
+<div class="flex items-center gap-space-xs">
+<div class="w-1 h-5 rounded-full bg-[#8fa8c8]"></div>
+<h2 class="font-headline-md text-headline-sm md:text-headline-md text-[#EDEAE0] font-semibold">
+                3. Open Brain Dump &amp; Fleeting Inquiries:
+              </h2>
+</div>
+<div class="pl-space-sm md:pl-space-md flex flex-col gap-space-sm">
+<ul class="list-disc list-inside space-y-1 font-body-md text-body-md text-[#CBD5E1]">
+<li class="">SPICE simulator throws singular matrix warning at node 4 when ground is shared across the operational amplifier sub-circuit.</li>
+<li class="">Mental stamina was notably higher during morning Pomodoro sets compared to post-3 PM slump. Keep rigorous tasks before 13:00.</li>
+<li class="">Consider restructuring GitHub repo for Course Projects using submodules for shared helper headers.</li>
+</ul>
+<!-- Tomorrow's Tactical Priorities -->
+<div class="mt-space-sm p-space-md bg-[#13171e] border border-[#2E3846] rounded-xl flex flex-col gap-2">
+<span class="font-label-caps text-label-caps text-[#afc9ea] uppercase font-bold tracking-wider">
+                  TOMORROW'S TACTICAL PRIORITIES (28 SEP)
+                </span>
+<div class="flex flex-col gap-2 font-body-sm text-body-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#85d8a6] text-[18px]">check_box</span>
+<span class="line-through text-[#8d9198]">Submit CSE 109 Git commit before midnight</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#8d9198] text-[18px]">check_box_outline_blank</span>
+<span class="text-[#EDEAE0]">Bring printed circuit breadboard diagram for Prof. MSR</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#8d9198] text-[18px]">check_box_outline_blank</span>
+<span class="text-[#EDEAE0]">Reserve 25m Focus Block for MATH 159 proof 4.2</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Block 4: Docked Floating Quick Action Editor Toolbar -->
+<div class="sticky bottom-4 mt-space-md w-full bg-[#202733]/95 border border-[#2E3846] backdrop-blur-md rounded-xl p-1.5 shadow-xl flex items-center justify-between gap-1 overflow-x-auto text-[#c3c6ce]">
+<div class="flex items-center gap-0.5">
+<button class="px-2 py-1 rounded hover:bg-[#171c24] text-[#afc9ea] font-headline-sm text-body-sm font-bold transition-colors" title="Heading 1" type="button">
+              H1
+            </button>
+<button class="px-2 py-1 rounded hover:bg-[#171c24] text-[#afc9ea] font-headline-sm text-body-sm font-semibold transition-colors" title="Heading 2" type="button">
+              H2
+            </button>
+<div class="w-px h-4 bg-[#2E3846] mx-1"></div>
+<button class="p-1.5 rounded hover:bg-[#171c24] hover:text-[#EDEAE0] transition-colors" title="Bold" type="button">
+<span class="material-symbols-outlined text-[18px]">format_bold</span>
+</button>
+<button class="p-1.5 rounded hover:bg-[#171c24] hover:text-[#EDEAE0] transition-colors" title="Italic" type="button">
+<span class="material-symbols-outlined text-[18px]">format_italic</span>
+</button>
+<button class="p-1.5 rounded hover:bg-[#171c24] hover:text-[#EDEAE0] transition-colors" title="Monospace Inline" type="button">
+<span class="material-symbols-outlined text-[18px]">code</span>
+</button>
+<button class="p-1.5 rounded hover:bg-[#171c24] hover:text-[#EDEAE0] transition-colors" title="Checklist Item" type="button">
+<span class="material-symbols-outlined text-[18px]">checklist</span>
+</button>
+<button class="px-2 py-1 rounded hover:bg-[#171c24] text-[#afc9ea] font-label-caps text-label-caps font-semibold transition-colors" title="LaTeX Formula" type="button">
+              Σ LaTeX
+            </button>
+<button class="p-1.5 rounded hover:bg-[#171c24] hover:text-[#EDEAE0] transition-colors" title="Link Course or Topic" type="button">
+<span class="material-symbols-outlined text-[18px]">add_link</span>
+</button>
+</div>
+<div class="hidden sm:flex items-center gap-2 pr-2 text-[#8d9198] font-label-caps text-label-caps">
+<span class="">Markdown Active</span>
+<span class="inline-block w-2 h-2 rounded-full bg-[#85d8a6]"></span>
+</div>
+</div>
+</main>
+</div>
+<!-- Editorial Canvas Insights Footer Strip -->
+<div class="mt-space-lg p-space-md bg-[#171c24] border border-[#2E3846] rounded-xl shadow-xs flex flex-wrap items-center justify-between gap-space-md">
+<div class="flex items-center gap-space-md">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#ffb68a] text-[20px]">psychology</span>
+<span class="font-headline-sm text-body-md font-semibold text-[#EDEAE0]">Cognitive Momentum:</span>
+<span class="font-label-caps text-label-caps px-2 py-0.5 rounded bg-[#713b15]/60 border border-[#a4531d] text-[#ffb68a] font-bold">94% Retention Score</span>
+</div>
+<div class="hidden md:flex items-center gap-1 text-[#8d9198] font-body-sm text-body-sm">
+<span class="">Linked to 2 active course syllabi</span>
+</div>
+</div>
+<div class="flex items-center gap-space-sm font-label-caps text-label-caps text-[#8d9198]">
+<span class="">SESSION CHON-2409-77</span>
+<span class="">•</span>
+<span class="">2,410 CHARACTERS</span>
+</div>
+</div>
+</div>
+</div>
+<script>
+  // Simple interactive feedback for action buttons
+  document.addEventListener('DOMContentLoaded', () => {
+    const btnNew = document.getElementById('btn-new-entry');
+    if (btnNew) {
+      btnNew.addEventListener('click', () => {
+        btnNew.classList.add('scale-95');
+        setTimeout(() => btnNew.classList.remove('scale-95'), 150);
+      });
+    }
+
+    // Keyboard shortcut trigger simulation (Cmd+N)
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        if (btnNew) {
+          btnNew.click();
+        }
+      }
+    });
+  });
+</script></main><footer class="w-full bg-[#13171e] border-t border-[#2E3846] py-space-xl mt-space-xl"><div class="max-w-[1360px] mx-auto px-margin flex flex-col md:flex-row items-center justify-between gap-space-md"><div class="flex items-center gap-space-sm"><img alt="Chondrobindu" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxWvcix_hUQJzEj3zIU5P0qKmKz3cUL7_InL2-qidx05B_SPvqtKhkJf8EyuKQvsShI4CdqkFHTtVrhjGLTP8T5YcpgBGW13xfIvJJ2Ah1Z1FZxuQhUCd6DmSmxEzx2nQXItLlKjqSTgSgGC1lQVJq5GnhkcMYR0IvogCy5jUPxeHQNKXdkwEp6ymgksZ44Rg-N38qIHdQle2lilJ10XOaWxyUvkPvjWSJnIeG5SNHmjGHkVLs81YA"><span class="font-headline-sm text-headline-sm text-[#afc9ea] font-bold">চন্দ্রবিন্দু</span><span class="text-[#8d9198] font-label-caps text-label-caps">— Academic OS for Deep Inquiries</span></div><div class="flex items-center gap-space-lg text-[#8d9198] font-body-sm text-body-sm"><span class="">Semester: Spring 2025</span><span class="font-label-caps text-label-caps text-[#85d8a6] font-semibold">SYSTEM NOMINAL</span><span class="">© 2025 Chondrobindu</span></div></div></footer>
+
+
+</body></html>

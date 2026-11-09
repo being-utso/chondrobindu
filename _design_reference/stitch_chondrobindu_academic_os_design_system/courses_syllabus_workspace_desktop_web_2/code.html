@@ -1,0 +1,868 @@
+<!DOCTYPE html><html class="dark" lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_standard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"tertiary":"#85d8a6","tertiary-fixed":"#a1f4c1","on-tertiary-container":"#004528","error-container":"#93000a","outline-variant":"#2E3846","on-tertiary-fixed-variant":"#005231","surface-bright":"#343942","primary-fixed":"#d1e4ff","primary-fixed-dim":"#afc9ea","on-tertiary":"#003920","on-secondary-container":"#f3a778","surface-container":"#202733","surface":"#171c24","on-primary-fixed":"#001d36","outline":"#94A3B8","on-error-container":"#ffdad6","on-tertiary-fixed":"#002111","background":"#171c24","secondary-fixed-dim":"#ffb68a","tertiary-container":"#4E9F72","surface-container-highest":"#2E3846","on-background":"#EDEAE0","primary":"#8FA8C8","surface-container-low":"#13171e","on-secondary":"#171C24","tertiary-fixed-dim":"#85d8a6","on-surface":"#EDEAE0","inverse-primary":"#48607d","on-error":"#690005","on-secondary-fixed":"#321300","surface-container-high":"#242c3a","inverse-on-surface":"#171c24","on-primary-container":"#EDEAE0","inverse-surface":"#EDEAE0","surface-container-lowest":"#13171e","on-primary":"#10151c","on-primary-fixed-variant":"#304864","error":"#ffb4ab","surface-dim":"#13171e","secondary":"#C88256","surface-variant":"#202733","secondary-container":"#713b15","on-secondary-fixed-variant":"#6e3913","surface-tint":"#8FA8C8","on-surface-variant":"#94A3B8","primary-container":"#2b384b","secondary-fixed":"#ffdbc8"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},spacing:{gutter:"1.5rem","gutter-mobile":"0.75rem","margin-mobile":"1rem",margin:"2.5rem","space-xs":"0.25rem","space-lg":"1.5rem","space-xl":"2.5rem","space-md":"1rem","space-sm":"0.5rem"},fontFamily:{"mono-code-md":["JetBrains Mono"],"body-md":["Inter"],"headline-sm":["Plus Jakarta Sans"],"body-sm":["Inter"],"display-hero-mobile":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"label-caps":["JetBrains Mono"],"mono-badge-sm":["JetBrains Mono"],"mono-timer-display-mobile":["JetBrains Mono"],"mono-timer-display":["JetBrains Mono"],"display-hero":["Plus Jakarta Sans"],"headline-md":["Plus Jakarta Sans"],"body-lg":["Inter"],"headline-lg-mobile":["Plus Jakarta Sans"]},fontSize:{"mono-code-md":["13px",{lineHeight:"18px",fontWeight:"500"}],"body-md":["14px",{lineHeight:"22px",fontWeight:"400"}],"headline-sm":["18px",{lineHeight:"24px",letterSpacing:"-0.005em",fontWeight:"600"}],"body-sm":["13px",{lineHeight:"18px",fontWeight:"400"}],"display-hero-mobile":["32px",{lineHeight:"40px",letterSpacing:"-0.02em",fontWeight:"700"}],"headline-lg":["32px",{lineHeight:"40px",letterSpacing:"-0.02em",fontWeight:"600"}],"label-caps":["11px",{lineHeight:"14px",letterSpacing:"0.08em",fontWeight:"700"}],"mono-badge-sm":["11px",{lineHeight:"14px",letterSpacing:"0.04em",fontWeight:"600"}],"mono-timer-display-mobile":["40px",{lineHeight:"44px",letterSpacing:"-0.03em",fontWeight:"500"}],"mono-timer-display":["56px",{lineHeight:"60px",letterSpacing:"-0.04em",fontWeight:"500"}],"display-hero":["48px",{lineHeight:"56px",letterSpacing:"-0.03em",fontWeight:"700"}],"headline-md":["22px",{lineHeight:"28px",letterSpacing:"-0.01em",fontWeight:"600"}],"body-lg":["16px",{lineHeight:"26px",fontWeight:"400"}],"headline-lg-mobile":["24px",{lineHeight:"32px",letterSpacing:"-0.015em",fontWeight:"600"}]}}}};</script></head><body class="bg-[#171C24] font-body-md text-body-md text-[#EDEAE0] antialiased"><header class="fixed top-0 inset-x-0 z-50 bg-[#171C24]/90 backdrop-blur-md border-b border-[#2E3846]"><div class="h-[60px] max-w-[1360px] mx-auto px-margin flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md shrink-0"><img alt="Chondrobindu Brand Mark" class="h-8 w-auto rounded-lg object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA-oDa5GscrUBcjl7kXSxtXZUT3pk6h6TLdpC5PAfyBuTvbeJOUDB7o6saBhStiFjWYlab5_AuyFaGhi7FfBYHXjfHNPp4hORoDgAYPR1CsDz14mEdHsGuCZ2ta77cmHWP_v3-Ff4E1Q9L36Y3blxeh18TyeU83ZAA0-q8uCGuRvJeJcs8-3ItN7mAshYaQiGvXYdQx77OBfgT22UFpK2dDFt_l12DfE_bzT9D-p4uyF5M_Bgsrg0Xv"><div class="flex flex-col"><div class="flex items-center gap-space-xs"><span class="font-headline-sm text-headline-sm text-[#EDEAE0] font-bold tracking-tight">চন্দ্রবিন্দু</span><span class="text-[#94A3B8] font-mono-badge-sm text-mono-badge-sm">•</span><span class="font-headline-sm text-headline-sm text-[#EDEAE0] tracking-wider font-semibold">CHONDROBINDU</span></div><span class="font-label-caps text-label-caps text-[#94A3B8] uppercase tracking-widest">Academic OS</span></div></div><div class="hidden lg:flex items-center justify-center"><div class="p-1 bg-[#13171E] border border-[#2E3846] rounded-full"><nav class="flex items-center gap-1" data-active-classes="bg-[#8FA8C8] text-[#10151c] font-semibold shadow-sm"><a class="px-space-md py-1 rounded-full font-body-sm text-body-sm text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" data-path="home" href="#">Home</a><a aria-current="page" class="px-space-md py-1 rounded-full bg-[#8FA8C8] text-[#10151c] font-semibold shadow-sm" data-path="courses" href="#">Courses</a><a class="px-space-md py-1 rounded-full font-body-sm text-body-sm text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" data-path="timer" href="#">Timer</a><a class="px-space-md py-1 rounded-full font-body-sm text-body-sm text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" data-path="planner" href="#">Planner</a><a class="px-space-md py-1 rounded-full font-body-sm text-body-sm text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" data-path="insights" href="#">Insights</a></nav></div></div><div class="flex items-center gap-space-md shrink-0"><div class="hidden xl:flex items-center bg-[#13171E] border border-[#2E3846] px-space-md py-1.5 rounded-lg w-[260px] justify-between shadow-inner"><div class="flex items-center gap-space-xs overflow-hidden"><span class="material-symbols-outlined text-[#94A3B8] text-[18px]">search</span><span class="font-body-sm text-body-sm text-[#94A3B8] truncate">Search courses, topics...</span></div><kbd class="bg-[#202733] border border-[#2E3846] font-mono-badge-sm text-mono-badge-sm text-[#94A3B8] px-1.5 py-0.5 rounded shadow-sm">⌘K</kbd></div><div class="hidden md:flex items-center bg-[#13171E] border border-[#2E3846] p-0.5 rounded-full"><button aria-label="Light theme" class="p-1 rounded-full text-[#94A3B8] hover:text-[#EDEAE0] flex items-center justify-center transition-colors" type="button"><span class="material-symbols-outlined text-[16px]">light_mode</span></button><button aria-label="Dark theme" class="p-1 rounded-full bg-[#202733] text-[#8FA8C8] shadow-sm flex items-center justify-center" type="button"><span class="material-symbols-outlined text-[16px]">dark_mode</span></button></div><button aria-label="Notifications" class="relative p-1.5 rounded-lg text-[#94A3B8] hover:bg-[#202733] hover:text-[#EDEAE0] transition-colors" type="button"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#C88256] ring-2 ring-[#171C24]"></span></button><div class="flex items-center gap-space-xs bg-[#13171E] border border-[#2E3846] pl-1 pr-2.5 py-1 rounded-full hover:bg-[#202733] transition-colors cursor-pointer"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCe7-vF3Qii7vVa_l-MYj308PNZ1jARB0fXNCvPdnZo8NAk6zxreIblKIm3sITwkiHk7ehszt2HVu2AoBp8FQghQTUem_r53sOm0yi550B3CsTP7vPe1_xK0EN_F5B3NvZWfo-e8dtH7Z5-002_5WNbaQbBiOAY7z9LFHfYAXBPMi_g5mhOcOYbDKclUVkI4tcjnY48ybefAS09DCqlEBOc1cN6rHqQJRRAFPp8gew"><span class="font-body-sm text-body-sm font-medium text-[#EDEAE0] hidden sm:inline">Shahriyer</span><span class="material-symbols-outlined text-[#94A3B8] text-[16px]">expand_more</span></div></div></div></header><main class="w-full min-h-[calc(100vh-60px)] pt-[60px] bg-[#171C24] flex flex-col"><div class="flex flex-col w-full">
+<!-- Desktop Split-View Workspace -->
+<div class="max-w-[1360px] w-full mx-auto px-margin py-space-md flex gap-gutter items-start">
+<!-- LEFT COLUMN: Course Directory Sidebar (380px) -->
+<aside class="w-[380px] shrink-0 flex flex-col gap-space-md sticky top-[76px] max-h-[calc(100vh-96px)] overflow-y-auto pr-1">
+<!-- Filter Segmented Control -->
+<div class="bg-[#13171E] p-1 rounded-xl border border-[#2E3846] flex items-center justify-between">
+<button class="px-space-md py-1 rounded-lg font-mono-badge-sm text-mono-badge-sm bg-[#8FA8C8] text-[#10151c] font-semibold shadow-sm transition-colors" type="button">
+          All (8)
+        </button>
+<button class="px-space-md py-1 rounded-lg font-mono-badge-sm text-mono-badge-sm text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" type="button">
+          Theory (5)
+        </button>
+<button class="px-space-md py-1 rounded-lg font-mono-badge-sm text-mono-badge-sm text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" type="button">
+          Sessional (3)
+        </button>
+<button class="px-space-md py-1 rounded-lg font-mono-badge-sm text-mono-badge-sm text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" type="button">
+          Archived
+        </button>
+</div>
+<!-- Recessed Search Input -->
+<div class="relative bg-[#13171E] border border-[#2E3846] rounded-xl p-space-xs flex items-center px-space-md shadow-inner">
+<span class="material-symbols-outlined text-[#94A3B8] text-[18px] mr-space-xs">search</span>
+<input class="w-full bg-transparent font-body-sm text-body-sm text-[#EDEAE0] placeholder:text-[#94A3B8] focus:outline-none py-1" placeholder="Search course code or title..." type="text">
+<kbd class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8] bg-[#202733] border border-[#2E3846] px-1.5 py-0.5 rounded shadow-sm">ESC</kbd>
+</div>
+<!-- Course Cards Feed -->
+<div class="flex flex-col gap-space-sm">
+<!-- CARD 1: Selected / Active -->
+<article class="relative bg-[#202733] border border-[#2E3846] rounded-xl p-space-md shadow-md flex flex-col gap-space-xs cursor-pointer transition-all">
+<div class="absolute left-0 top-3 bottom-3 w-1 bg-[#8FA8C8] rounded-r"></div>
+<div class="flex items-center justify-between pl-1">
+<div class="flex items-center gap-space-xs">
+<span class="bg-[#2b384b] text-[#8FA8C8] border border-[#8FA8C8]/30 font-mono-badge-sm text-mono-badge-sm px-2 py-0.5 rounded">
+                EEE 101
+              </span>
+<span class="font-label-caps text-label-caps text-[#94A3B8]">
+                3.0 CR • THEORY
+              </span>
+</div>
+<span class="font-mono-code-md text-mono-code-md text-[#8FA8C8] font-bold">[MSR]</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-[#EDEAE0] font-semibold pl-1 mt-0.5">
+            Electrical Circuit I
+          </h3>
+<div class="flex flex-col gap-1 pl-1 mt-space-xs">
+<div class="flex justify-between items-center font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">
+<span class="">Syllabus Covered</span>
+<span class="font-semibold text-[#8FA8C8]">66% Complete</span>
+</div>
+<div class="w-full h-1.5 bg-[#13171E] rounded-full overflow-hidden">
+<div class="h-full bg-[#8FA8C8] rounded-full" style="width: 66%;"></div>
+</div>
+</div>
+</article>
+<!-- CARD 2 -->
+<article class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md shadow-sm hover:border-[#8FA8C8]/40 transition-colors flex flex-col gap-space-xs cursor-pointer">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="bg-[#13171E] border border-[#2E3846] text-[#8FA8C8] font-mono-badge-sm text-mono-badge-sm px-2 py-0.5 rounded">
+                EEE 102
+              </span>
+<span class="font-label-caps text-label-caps text-[#94A3B8]">
+                1.5 CR • SESSIONAL
+              </span>
+</div>
+<span class="font-mono-code-md text-mono-code-md text-[#94A3B8] font-medium">[MSR &amp; NJ]</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-[#EDEAE0] font-semibold mt-0.5">
+            Circuits Simulation Lab
+          </h3>
+<div class="flex flex-col gap-1 mt-space-xs">
+<div class="flex justify-between items-center font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">
+<span class="">Syllabus Covered</span>
+<span class="font-semibold text-[#EDEAE0]">60% Complete</span>
+</div>
+<div class="w-full h-1.5 bg-[#13171E] rounded-full overflow-hidden">
+<div class="h-full bg-[#8FA8C8]/60 rounded-full" style="width: 60%;"></div>
+</div>
+</div>
+</article>
+<!-- CARD 3 -->
+<article class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md shadow-sm hover:border-[#8FA8C8]/40 transition-colors flex flex-col gap-space-xs cursor-pointer">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="bg-[#13171E] border border-[#2E3846] text-[#8FA8C8] font-mono-badge-sm text-mono-badge-sm px-2 py-0.5 rounded">
+                CSE 109
+              </span>
+<span class="font-label-caps text-label-caps text-[#94A3B8]">
+                3.0 CR • THEORY
+              </span>
+</div>
+<span class="font-mono-code-md text-mono-code-md text-[#94A3B8] font-medium">[FAK]</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-[#EDEAE0] font-semibold mt-0.5">
+            Computer Programming
+          </h3>
+<div class="flex flex-col gap-1 mt-space-xs">
+<div class="flex justify-between items-center font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">
+<span class="">Syllabus Covered</span>
+<span class="font-semibold text-[#4E9F72]">85% Complete</span>
+</div>
+<div class="w-full h-1.5 bg-[#13171E] rounded-full overflow-hidden">
+<div class="h-full bg-[#4E9F72] rounded-full" style="width: 85%;"></div>
+</div>
+</div>
+</article>
+<!-- CARD 4 -->
+<article class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md shadow-sm hover:border-[#8FA8C8]/40 transition-colors flex flex-col gap-space-xs cursor-pointer">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="bg-[#13171E] border border-[#2E3846] text-[#8FA8C8] font-mono-badge-sm text-mono-badge-sm px-2 py-0.5 rounded">
+                CE 106
+              </span>
+<span class="font-label-caps text-label-caps text-[#94A3B8]">
+                3.0 CR • THEORY
+              </span>
+</div>
+<span class="font-mono-code-md text-mono-code-md text-[#94A3B8] font-medium">[AKM]</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-[#EDEAE0] font-semibold mt-0.5">
+            Engineering Mechanics
+          </h3>
+<div class="flex flex-col gap-1 mt-space-xs">
+<div class="flex justify-between items-center font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">
+<span class="">Syllabus Covered</span>
+<span class="font-semibold text-[#C88256]">45% Complete</span>
+</div>
+<div class="w-full h-1.5 bg-[#13171E] rounded-full overflow-hidden">
+<div class="h-full bg-[#C88256] rounded-full" style="width: 45%;"></div>
+</div>
+</div>
+</article>
+<!-- CARD 5 -->
+<article class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md shadow-sm hover:border-[#8FA8C8]/40 transition-colors flex flex-col gap-space-xs cursor-pointer">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="bg-[#13171E] border border-[#2E3846] text-[#8FA8C8] font-mono-badge-sm text-mono-badge-sm px-2 py-0.5 rounded">
+                MATH 141
+              </span>
+<span class="font-label-caps text-label-caps text-[#94A3B8]">
+                3.0 CR • THEORY
+              </span>
+</div>
+<span class="font-mono-code-md text-mono-code-md text-[#94A3B8] font-medium">[SMA]</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-[#EDEAE0] font-semibold mt-0.5">
+            Differential and Integral Calculus
+          </h3>
+<div class="flex flex-col gap-1 mt-space-xs">
+<div class="flex justify-between items-center font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">
+<span class="">Syllabus Covered</span>
+<span class="font-semibold text-[#8FA8C8]">78% Complete</span>
+</div>
+<div class="w-full h-1.5 bg-[#13171E] rounded-full overflow-hidden">
+<div class="h-full bg-[#8FA8C8] rounded-full" style="width: 78%;"></div>
+</div>
+</div>
+</article>
+</div>
+</aside>
+<!-- RIGHT COLUMN: Main Syllabus Workspace -->
+<main class="flex-1 flex flex-col gap-space-lg min-w-0">
+<!-- STICKY COURSE HEADER -->
+<section class="sticky top-[60px] z-20 bg-[#202733]/95 backdrop-blur-md rounded-xl p-space-lg shadow-sm flex flex-col gap-space-md border border-[#2E3846]">
+<!-- Metadata Row -->
+<div class="flex items-center justify-between flex-wrap gap-space-sm">
+<div class="flex items-center gap-space-xs">
+<span class="font-mono-badge-sm text-mono-badge-sm bg-[#8FA8C8] text-[#10151c] font-semibold px-2.5 py-1 rounded">
+              EEE 101
+            </span>
+<span class="font-label-caps text-label-caps bg-[#13171E] border border-[#2E3846] text-[#94A3B8] px-3 py-1 rounded">
+              3.0 CREDITS • THEORY
+            </span>
+<span class="font-body-sm text-body-sm text-[#94A3B8] flex items-center gap-1 pl-1">
+<span class="material-symbols-outlined text-[16px] text-[#94A3B8]">school</span>
+              Instructor: <strong class="text-[#EDEAE0]">Prof. MSR</strong>
+</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#4E9F72] animate-pulse"></span>
+<span class="font-mono-badge-sm text-mono-badge-sm text-[#4E9F72] uppercase tracking-wider font-semibold">Active Term Course</span>
+</div>
+</div>
+<!-- Title & Primary Command Bar -->
+<div class="flex items-center justify-between flex-wrap gap-space-md">
+<div class="flex flex-col">
+<h1 class="font-display-hero text-headline-lg text-[#EDEAE0] tracking-tight font-bold">
+              Electrical Circuit I
+            </h1>
+<p class="font-body-sm text-body-sm text-[#94A3B8] mt-0.5">
+              Department of Electrical &amp; Electronic Engineering • Academic Session 2024–2025
+            </p>
+</div>
+<div class="flex items-center gap-space-xs">
+<!-- Rust Accent CTA -->
+<button class="h-10 px-space-md bg-[#C88256] text-[#171C24] font-bold rounded-lg font-headline-sm text-body-md flex items-center gap-space-xs shadow hover:opacity-90 active:scale-[0.98] transition-all" type="button">
+<span class="material-symbols-outlined text-[18px]">play_arrow</span>
+<span class="">Start Focus</span>
+</button>
+<!-- Secondary Actions -->
+<button class="h-10 px-3 bg-[#13171E] border border-[#2E3846] text-[#EDEAE0] hover:bg-[#242c3a] rounded-lg font-body-sm text-body-sm font-medium flex items-center gap-1 shadow-sm transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">edit_note</span>
+<span class="">Edit</span>
+</button>
+<button class="h-10 px-4 bg-[#8FA8C8] text-[#10151c] hover:bg-[#a6bfdd] rounded-lg font-body-sm text-body-sm font-semibold flex items-center gap-1 shadow-sm transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">add</span>
+<span class="">Add Course</span>
+</button>
+</div>
+</div>
+<!-- Workspace Tabs -->
+<div class="flex items-center gap-space-lg pt-space-xs border-b border-[#2E3846]"><button id="tab-syllabus-btn" onclick="switchCourseTab('syllabus')" class="font-headline-sm text-body-md text-[#EDEAE0] font-semibold pb-2 relative after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#8FA8C8] transition-colors" type="button">
+            Syllabus
+          </button>
+<button id="tab-assessments-btn" onclick="switchCourseTab('assessments')" class="font-headline-sm text-body-md text-[#94A3B8] hover:text-[#EDEAE0] pb-2 font-medium transition-colors" type="button">
+            Assessments
+          </button>
+<button id="tab-resources-btn" onclick="switchCourseTab('resources')" class="font-headline-sm text-body-md text-[#94A3B8] hover:text-[#EDEAE0] pb-2 font-medium transition-colors" type="button">
+            Resources
+          </button>
+<button id="tab-progress-btn" onclick="switchCourseTab('progress')" class="font-headline-sm text-body-md text-[#94A3B8] hover:text-[#EDEAE0] pb-2 font-medium transition-colors" type="button">
+            Progress Metrics
+          </button></div>
+</section>
+<!-- SYLLABUS SUMMARY HERO CARD -->
+<div id="tab-syllabus" class="flex flex-col gap-space-lg"></div><section class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-lg shadow-sm flex items-center justify-between flex-wrap gap-space-lg">
+<!-- Left: Dial Metric -->
+<div class="flex items-center gap-space-md">
+<div class="relative w-20 h-20 flex items-center justify-center shrink-0">
+<svg class="w-full h-full -rotate-90" viewBox="0 0 72 72">
+<circle class="stroke-[#2E3846] fill-none" cx="36" cy="36" r="30" stroke-width="6"></circle>
+<circle class="stroke-[#8FA8C8] fill-none" cx="36" cy="36" r="30" stroke-dasharray="188.5" stroke-dashoffset="64" stroke-linecap="round" stroke-width="6"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="font-mono-code-md text-headline-sm text-[#8FA8C8] font-bold">66%</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-[#94A3B8] uppercase">Course Velocity</span>
+<span class="font-headline-md text-headline-sm text-[#EDEAE0] font-semibold">Syllabus Covered</span>
+<span class="font-body-sm text-body-sm text-[#94A3B8]">Target Exam: Midterm Week 07</span>
+</div>
+</div>
+<!-- Center: Monospace Tabular Counters -->
+<div class="flex items-center gap-space-lg py-1 px-space-md bg-[#13171E] border border-[#2E3846] rounded-xl">
+<div class="flex flex-col text-center px-space-sm">
+<span class="font-label-caps text-label-caps text-[#94A3B8] uppercase tracking-wider">Total</span>
+<span class="font-mono-timer-display text-headline-md font-bold text-[#EDEAE0]">65</span>
+<span class="font-body-sm text-[11px] text-[#94A3B8]">Topics</span>
+</div>
+<div class="w-px h-10 bg-[#2E3846]"></div>
+<div class="flex flex-col text-center px-space-sm">
+<span class="font-label-caps text-label-caps text-[#4E9F72] uppercase tracking-wider">Completed</span>
+<span class="font-mono-timer-display text-headline-md font-bold text-[#4E9F72]">28</span>
+<span class="font-body-sm text-[11px] text-[#94A3B8]">Verified</span>
+</div>
+<div class="w-px h-10 bg-[#2E3846]"></div>
+<div class="flex flex-col text-center px-space-sm">
+<span class="font-label-caps text-label-caps text-[#C88256] uppercase tracking-wider">Remaining</span>
+<span class="font-mono-timer-display text-headline-md font-bold text-[#C88256]">37</span>
+<span class="font-body-sm text-[11px] text-[#94A3B8]">Pending</span>
+</div>
+</div>
+<!-- Right: Actions Batch -->
+<div class="flex flex-col items-end gap-space-sm">
+<button class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8] hover:text-[#EDEAE0] bg-[#13171E] border border-[#2E3846] px-space-md py-1.5 rounded-lg transition-colors shadow-sm" type="button">
+            Mark All Completed
+          </button>
+<div class="flex items-center gap-space-xs">
+<button class="h-8 px-3 bg-[#13171E] border border-[#2E3846] text-[#8FA8C8] hover:bg-[#242c3a] font-mono-badge-sm text-mono-badge-sm rounded-lg transition-colors font-semibold flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[16px]">folder_open</span>
+              + Add Chapter
+            </button>
+<button class="h-8 px-3 bg-[#8FA8C8] text-[#10151c] hover:bg-[#a6bfdd] font-mono-badge-sm text-mono-badge-sm rounded-lg transition-colors font-semibold flex items-center gap-1 shadow-sm" type="button">
+<span class="material-symbols-outlined text-[16px]">add_circle</span>
+              + Add Topic
+            </button>
+</div>
+</div>
+</section>
+<!-- 3-LEVEL RIGOROUS SYLLABUS TREE -->
+<section class="flex flex-col gap-space-sm">
+<!-- ================= CHAPTER 1 (Expanded) ================= -->
+<div class="bg-[#202733] border border-[#2E3846] rounded-xl shadow-sm overflow-hidden flex flex-col">
+<!-- LEVEL 1: Chapter 1 Accordion Header -->
+<div class="bg-[#13171E] border-b border-[#2E3846] p-space-md flex items-center justify-between cursor-pointer hover:bg-[#1a202a] transition-colors select-none">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-[#8FA8C8] text-[20px] transition-transform">expand_more</span>
+<h2 class="font-headline-sm text-headline-sm text-[#EDEAE0] font-semibold">
+                Chapter 1: Basic Concepts and Circuit Laws
+              </h2>
+</div>
+<div class="flex items-center gap-space-xs">
+<span class="font-mono-badge-sm text-mono-badge-sm bg-[#202733] border border-[#2E3846] text-[#94A3B8] px-3 py-1 rounded-full shadow-sm font-semibold">
+                36 Topics • 8 Completed
+              </span>
+</div>
+</div>
+<!-- LEVEL 2 & 3 CONTENT WRAPPER -->
+<div class="flex flex-col">
+<!-- --- SUB-SECTION 1.1 --- -->
+<div class="flex flex-col border-b border-[#2E3846] last:border-b-0">
+<!-- LEVEL 2: Parent Topic 1.1 -->
+<div class="bg-[#202733] p-space-md pl-6 flex items-center justify-between hover:bg-[#1a202a] transition-colors cursor-pointer">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[#94A3B8] text-[18px]">keyboard_arrow_down</span>
+<span class="font-headline-sm text-body-md text-[#EDEAE0] font-medium">
+                    1.1 Circuit Variables: Charge, Voltage, Current, Power, and Energy
+                  </span>
+</div>
+<span class="font-mono-badge-sm text-mono-badge-sm bg-[#4E9F72]/20 border border-[#4E9F72]/40 text-[#4E9F72] px-2 py-0.5 rounded font-bold">
+                  2/3
+                </span>
+</div>
+<!-- LEVEL 3: Atomic Subtopics (Indented Hairline Group) -->
+<div class="ml-10 pl-space-md py-space-xs flex flex-col gap-1.5 bg-[#202733]">
+<!-- 1.1.1 Row (Completed) -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-[#13171E] border border-[#2E3846] hover:border-[#4E9F72]/40 transition-colors group">
+<div class="flex items-center gap-space-sm">
+<button class="w-5 h-5 rounded bg-[#4E9F72] text-[#171C24] flex items-center justify-center shadow-sm" type="button">
+<span class="material-symbols-outlined text-[14px] font-bold">check</span>
+</button>
+<span class="font-mono-code-md text-body-sm text-[#EDEAE0] line-through opacity-70">
+                      1.1.1 Charge and Electric Current
+                    </span>
+</div>
+<div class="flex items-center gap-space-sm">
+<span class="font-mono-badge-sm text-[11px] bg-[#4E9F72]/20 text-[#4E9F72] border border-[#4E9F72]/30 px-2.5 py-0.5 rounded-full font-semibold">
+                      Completed
+                    </span>
+</div>
+</div>
+<!-- 1.1.2 Row (Completed) -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-[#13171E] border border-[#2E3846] hover:border-[#4E9F72]/40 transition-colors group">
+<div class="flex items-center gap-space-sm">
+<button class="w-5 h-5 rounded bg-[#4E9F72] text-[#171C24] flex items-center justify-center shadow-sm" type="button">
+<span class="material-symbols-outlined text-[14px] font-bold">check</span>
+</button>
+<span class="font-mono-code-md text-body-sm text-[#EDEAE0] line-through opacity-70">
+                      1.1.2 Voltage and Potential Difference
+                    </span>
+</div>
+<div class="flex items-center gap-space-sm">
+<span class="font-mono-badge-sm text-[11px] bg-[#4E9F72]/20 text-[#4E9F72] border border-[#4E9F72]/30 px-2.5 py-0.5 rounded-full font-semibold">
+                      Completed
+                    </span>
+</div>
+</div>
+<!-- 1.1.3 Row (In Progress + Quick Focus) -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-[#13171E] border border-[#2E3846] shadow-sm">
+<div class="flex items-center gap-space-sm">
+<button class="w-5 h-5 rounded bg-[#202733] border border-[#2E3846] hover:border-[#8FA8C8] transition-colors flex items-center justify-center" type="button"></button>
+<span class="font-mono-code-md text-body-sm text-[#EDEAE0] font-semibold">
+                      1.1.3 Power and Energy Relationships
+                    </span>
+</div>
+<div class="flex items-center gap-space-sm">
+<span class="font-mono-badge-sm text-[11px] bg-[#C88256]/20 border border-[#C88256]/30 text-[#C88256] px-2 py-0.5 rounded-full font-semibold">
+                      In Progress
+                    </span>
+<button class="h-6 px-2.5 bg-[#C88256] text-[#171C24] hover:opacity-90 rounded font-mono-badge-sm text-[11px] font-bold flex items-center gap-1 shadow-sm transition-opacity" type="button">
+<span class="material-symbols-outlined text-[12px]">timer</span>
+                      25m Focus
+                    </button>
+</div>
+</div>
+</div>
+</div>
+<!-- --- SUB-SECTION 1.2 --- -->
+<div class="flex flex-col border-b border-[#2E3846] last:border-b-0">
+<!-- LEVEL 2: Parent Topic 1.2 -->
+<div class="bg-[#202733] p-space-md pl-6 flex items-center justify-between hover:bg-[#1a202a] transition-colors cursor-pointer">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[#94A3B8] text-[18px]">keyboard_arrow_down</span>
+<span class="font-headline-sm text-body-md text-[#EDEAE0] font-medium">
+                    1.2 Independent and Dependent Sources
+                  </span>
+</div>
+<span class="font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] text-[#94A3B8] px-2 py-0.5 rounded font-bold">
+                  0/3
+                </span>
+</div>
+<!-- LEVEL 3: Atomic Subtopics Under 1.2 -->
+<div class="ml-10 pl-space-md py-space-xs flex flex-col gap-1.5 bg-[#202733]">
+<!-- 1.2.1 -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-[#13171E] border border-[#2E3846] hover:border-[#8FA8C8]/40 transition-colors group">
+<div class="flex items-center gap-space-sm">
+<button class="w-5 h-5 rounded bg-[#202733] border border-[#2E3846] hover:border-[#8FA8C8] transition-colors flex items-center justify-center" type="button"></button>
+<span class="font-mono-code-md text-body-sm text-[#EDEAE0]">
+                      1.2.1 Ideal Voltage and Current Sources
+                    </span>
+</div>
+<span class="font-mono-badge-sm text-[11px] text-[#94A3B8]">
+                    Not Started
+                  </span>
+</div>
+<!-- 1.2.2 -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-[#13171E] border border-[#2E3846] hover:border-[#8FA8C8]/40 transition-colors group">
+<div class="flex items-center gap-space-sm">
+<button class="w-5 h-5 rounded bg-[#202733] border border-[#2E3846] hover:border-[#8FA8C8] transition-colors flex items-center justify-center" type="button"></button>
+<span class="font-mono-code-md text-body-sm text-[#EDEAE0]">
+                      1.2.2 Dependent Sources: VCVS, VCCS, CCVS, CCCS
+                    </span>
+</div>
+<span class="font-mono-badge-sm text-[11px] text-[#94A3B8]">
+                    Not Started
+                  </span>
+</div>
+<!-- 1.2.3 Target Highlight -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-[#13171E] border border-[#2E3846] hover:border-[#C88256]/60 transition-colors group">
+<div class="flex items-center gap-space-sm">
+<button class="w-5 h-5 rounded bg-[#202733] border border-[#2E3846] hover:border-[#8FA8C8] transition-colors flex items-center justify-center" type="button"></button>
+<span class="font-mono-code-md text-body-sm text-[#EDEAE0] font-medium">
+                      1.2.3 Electrical Resistance and Ohm's Law
+                    </span>
+</div>
+<div class="flex items-center gap-space-xs">
+<span class="font-mono-badge-sm text-[11px] bg-[#C88256]/20 border border-[#C88256] text-[#C88256] px-2 py-0.5 rounded font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">flag</span>
+                      Target for Quiz 1
+                    </span>
+</div>
+</div>
+</div>
+</div>
+<!-- --- SUB-SECTION 1.3 --- -->
+<div class="flex flex-col">
+<!-- LEVEL 2: Parent Topic 1.3 -->
+<div class="bg-[#202733] p-space-md pl-6 flex items-center justify-between hover:bg-[#1a202a] transition-colors cursor-pointer">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[#94A3B8] text-[18px]">keyboard_arrow_down</span>
+<span class="font-headline-sm text-body-md text-[#EDEAE0] font-medium">
+                    1.3 Kirchhoff's Laws (KCL and KVL)
+                  </span>
+</div>
+<span class="font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] text-[#94A3B8] px-2 py-0.5 rounded font-bold">
+                  0/2
+                </span>
+</div>
+<!-- LEVEL 3: Atomic Subtopics Under 1.3 -->
+<div class="ml-10 pl-space-md py-space-xs flex flex-col gap-1.5 bg-[#202733]">
+<!-- 1.3.1 -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-[#13171E] border border-[#2E3846] hover:border-[#8FA8C8]/40 transition-colors group">
+<div class="flex items-center gap-space-sm">
+<button class="w-5 h-5 rounded bg-[#202733] border border-[#2E3846] hover:border-[#8FA8C8] transition-colors flex items-center justify-center" type="button"></button>
+<span class="font-mono-code-md text-body-sm text-[#EDEAE0]">
+                      1.3.1 Kirchhoff's Current Law (Conservation of Charge)
+                    </span>
+</div>
+<span class="font-mono-badge-sm text-[11px] text-[#94A3B8]">
+                    Not Started
+                  </span>
+</div>
+<!-- 1.3.2 -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-[#13171E] border border-[#2E3846] hover:border-[#8FA8C8]/40 transition-colors group">
+<div class="flex items-center gap-space-sm">
+<button class="w-5 h-5 rounded bg-[#202733] border border-[#2E3846] hover:border-[#8FA8C8] transition-colors flex items-center justify-center" type="button"></button>
+<span class="font-mono-code-md text-body-sm text-[#EDEAE0]">
+                      1.3.2 Kirchhoff's Voltage Law (Conservation of Energy)
+                    </span>
+</div>
+<span class="font-mono-badge-sm text-[11px] text-[#94A3B8]">
+                    Not Started
+                  </span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ================= CHAPTER 2 (Collapsed Preview) ================= -->
+<div class="bg-[#202733] border border-[#2E3846] rounded-xl shadow-sm overflow-hidden">
+<div class="bg-[#202733] p-space-md flex items-center justify-between cursor-pointer hover:bg-[#1a202a] transition-colors select-none">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-[#94A3B8] text-[20px]">chevron_right</span>
+<h2 class="font-headline-sm text-headline-sm text-[#EDEAE0] font-semibold">
+                Chapter 2: Methods of Analysis (Nodal &amp; Mesh Analysis)
+              </h2>
+</div>
+<span class="font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] text-[#94A3B8] px-3 py-1 rounded-full font-semibold">
+              18 Topics • 0 Completed
+            </span>
+</div>
+</div>
+<!-- ================= CHAPTER 3 (Collapsed Preview) ================= -->
+<div class="bg-[#202733] border border-[#2E3846] rounded-xl shadow-sm overflow-hidden">
+<div class="bg-[#202733] p-space-md flex items-center justify-between cursor-pointer hover:bg-[#1a202a] transition-colors select-none">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-[#94A3B8] text-[20px]">chevron_right</span>
+<h2 class="font-headline-sm text-headline-sm text-[#EDEAE0] font-semibold">
+                Chapter 3: Circuit Theorems (Superposition, Thevenin &amp; Norton)
+              </h2>
+</div>
+<span class="font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] text-[#94A3B8] px-3 py-1 rounded-full font-semibold">
+              14 Topics • 0 Completed
+            </span>
+</div>
+</div>
+<!-- ================= CHAPTER 4 (Collapsed Preview) ================= -->
+<div class="bg-[#202733] border border-[#2E3846] rounded-xl shadow-sm overflow-hidden">
+<div class="bg-[#202733] p-space-md flex items-center justify-between cursor-pointer hover:bg-[#1a202a] transition-colors select-none">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-[#94A3B8] text-[20px]">chevron_right</span>
+<h2 class="font-headline-sm text-headline-sm text-[#EDEAE0] font-semibold">
+                Chapter 4: Operational Amplifiers in Resistive Networks
+              </h2>
+</div>
+<span class="font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] text-[#94A3B8] px-3 py-1 rounded-full font-semibold">
+              12 Topics • 0 Completed
+            </span>
+</div>
+</div>
+</section>
+<!-- SEMESTER CITATION FOOTER NOTE -->
+
+<!-- ================= ASSESSMENTS VIEW CONTAINER ================= -->
+<div id="tab-assessments" class="hidden flex flex-col gap-space-lg">
+  <!-- Monospace KPI Row -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+    <div class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md flex flex-col justify-between shadow-sm">
+      <div class="flex items-center justify-between">
+        <span class="font-label-caps text-label-caps text-[#94A3B8] uppercase tracking-wider">Class Tests (Best 3 of 4)</span>
+        <span class="font-mono-badge-sm text-[11px] bg-[#C88256]/20 border border-[#C88256]/30 text-[#C88256] px-2 py-0.5 rounded-full font-semibold">1 CT Remaining</span>
+      </div>
+      <div class="flex items-baseline gap-2 mt-2">
+        <span class="font-mono-timer-display text-headline-md font-bold text-[#EDEAE0]">52.5</span>
+        <span class="font-mono-code-md text-body-sm text-[#94A3B8]">/ 60</span>
+        <span class="font-mono-badge-sm text-body-sm text-[#4E9F72] font-semibold ml-auto">87.5% Avg</span>
+      </div>
+    </div>
+    <div class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md flex flex-col justify-between shadow-sm">
+      <div class="flex items-center justify-between">
+        <span class="font-label-caps text-label-caps text-[#94A3B8] uppercase tracking-wider">Attendance &amp; Participation</span>
+        <span class="font-mono-badge-sm text-[11px] bg-[#4E9F72]/20 border border-[#4E9F72]/30 text-[#4E9F72] px-2 py-0.5 rounded-full font-semibold">Full Credit</span>
+      </div>
+      <div class="flex items-baseline gap-2 mt-2">
+        <span class="font-mono-timer-display text-headline-md font-bold text-[#EDEAE0]">28.0</span>
+        <span class="font-mono-code-md text-body-sm text-[#94A3B8]">/ 30</span>
+        <span class="font-mono-badge-sm text-body-sm text-[#4E9F72] font-semibold ml-auto">93.3% Present</span>
+      </div>
+    </div>
+    <div class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md flex flex-col justify-between shadow-sm">
+      <div class="flex items-center justify-between">
+        <span class="font-label-caps text-label-caps text-[#94A3B8] uppercase tracking-wider">Term Final Weight</span>
+        <span class="font-mono-badge-sm text-[11px] bg-[#8FA8C8]/20 border border-[#8FA8C8]/30 text-[#8FA8C8] px-2 py-0.5 rounded-full font-semibold">Comprehensive</span>
+      </div>
+      <div class="flex items-baseline gap-2 mt-2">
+        <span class="font-mono-timer-display text-headline-md font-bold text-[#8FA8C8]">210</span>
+        <span class="font-mono-code-md text-body-sm text-[#94A3B8]">Marks</span>
+        <span class="font-mono-badge-sm text-body-sm text-[#EDEAE0] font-semibold ml-auto">70% of 300 Total</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header Bar -->
+  <div class="flex items-center justify-between flex-wrap gap-space-sm">
+    <div class="flex items-center gap-2">
+      <span class="material-symbols-outlined text-[#8FA8C8] text-[20px]">analytics</span>
+      <h2 class="font-headline-sm text-headline-sm text-[#EDEAE0] font-semibold">Assessment Ledger &amp; Mark Breakdown</h2>
+    </div>
+    <button class="h-9 px-3 bg-[#8FA8C8] text-[#10151c] hover:bg-[#a6bfdd] font-mono-badge-sm text-mono-badge-sm rounded-lg transition-colors font-semibold flex items-center gap-1 shadow-sm" type="button">
+      <span class="material-symbols-outlined text-[16px]">add</span>
+      + Log Assessment / CT
+    </button>
+  </div>
+
+  <!-- Assessment Cards Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+    <!-- CT 01 -->
+    <div class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md flex flex-col gap-space-sm shadow-sm">
+      <div class="flex items-center justify-between">
+        <span class="font-mono-badge-sm text-[11px] bg-[#4E9F72]/20 border border-[#4E9F72]/40 text-[#4E9F72] px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">check</span> Graded
+        </span>
+        <span class="font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] text-[#94A3B8] px-2 py-0.5 rounded font-medium">Counted in Best 3</span>
+      </div>
+      <div>
+        <h3 class="font-headline-sm text-body-md text-[#EDEAE0] font-semibold">CT 01 — Basic Laws &amp; Independent Sources</h3>
+        <p class="font-body-sm text-[12px] text-[#94A3B8] mt-0.5">Syllabus Scope: Ch 1 (§1.1–1.2)</p>
+      </div>
+      <div class="flex items-center justify-between pt-2 border-t border-[#2E3846]">
+        <span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">Score Received</span>
+        <span class="font-mono-code-md text-headline-sm text-[#4E9F72] font-bold">18.5 <span class="text-[#94A3B8] text-body-sm font-normal">/ 20</span></span>
+      </div>
+    </div>
+
+    <!-- CT 02 -->
+    <div class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md flex flex-col gap-space-sm shadow-sm">
+      <div class="flex items-center justify-between">
+        <span class="font-mono-badge-sm text-[11px] bg-[#4E9F72]/20 border border-[#4E9F72]/40 text-[#4E9F72] px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">check</span> Graded
+        </span>
+        <span class="font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] text-[#94A3B8] px-2 py-0.5 rounded font-medium">Counted in Best 3</span>
+      </div>
+      <div>
+        <h3 class="font-headline-sm text-body-md text-[#EDEAE0] font-semibold">CT 02 — Kirchhoff's Laws (KCL &amp; KVL)</h3>
+        <p class="font-body-sm text-[12px] text-[#94A3B8] mt-0.5">Syllabus Scope: Ch 1 (§1.3)</p>
+      </div>
+      <div class="flex items-center justify-between pt-2 border-t border-[#2E3846]">
+        <span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">Score Received</span>
+        <span class="font-mono-code-md text-headline-sm text-[#4E9F72] font-bold">17.0 <span class="text-[#94A3B8] text-body-sm font-normal">/ 20</span></span>
+      </div>
+    </div>
+
+    <!-- CT 03 -->
+    <div class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md flex flex-col gap-space-sm shadow-sm">
+      <div class="flex items-center justify-between">
+        <span class="font-mono-badge-sm text-[11px] bg-[#4E9F72]/20 border border-[#4E9F72]/40 text-[#4E9F72] px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">check</span> Graded
+        </span>
+        <span class="font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] text-[#94A3B8] px-2 py-0.5 rounded font-medium">Counted in Best 3</span>
+      </div>
+      <div>
+        <h3 class="font-headline-sm text-body-md text-[#EDEAE0] font-semibold">CT 03 — Nodal &amp; Mesh Analysis</h3>
+        <p class="font-body-sm text-[12px] text-[#94A3B8] mt-0.5">Syllabus Scope: Ch 2 (§2.1–2.2)</p>
+      </div>
+      <div class="flex items-center justify-between pt-2 border-t border-[#2E3846]">
+        <span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">Score Received</span>
+        <span class="font-mono-code-md text-headline-sm text-[#4E9F72] font-bold">17.0 <span class="text-[#94A3B8] text-body-sm font-normal">/ 20</span></span>
+      </div>
+    </div>
+
+    <!-- CT 04 -->
+    <div class="bg-[#202733] border border-[#C88256]/40 rounded-xl p-space-md flex flex-col gap-space-sm shadow-sm">
+      <div class="flex items-center justify-between">
+        <span class="font-mono-badge-sm text-[11px] bg-[#C88256]/20 border border-[#C88256] text-[#C88256] px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">schedule</span> Upcoming • Nov 14
+        </span>
+        <span class="font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] text-[#C88256] px-2 py-0.5 rounded font-medium">Target: 18+ / 20</span>
+      </div>
+      <div>
+        <h3 class="font-headline-sm text-body-md text-[#EDEAE0] font-semibold">CT 04 — Circuit Theorems (Thevenin &amp; Norton)</h3>
+        <p class="font-body-sm text-[12px] text-[#94A3B8] mt-0.5">Syllabus Scope: Ch 3 (§3.1–3.3)</p>
+      </div>
+      <div class="flex items-center justify-between pt-2 border-t border-[#2E3846]">
+        <span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">Action Plan</span>
+        <button class="h-7 px-3 bg-[#C88256] text-[#171C24] hover:opacity-90 rounded font-mono-badge-sm text-[11px] font-bold flex items-center gap-1 shadow-sm transition-opacity" type="button">
+          <span class="material-symbols-outlined text-[14px]">play_arrow</span> Focus Scope
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= RESOURCES VIEW CONTAINER ================= -->
+<div id="tab-resources" class="hidden flex flex-col gap-space-lg">
+  <!-- Filter Strip -->
+  <div class="flex items-center justify-between flex-wrap gap-space-sm">
+    <div class="flex items-center gap-2 flex-wrap">
+      <button class="px-3 py-1 rounded-lg font-mono-badge-sm text-mono-badge-sm bg-[#8FA8C8] text-[#10151c] font-semibold shadow-sm" type="button">All (12)</button>
+      <button class="px-3 py-1 rounded-lg font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" type="button">Textbooks</button>
+      <button class="px-3 py-1 rounded-lg font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" type="button">Lecture Slides</button>
+      <button class="px-3 py-1 rounded-lg font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" type="button">Chotha &amp; Notes</button>
+      <button class="px-3 py-1 rounded-lg font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] text-[#94A3B8] hover:text-[#EDEAE0] transition-colors" type="button">Past Questions</button>
+    </div>
+    <button class="h-8 px-3 bg-[#8FA8C8] text-[#10151c] hover:bg-[#a6bfdd] font-mono-badge-sm text-mono-badge-sm rounded-lg transition-colors font-semibold flex items-center gap-1 shadow-sm" type="button">
+      <span class="material-symbols-outlined text-[16px]">add</span> + Add Resource
+    </button>
+  </div>
+
+  <!-- 2-Column Bento Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+    <!-- Resource 1 -->
+    <div class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md flex flex-col justify-between gap-space-md shadow-sm hover:border-[#8FA8C8]/40 transition-colors">
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between">
+          <span class="font-mono-badge-sm text-[11px] bg-[#13171E] border border-[#2E3846] text-[#8FA8C8] px-2 py-0.5 rounded">PDF • 984 Pages</span>
+          <span class="font-mono-badge-sm text-[11px] text-[#C88256] font-semibold">Bookmark: Page 88 (Ch 3)</span>
+        </div>
+        <h3 class="font-headline-sm text-body-md text-[#EDEAE0] font-semibold mt-1">Fundamentals of Electric Circuits (7th Ed.)</h3>
+        <p class="font-body-sm text-[12px] text-[#94A3B8]">Charles K. Alexander &amp; Matthew N. O. Sadiku • Prescribed Course Textbook</p>
+      </div>
+      <div class="flex items-center justify-between pt-2 border-t border-[#2E3846]">
+        <span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">Added Week 01</span>
+        <button class="font-mono-badge-sm text-mono-badge-sm text-[#8FA8C8] hover:text-[#EDEAE0] flex items-center gap-1 transition-colors font-semibold" type="button">
+          Open Reader ↗
+        </button>
+      </div>
+    </div>
+
+    <!-- Resource 2 -->
+    <div class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md flex flex-col justify-between gap-space-md shadow-sm hover:border-[#8FA8C8]/40 transition-colors">
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between">
+          <span class="font-mono-badge-sm text-[11px] bg-[#13171E] border border-[#2E3846] text-[#4E9F72] px-2 py-0.5 rounded">Handwritten PDF • EEE '25</span>
+          <span class="font-mono-badge-sm text-[11px] text-[#94A3B8]">Linked: Ch 1 &amp; Ch 2</span>
+        </div>
+        <h3 class="font-headline-sm text-body-md text-[#EDEAE0] font-semibold mt-1">Prof. MSR — Complete Class Lecture Notes (Weeks 01–06)</h3>
+        <p class="font-body-sm text-[12px] text-[#94A3B8]">Scanned whiteboard diagrams, example problems, and KCL/KVL step shortcuts</p>
+      </div>
+      <div class="flex items-center justify-between pt-2 border-t border-[#2E3846]">
+        <span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">Updated 2 days ago</span>
+        <button class="font-mono-badge-sm text-mono-badge-sm text-[#8FA8C8] hover:text-[#EDEAE0] flex items-center gap-1 transition-colors font-semibold" type="button">
+          View Notes ↗
+        </button>
+      </div>
+    </div>
+
+    <!-- Resource 3 -->
+    <div class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md flex flex-col justify-between gap-space-md shadow-sm hover:border-[#8FA8C8]/40 transition-colors">
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between">
+          <span class="font-mono-badge-sm text-[11px] bg-[#13171E] border border-[#2E3846] text-[#8FA8C8] px-2 py-0.5 rounded">Solved Archive • 24 Sets</span>
+          <span class="font-mono-badge-sm text-[11px] text-[#4E9F72] font-semibold">High Yield</span>
+        </div>
+        <h3 class="font-headline-sm text-body-md text-[#EDEAE0] font-semibold mt-1">BUET EEE 101 — Past 5 Years Term Final &amp; CT Question Archive</h3>
+        <p class="font-body-sm text-[12px] text-[#94A3B8]">Complete solutions by department rankers (2019–2024 sessions) sorted by topics</p>
+      </div>
+      <div class="flex items-center justify-between pt-2 border-t border-[#2E3846]">
+        <span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">Ch 1–4 Available</span>
+        <button class="font-mono-badge-sm text-mono-badge-sm text-[#8FA8C8] hover:text-[#EDEAE0] flex items-center gap-1 transition-colors font-semibold" type="button">
+          Practice Set ↗
+        </button>
+      </div>
+    </div>
+
+    <!-- Resource 4 -->
+    <div class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md flex flex-col justify-between gap-space-md shadow-sm hover:border-[#8FA8C8]/40 transition-colors">
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between">
+          <span class="font-mono-badge-sm text-[11px] bg-[#13171E] border border-[#2E3846] text-[#C88256] px-2 py-0.5 rounded">Reference + .asc</span>
+          <span class="font-mono-badge-sm text-[11px] text-[#94A3B8]">1.4 MB Zip</span>
+        </div>
+        <h3 class="font-headline-sm text-body-md text-[#EDEAE0] font-semibold mt-1">LTspice Circuit Netlists &amp; 1-Page LaTeX Formula Sheet</h3>
+        <p class="font-body-sm text-[12px] text-[#94A3B8]">Cheatsheet covering Mesh matrices, Norton transforms, and operational amp formulas</p>
+      </div>
+      <div class="flex items-center justify-between pt-2 border-t border-[#2E3846]">
+        <span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">Lab &amp; Exam Prep</span>
+        <button class="font-mono-badge-sm text-mono-badge-sm text-[#C88256] hover:text-[#EDEAE0] flex items-center gap-1 transition-colors font-semibold" type="button">
+          Download ↓
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= PROGRESS METRICS VIEW CONTAINER ================= -->
+<div id="tab-progress" class="hidden flex flex-col gap-space-lg">
+  <!-- Telemetry Row -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+    <div class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md flex flex-col justify-between shadow-sm">
+      <span class="font-label-caps text-label-caps text-[#94A3B8] uppercase tracking-wider">Cumulative Focus Time</span>
+      <div class="flex items-baseline gap-2 my-2">
+        <span class="font-mono-timer-display text-headline-md font-bold text-[#8FA8C8]">24h 40m</span>
+      </div>
+      <span class="font-body-sm text-[12px] text-[#94A3B8]">59 Pomodoro sprints • Target: 36h before Term Final</span>
+    </div>
+
+    <div class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md flex flex-col justify-between shadow-sm">
+      <span class="font-label-caps text-label-caps text-[#4E9F72] uppercase tracking-wider">Grade Target Forecast</span>
+      <div class="flex items-baseline gap-2 my-2">
+        <span class="font-mono-timer-display text-headline-md font-bold text-[#4E9F72]">A / A+ Trajectory</span>
+      </div>
+      <span class="font-body-sm text-[12px] text-[#94A3B8]">Projected: 82.4% overall mark (3.75–4.00 GP scale)</span>
+    </div>
+
+    <div class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md flex flex-col justify-between shadow-sm">
+      <span class="font-label-caps text-label-caps text-[#C88256] uppercase tracking-wider">Retention &amp; Revision Index</span>
+      <div class="flex items-baseline gap-2 my-2">
+        <span class="font-mono-timer-display text-headline-md font-bold text-[#C88256]">84% Mastery</span>
+      </div>
+      <span class="font-body-sm text-[12px] text-[#94A3B8]">4 subtopics flagged for spaced repetition review</span>
+    </div>
+  </div>
+
+  <!-- Chapter Mastery Breakdown Card -->
+  <div class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-lg flex flex-col gap-space-md shadow-sm">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="font-headline-sm text-headline-sm text-[#EDEAE0] font-semibold">Chapter-by-Chapter Mastery Breakdown</h3>
+        <p class="font-body-sm text-body-sm text-[#94A3B8] mt-0.5">Live correlation between dedicated deep focus hours and syllabus completion</p>
+      </div>
+      <span class="font-mono-badge-sm text-mono-badge-sm bg-[#13171E] border border-[#2E3846] text-[#8FA8C8] px-3 py-1 rounded-full font-semibold">
+        4 Chapters Tracked
+      </span>
+    </div>
+
+    <div class="flex flex-col gap-space-md mt-2">
+      <!-- Chapter 1 Bar -->
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between font-mono-badge-sm text-mono-badge-sm">
+          <span class="text-[#EDEAE0] font-semibold">Ch 1: Basic Concepts &amp; Circuit Laws</span>
+          <span class="text-[#4E9F72]">80% Done • 11h 20m Logged</span>
+        </div>
+        <div class="w-full h-2 bg-[#13171E] rounded-full overflow-hidden">
+          <div class="h-full bg-[#4E9F72] rounded-full" style="width: 80%;"></div>
+        </div>
+      </div>
+
+      <!-- Chapter 2 Bar -->
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between font-mono-badge-sm text-mono-badge-sm">
+          <span class="text-[#EDEAE0] font-semibold">Ch 2: Nodal &amp; Mesh Analysis</span>
+          <span class="text-[#8FA8C8]">65% Done • 8h 45m Logged</span>
+        </div>
+        <div class="w-full h-2 bg-[#13171E] rounded-full overflow-hidden">
+          <div class="h-full bg-[#8FA8C8] rounded-full" style="width: 65%;"></div>
+        </div>
+      </div>
+
+      <!-- Chapter 3 Bar -->
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between font-mono-badge-sm text-mono-badge-sm">
+          <span class="text-[#EDEAE0] font-semibold">Ch 3: Circuit Theorems (Superposition &amp; Thevenin)</span>
+          <span class="text-[#C88256]">35% Done • 4h 35m Logged</span>
+        </div>
+        <div class="w-full h-2 bg-[#13171E] rounded-full overflow-hidden">
+          <div class="h-full bg-[#C88256] rounded-full" style="width: 35%;"></div>
+        </div>
+      </div>
+
+      <!-- Chapter 4 Bar -->
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between font-mono-badge-sm text-mono-badge-sm">
+          <span class="text-[#EDEAE0] font-semibold">Ch 4: Operational Amplifiers in Resistive Networks</span>
+          <span class="text-[#94A3B8]">0% Done • 0h Logged</span>
+        </div>
+        <div class="w-full h-2 bg-[#13171E] rounded-full overflow-hidden">
+          <div class="h-full bg-[#2E3846] rounded-full" style="width: 0%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchCourseTab(tabName) {
+  var tabs = ['syllabus', 'assessments', 'resources', 'progress'];
+  tabs.forEach(function(t) {
+    var panel = document.getElementById('tab-' + t);
+    var btn = document.getElementById('tab-' + t + '-btn');
+    if (panel) {
+      if (t === tabName) {
+        panel.classList.remove('hidden');
+      } else {
+        panel.classList.add('hidden');
+      }
+    }
+    if (btn) {
+      if (t === tabName) {
+        btn.className = 'font-headline-sm text-body-md text-[#EDEAE0] font-semibold pb-2 relative after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#8FA8C8] transition-colors';
+      } else {
+        btn.className = 'font-headline-sm text-body-md text-[#94A3B8] hover:text-[#EDEAE0] pb-2 font-medium transition-colors';
+      }
+    }
+  });
+}
+</script><aside class="bg-[#202733] border border-[#2E3846] rounded-xl p-space-md flex items-center justify-between text-[#94A3B8]">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-[#8FA8C8] text-[18px]">menu_book</span>
+<span class="font-body-sm text-body-sm text-[#EDEAE0]/90">
+            Curriculum aligned with IEEE Standard 101-C &amp; ABET Accreditation Matrix.
+          </span>
+</div>
+<span class="font-mono-badge-sm text-mono-badge-sm text-[#94A3B8]">
+          LAST SYNCED: TODAY 08:30 AM
+        </span>
+</aside>
+</main>
+</div>
+</div></main><footer class="w-full bg-[#13171E] border-t border-[#2E3846] py-space-xl mt-space-xl"><div class="max-w-[1360px] mx-auto px-margin flex flex-col md:flex-row items-center justify-between gap-space-md"><div class="flex items-center gap-space-sm"><span class="font-headline-sm text-headline-sm text-[#8FA8C8] font-bold">চন্দ্রবিন্দু</span><span class="text-[#94A3B8] font-mono-badge-sm text-mono-badge-sm">— Academic OS for Deep Inquiries</span></div><div class="flex items-center gap-space-lg text-[#94A3B8] font-body-sm text-body-sm"><span class="">Semester: Spring 2025</span><span class="font-mono-badge-sm text-mono-badge-sm text-[#4E9F72] font-semibold">SYSTEM NOMINAL</span><span class="">© 2025 Chondrobindu</span></div></div></footer>
+
+
+
+
+</body></html>

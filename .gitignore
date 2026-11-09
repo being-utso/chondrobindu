@@ -28,4 +28,4 @@ windows/flutter/ephemeral/
 
 # Vercel & Node
 .vercel/
-node_modules/
+node_modules/_design_reference/

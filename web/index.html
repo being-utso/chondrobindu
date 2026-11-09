@@ -29,9 +29,51 @@
 
   <title>chondrobindu</title>
   <link rel="manifest" href="manifest.json">
-  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400..800;1,400..800&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
   
   <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+  <style id="theme-tokens">
+    :root {
+      --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --bg-background: #EDEAE0;
+      --bg-surface: #F7F5F0;
+      --border-surface: #DCD7C8;
+      --bg-recessed: #E5E1D5;
+      --text-primary: #1F2A3A;
+      --text-muted: #5A6578;
+      --primary: #2F4A6D;
+      --secondary: #A5673F;
+      --success: #3B7A57;
+    }
+    .dark,
+    [data-theme='dark'] {
+      --bg-background: #171C24;
+      --bg-surface: #202733;
+      --border-surface: #2E3846;
+      --bg-recessed: #13171E;
+      --text-primary: #EDEAE0;
+      --text-muted: #94A3B8;
+      --primary: #8FA8C8;
+      --secondary: #C88256;
+      --success: #4E9F72;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme='light']) {
+        --bg-background: #171C24;
+        --bg-surface: #202733;
+        --border-surface: #2E3846;
+        --bg-recessed: #13171E;
+        --text-primary: #EDEAE0;
+        --text-muted: #94A3B8;
+        --primary: #8FA8C8;
+        --secondary: #C88256;
+        --success: #4E9F72;
+      }
+    }
+  </style>
   <style id="splash-screen-style">
     html {
       height: 100%
@@ -40,8 +82,9 @@
     body {
       margin: 0;
       min-height: 100%;
-      background-color: #110D0C;
-          background-size: 100% 100%;
+      background-color: #171C24;
+      background-size: 100% 100%;
+      font-family: var(--font-sans);
     }
 
     .center {

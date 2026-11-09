@@ -448,75 +448,11 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     final todaysFocusMinutes = ref.watch(todaysFocusMinutesProvider);
     final currentStreak = ref.watch(currentStreakProvider);
 
+    final colors = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        titleSpacing: 20,
-        title: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: const Color(0xFF241C1A),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF4A3830), width: 0.8),
-              ),
-              padding: const EdgeInsets.all(7), // Tight padding so the glyph fills ~24x24
-              child: Image.asset(
-                'assets/icons/logo_ember.png', // Ensure this points to the copper ember asset
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              'Chondrobindu',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Text(
-              '::',
-              style: TextStyle(
-                color: accentColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: GestureDetector(
-              onTap: () {
-                SafeHaptics.lightImpact();
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                );
-              },
-              child: CircleAvatar(
-                radius: 19,
-                backgroundColor: accentColor.withValues(alpha: 0.2),
-                backgroundImage: hasProfileImage ? NetworkImage(effectiveImageUrl) : null,
-                child: !hasProfileImage
-                    ? const Icon(
-                        Icons.person,
-                        color: accentColor,
-                        size: 20,
-                      )
-                    : null,
-              ),
-            ),
-          ),
-        ],
-      ),
+      backgroundColor: colors.background,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(

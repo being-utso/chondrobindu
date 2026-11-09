@@ -1,1 +1,99 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400..800;1,400..800&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap');
+
+:root {
+  /* Typography */
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Light Mode ("Lime Wash & Indigo Dye") */
+  --bg-background: #EDEAE0;
+  --bg-surface: #F7F5F0;
+  --border-surface: #DCD7C8;
+  --bg-recessed: #E5E1D5;
+  --text-primary: #1F2A3A;
+  --text-muted: #5A6578;
+  --primary: #2F4A6D;
+  --secondary: #A5673F;
+  --success: #3B7A57;
+}
+
+.dark,
+[data-theme='dark'] {
+  /* Dark Mode ("Indigo Slate & Luminous Rust") */
+  --bg-background: #171C24;
+  --bg-surface: #202733;
+  --border-surface: #2E3846;
+  --bg-recessed: #13171E;
+  --text-primary: #EDEAE0;
+  --text-muted: #94A3B8;
+  --primary: #8FA8C8;
+  --secondary: #C88256;
+  --success: #4E9F72;
+}
+
+@layer base {
+  body {
+    background-color: var(--bg-background);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+  }
+}
+
+/* Theme Token Utility Classes */
+.bg-background {
+  background-color: var(--bg-background);
+}
+
+.bg-surface {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-surface);
+}
+
+.bg-recessed {
+  background-color: var(--bg-recessed);
+}
+
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.border-surface {
+  border-color: var(--border-surface);
+}
+
+.primary-accent {
+  color: var(--primary);
+}
+
+.bg-primary-accent {
+  background-color: var(--primary);
+}
+
+.secondary-accent {
+  color: var(--secondary);
+}
+
+.bg-secondary-accent {
+  background-color: var(--secondary);
+}
+
+.success-accent {
+  color: var(--success);
+}
+
+.bg-success-accent {
+  background-color: var(--success);
+}
+
+.font-sans {
+  font-family: var(--font-sans);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}

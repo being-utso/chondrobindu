@@ -36,6 +36,8 @@ Future<void> configureAuthPersistence() async {
   }
 }
 
+import 'providers/theme_provider.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
@@ -89,21 +91,23 @@ void main() async {
   }
 }
 
-class ChondrobinduApp extends StatelessWidget {
+class ChondrobinduApp extends ConsumerWidget {
   const ChondrobinduApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+
     return MaterialApp(
       title: 'Chondrobindu',
       debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.dark,
-      theme: AppTheme.darkTheme,
+      themeMode: themeMode,
+      theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       home: const AuthWrapper(),
       builder: (context, child) {
         return Container(
-          color: const Color(0xFF151211), // Base dark espresso canvas background
+          color: Theme.of(context).scaffoldBackgroundColor,
           child: child ?? const SizedBox.shrink(),
         );
       },
