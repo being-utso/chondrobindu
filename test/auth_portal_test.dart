@@ -87,6 +87,15 @@ void main() {
       expect(find.text('HSC GROUP / DIVISION'), findsOneWidget);
       expect(find.text('Admission Candidate'), findsOneWidget);
 
+      // Toggle Admission Candidate checkbox and select Science group
+      await tester.tap(find.byType(Checkbox));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(DropdownButton<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Science').last);
+      await tester.pumpAndSettle();
+
       // Conditional Target Cards for default Science group
       expect(find.text('PRIMARY ADMISSION TARGET'), findsOneWidget);
       expect(find.text('BUET / Engineering'), findsWidgets);

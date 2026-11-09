@@ -1343,110 +1343,26 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             ),
             const SizedBox(height: 8),
 
-            // Primary Target Grid
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: targets.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: 2.3,
-              ),
-              itemBuilder: (ctx, index) {
-                final target = targets[index];
-                final isSelected = target.name == _selectedPrimaryTarget;
-
-                // Crystal clear contrast requirements:
-                // Selected: #EDEAE0 text on #2A3444 surface with #C88256 rust border
-                // Inactive: colors.textMuted on colors.recessed with colors.surfaceBorder
-                final bgColor = isSelected
-                    ? (isDark ? const Color(0xFF2A3444) : colors.primary.withValues(alpha: 0.12))
-                    : colors.recessed;
-                final borderSideColor = isSelected
-                    ? (isDark ? const Color(0xFFC88256) : colors.primary)
-                    : colors.surfaceBorder;
-                final textColor = isSelected
-                    ? (isDark ? const Color(0xFFEDEAE0) : colors.primary)
-                    : colors.textMuted;
-
-                return InkWell(
-                  onTap: () {
-                    SafeHaptics.selectionClick();
-                    setState(() {
-                      _selectedPrimaryTarget = target.name;
-                      if (_selectedSecondaryTarget == target.name) {
-                        _selectedSecondaryTarget = null;
-                      }
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: bgColor,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: borderSideColor,
-                        width: isSelected ? 1.5 : 1.0,
+            // Primary Target Cards (Built with pure Flex Rows to guarantee perfect intrinsic height calculation)
+            Column(
+              children: [
+                for (int i = 0; i < targets.length; i += 2) ...[
+                  if (i > 0) const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildPrimaryTargetCard(targets[i], colors, isDark),
                       ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Icon(
-                              target.icon,
-                              color: isSelected ? (isDark ? const Color(0xFFC88256) : colors.primary) : colors.textMuted,
-                              size: 15,
-                            ),
-                            if (isSelected)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFFC88256) : colors.primary,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                                child: Text(
-                                  'TARGET 1',
-                                  style: GoogleFonts.jetBrainsMono(
-                                    color: isDark ? const Color(0xFF13171E) : Colors.white,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              )
-                            else
-                              Text(
-                                target.tag,
-                                style: GoogleFonts.jetBrainsMono(
-                                  color: colors.secondary,
-                                  fontSize: 8.5,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          target.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            color: textColor,
-                            fontSize: 11,
-                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: i + 1 < targets.length
+                            ? _buildPrimaryTargetCard(targets[i + 1], colors, isDark)
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
                   ),
-                );
-              },
+                ],
+              ],
             ),
             const SizedBox(height: 10),
 
@@ -1498,6 +1414,101 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           ],
         ],
       ],
+    );
+  }
+
+  Widget _buildPrimaryTargetCard(
+    AdmissionTargetOption target,
+    ChondrobinduThemeColors colors,
+    bool isDark,
+  ) {
+    final isSelected = target.name == _selectedPrimaryTarget;
+
+    final bgColor = isSelected
+        ? (isDark ? const Color(0xFF2A3444) : colors.primary.withValues(alpha: 0.12))
+        : colors.recessed;
+    final borderSideColor = isSelected
+        ? (isDark ? const Color(0xFFC88256) : colors.primary)
+        : colors.surfaceBorder;
+    final textColor = isSelected
+        ? (isDark ? const Color(0xFFEDEAE0) : colors.primary)
+        : colors.textMuted;
+
+    return InkWell(
+      onTap: () {
+        SafeHaptics.selectionClick();
+        setState(() {
+          _selectedPrimaryTarget = target.name;
+          if (_selectedSecondaryTarget == target.name) {
+            _selectedSecondaryTarget = null;
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 60,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: borderSideColor,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(
+                  target.icon,
+                  color: isSelected ? (isDark ? const Color(0xFFC88256) : colors.primary) : colors.textMuted,
+                  size: 15,
+                ),
+                if (isSelected)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFFC88256) : colors.primary,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      'TARGET 1',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: isDark ? const Color(0xFF13171E) : Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                else
+                  Text(
+                    target.tag,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.secondary,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              target.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                color: textColor,
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
