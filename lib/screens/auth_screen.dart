@@ -394,7 +394,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.symmetric(
             horizontal: isDesktop ? 32.0 : 16.0,
-            vertical: isDesktop ? 40.0 : 24.0,
+            vertical: isDesktop ? 48.0 : 28.0,
           ),
           child: Center(
             child: ConstrainedBox(
@@ -448,7 +448,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               flex: 55,
               child: Container(
                 color: colors.surface,
-                padding: const EdgeInsets.fromLTRB(40.0, 36.0, 40.0, 40.0),
+                padding: const EdgeInsets.fromLTRB(40.0, 36.0, 40.0, 64.0),
                 child: _buildAuthFormContent(colors, isDark, isDesktop: true),
               ),
             ),
@@ -751,6 +751,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
           // Primary Submit Button ("Enter Workspace →" / "Create Account & Initialize →")
           _buildPrimarySubmitButton(colors, isSignIn),
+          const SizedBox(height: 16),
         ],
       ),
     );
