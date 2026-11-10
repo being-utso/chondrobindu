@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -129,6 +130,24 @@ const List<SyllabusTopic> kDefaultTestTopics = [
     isCompleted: false,
   ),
 ];
+
+class _TeacherEntry {
+  final TextEditingController controller;
+  final Set<String> classDays;
+  String semesterPortion;
+
+  _TeacherEntry({
+    String initialName = '',
+    Set<String>? days,
+    String? portion,
+  })  : controller = TextEditingController(text: initialName),
+        classDays = days != null ? Set<String>.from(days) : {},
+        semesterPortion = portion ?? 'Full Semester';
+
+  void dispose() {
+    controller.dispose();
+  }
+}
 
 class _CoursesScreenState extends ConsumerState<CoursesScreen> {
   String _selectedFilter = 'All';
@@ -1106,21 +1125,21 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Radial Completion Chart
+              // Radial Completion Chart (64x64, stroke 4.5, font 12 w700)
               SizedBox(
-                width: 80,
-                height: 80,
+                width: 64,
+                height: 64,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
                     CircularProgressIndicator(
                       value: progress,
-                      strokeWidth: 6,
+                      strokeWidth: 4.5,
                       backgroundColor: isDark ? const Color(0xFF2E3846) : const Color(0xFFDCD7C8),
                       valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
                     ),
                     Padding(
-                      padding: const EdgeInsets.all(8.0),
+                      padding: const EdgeInsets.all(6.0),
                       child: Center(
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
@@ -1128,8 +1147,8 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                             pctText,
                             style: GoogleFonts.jetBrainsMono(
                               color: colors.primary,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -1831,12 +1850,253 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
     );
   }
 
+  Widget _buildTeacherFormSection({
+    required List<_TeacherEntry> teachersList,
+    required Set<String> routineDays,
+    required void Function(void Function()) setDialogState,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'TEACHERS / INSTRUCTORS',
+              style: GoogleFonts.jetBrainsMono(
+                color: colors.textMuted,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const Spacer(),
+            Container(
+              decoration: BoxDecoration(
+                color: colors.recessed,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: colors.surfaceBorder),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [1, 2, 3, 4].map((numTeachers) {
+                  final isCur = teachersList.length == numTeachers;
+                  return InkWell(
+                    onTap: () {
+                      setDialogState(() {
+                        while (teachersList.length < numTeachers) {
+                          teachersList.add(_TeacherEntry(days: Set.from(routineDays)));
+                        }
+                        while (teachersList.length > numTeachers) {
+                          teachersList.removeLast().dispose();
+                        }
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: isCur ? colors.primary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '$numTeachers',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: isCur ? Colors.white : colors.textMuted,
+                          fontSize: 12,
+                          fontWeight: isCur ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ...List.generate(teachersList.length, (i) {
+          final teacher = teachersList[i];
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colors.recessed,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: colors.surfaceBorder),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'TEACHER ${i + 1}',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.primary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    if (teachersList.length > 1)
+                      Text(
+                        'Instructor ${i + 1}',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textMuted,
+                          fontSize: 11,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Teacher Name / Initials Input (48px height, isDense: true)
+                Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: colors.surfaceBorder),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  alignment: Alignment.center,
+                  child: TextField(
+                    controller: teacher.controller,
+                    style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'e.g. MSR or Dr. Rahman',
+                      hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12.5),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Class Days Selector (Sat - Fri pills)
+                Text(
+                  'CLASS DAYS',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: const ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) {
+                    final isSelected = teacher.classDays.contains(day);
+                    return InkWell(
+                      onTap: () {
+                        setDialogState(() {
+                          if (isSelected) {
+                            teacher.classDays.remove(day);
+                          } else {
+                            teacher.classDays.add(day);
+                          }
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: isSelected ? colors.primary : colors.surface,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isSelected ? colors.primary : colors.surfaceBorder,
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          day,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: isSelected ? Colors.white : colors.textSecondary,
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 10),
+
+                // Semester Range / Portion chips
+                Text(
+                  'SEMESTER RANGE / PORTION',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: const [
+                    'Full Semester',
+                    '1st Half (Mid-Term)',
+                    '2nd Half (Final)',
+                    'Part A',
+                    'Part B',
+                  ].map((portion) {
+                    final isSelected = teacher.semesterPortion == portion;
+                    return InkWell(
+                      onTap: () {
+                        setDialogState(() {
+                          teacher.semesterPortion = portion;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
+                        decoration: BoxDecoration(
+                          color: isSelected ? colors.secondary.withValues(alpha: 0.15) : colors.surface,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isSelected ? colors.secondary : colors.surfaceBorder,
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          portion,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: isSelected ? colors.secondary : colors.textMuted,
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
   void _showAddCourseDialog(BuildContext context, bool isCollege) {
     SafeHaptics.selectionClick();
     final codeCtrl = TextEditingController();
     final titleCtrl = TextEditingController();
     final creditCtrl = TextEditingController(text: isCollege ? '1.0' : '3.0');
     CourseType selectedType = CourseType.theory;
+
+    final Set<String> routineDays = {};
+
+    final teachersList = <_TeacherEntry>[
+      _TeacherEntry(days: Set.from(routineDays)),
+    ];
 
     showDialog(
       context: context,
@@ -1895,6 +2155,12 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                         if (val != null) setDialogState(() => selectedType = val);
                       },
                     ),
+                    const SizedBox(height: 16),
+                    _buildTeacherFormSection(
+                      teachersList: teachersList,
+                      routineDays: routineDays,
+                      setDialogState: setDialogState,
+                    ),
                   ],
                 ),
               ),
@@ -1919,12 +2185,26 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                   final creds = double.tryParse(creditCtrl.text.trim()) ?? (isCollege ? 1.0 : 3.0);
                   final docId = code.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
 
+                  final initialsList = teachersList
+                      .map((t) => t.controller.text.trim())
+                      .where((s) => s.isNotEmpty)
+                      .toList();
+                  final teacherBadge = initialsList.join(' • ');
+
+                  final teachersPayload = teachersList.map((t) => {
+                    'name': t.controller.text.trim(),
+                    'initials': t.controller.text.trim(),
+                    'classDays': t.classDays.toList(),
+                    'portion': t.semesterPortion,
+                  }).toList();
+
                   final newCourse = Course(
                     id: docId.isNotEmpty ? docId : DateTime.now().millisecondsSinceEpoch.toString(),
                     code: code,
                     title: title,
                     courseType: selectedType,
                     credits: creds,
+                    teacherInitials: initialsList,
                     createdAt: DateTime.now(),
                   );
 
@@ -1934,6 +2214,17 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                   } catch (_) {}
                   if (uid.isNotEmpty) {
                     await ref.read(courseRepositoryProvider).addCourse(uid, newCourse);
+                    try {
+                      await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(uid)
+                          .collection('courses')
+                          .doc(newCourse.id)
+                          .set({
+                        'teacherBadge': teacherBadge,
+                        'teachers': teachersPayload,
+                      }, SetOptions(merge: true));
+                    } catch (_) {}
                   }
                   if (ctx.mounted) Navigator.of(ctx).pop();
                 },
@@ -1949,82 +2240,146 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
   void _showEditCourseDialog(BuildContext context, Course course) {
     SafeHaptics.selectionClick();
     final titleCtrl = TextEditingController(text: course.title);
-    final badgeCtrl = TextEditingController(text: course.teacherBadge ?? '');
     final creditCtrl = TextEditingController(text: course.credits.toString());
+
+    // Extract routine days for this course
+    final routineSlots = ref.read(weeklyRoutineStreamProvider).valueOrNull ?? [];
+    final matchingSlots = routineSlots.where((s) =>
+        s.courseId == course.id ||
+        (s.courseCode.isNotEmpty && s.courseCode.toLowerCase() == course.code.toLowerCase())).toList();
+    final Set<String> routineDays = {};
+    for (final s in matchingSlots) {
+      switch (s.dayOfWeek) {
+        case 1: routineDays.add('Mon'); break;
+        case 2: routineDays.add('Tue'); break;
+        case 3: routineDays.add('Wed'); break;
+        case 4: routineDays.add('Thu'); break;
+        case 5: routineDays.add('Fri'); break;
+        case 6: routineDays.add('Sat'); break;
+        case 7: routineDays.add('Sun'); break;
+      }
+    }
+
+    final teachersList = <_TeacherEntry>[];
+    if (course.teacherInitials.isNotEmpty) {
+      for (final init in course.teacherInitials) {
+        teachersList.add(_TeacherEntry(initialName: init, days: Set.from(routineDays)));
+      }
+    } else if (course.teacherBadge != null && course.teacherBadge!.isNotEmpty) {
+      final parts = course.teacherBadge!.split(RegExp(r'\s*[•,]\s*'));
+      for (final p in parts) {
+        if (p.trim().isNotEmpty) {
+          teachersList.add(_TeacherEntry(initialName: p.trim(), days: Set.from(routineDays)));
+        }
+      }
+    }
+    if (teachersList.isEmpty) {
+      teachersList.add(_TeacherEntry(days: Set.from(routineDays)));
+    }
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: colors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: colors.surfaceBorder),
-        ),
-        title: Text(
-          'Edit ${course.code}',
-          style: GoogleFonts.plusJakartaSans(
-            color: colors.textPrimary,
-            fontWeight: FontWeight.w700,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: colors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: colors.surfaceBorder),
           ),
-        ),
-        content: SizedBox(
-          width: 440,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildFormInput(
-                controller: titleCtrl,
-                label: 'Course Title',
-                hintText: 'e.g. Electrical Circuits I',
-              ),
-              const SizedBox(height: 14),
-              _buildFormInput(
-                controller: badgeCtrl,
-                label: 'Teacher / Instructor Badge',
-                hintText: 'e.g. MSR',
-              ),
-              const SizedBox(height: 14),
-              _buildFormInput(
-                controller: creditCtrl,
-                label: 'Credits',
-                hintText: '3.0',
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          title: Text(
+            'Edit ${course.code}',
+            style: GoogleFonts.plusJakartaSans(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w700,
             ),
-            onPressed: () async {
-              final newTitle = titleCtrl.text.trim();
-              final newBadge = badgeCtrl.text.trim();
-              final newCredits = double.tryParse(creditCtrl.text.trim()) ?? course.credits;
-              if (newTitle.isNotEmpty) {
-                String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-                if (uid.isNotEmpty) {
-                  final updated = course.copyWith(
-                    title: newTitle,
-                    teacherInitials: newBadge.isNotEmpty ? [newBadge] : const [],
-                    credits: newCredits,
-                  );
-                  await ref.read(courseRepositoryProvider).updateCourse(uid, updated);
-                }
-              }
-              if (ctx.mounted) Navigator.of(ctx).pop();
-            },
-            child: Text('Save', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
           ),
-        ],
+          content: SizedBox(
+            width: 440,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildFormInput(
+                    controller: titleCtrl,
+                    label: 'Course Title',
+                    hintText: 'e.g. Electrical Circuits I',
+                  ),
+                  const SizedBox(height: 14),
+                  _buildFormInput(
+                    controller: creditCtrl,
+                    label: 'Credits',
+                    hintText: '3.0',
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTeacherFormSection(
+                    teachersList: teachersList,
+                    routineDays: routineDays,
+                    setDialogState: setDialogState,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () async {
+                final newTitle = titleCtrl.text.trim();
+                final newCredits = double.tryParse(creditCtrl.text.trim()) ?? course.credits;
+
+                final initialsList = teachersList
+                    .map((t) => t.controller.text.trim())
+                    .where((s) => s.isNotEmpty)
+                    .toList();
+                final teacherBadge = initialsList.join(' • ');
+
+                final teachersPayload = teachersList.map((t) => {
+                  'name': t.controller.text.trim(),
+                  'initials': t.controller.text.trim(),
+                  'classDays': t.classDays.toList(),
+                  'portion': t.semesterPortion,
+                }).toList();
+
+                if (newTitle.isNotEmpty) {
+                  String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                  if (uid.isNotEmpty) {
+                    final updated = course.copyWith(
+                      title: newTitle,
+                      teacherInitials: initialsList,
+                      credits: newCredits,
+                    );
+                    await ref.read(courseRepositoryProvider).updateCourse(uid, updated);
+
+                    try {
+                      await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(uid)
+                          .collection('courses')
+                          .doc(course.id)
+                          .set({
+                        'teacherBadge': teacherBadge,
+                        'teachers': teachersPayload,
+                      }, SetOptions(merge: true));
+                    } catch (_) {}
+                  }
+                }
+                if (ctx.mounted) Navigator.of(ctx).pop();
+              },
+              child: Text('Save', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2527,7 +2882,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                           IconButton(
                             icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
                             tooltip: 'Delete Assessment',
-                            onPressed: () => _confirmDeleteAssessment(course, a),
+                            onPressed: () => _confirmDeleteAssessment(course, a, index: index),
                             constraints: const BoxConstraints(),
                             padding: const EdgeInsets.all(6),
                           ),
@@ -2965,7 +3320,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
     );
   }
 
-  Future<void> _confirmDeleteAssessment(Course course, Assessment assessment) async {
+  Future<void> _confirmDeleteAssessment(Course course, Assessment assessment, {int? index}) async {
     SafeHaptics.lightImpact();
     final confirm = await showDialog<bool>(
       context: context,
@@ -3007,7 +3362,15 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
         uid = FirebaseAuth.instance.currentUser?.uid ?? '';
       } catch (_) {}
       if (uid.isNotEmpty) {
-        await ref.read(assessmentRepositoryProvider).deleteAssessment(uid, assessment.id, course.id);
+        await ref.read(assessmentRepositoryProvider).deleteAssessment(
+          uid,
+          assessment.id,
+          course.id,
+          assessment.name,
+          index,
+        );
+        ref.invalidate(allAssessmentsStreamProvider);
+        if (mounted) setState(() {});
       }
     }
   }
@@ -3329,19 +3692,19 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
           child: Row(
             children: [
               SizedBox(
-                width: 96,
-                height: 96,
+                width: 64,
+                height: 64,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
                     CircularProgressIndicator(
                       value: progress,
-                      strokeWidth: 6.5,
+                      strokeWidth: 4.5,
                       backgroundColor: isDark ? const Color(0xFF2E3846) : const Color(0xFFDCD7C8),
                       valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
                     ),
                     Padding(
-                      padding: const EdgeInsets.all(10.0),
+                      padding: const EdgeInsets.all(6.0),
                       child: Center(
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
@@ -3349,8 +3712,8 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                             pctText,
                             style: GoogleFonts.jetBrainsMono(
                               color: colors.primary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -3510,6 +3873,103 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                       ),
                     ),
                   ),
+
+                  // Sub-chapters breakdown grouped under parent section
+                  if (chTopics.length > 1 || (chTopics.isNotEmpty && (chTopics.first.hasSubtopics || chTopics.first.topicCode.isNotEmpty))) ...[
+                    const SizedBox(height: 12),
+                    Divider(height: 1, color: colors.surfaceBorder),
+                    const SizedBox(height: 4),
+                    ...chTopics.map((subCh) {
+                      int subTotal = 0;
+                      int subDone = 0;
+                      if (subCh.hasSubtopics) {
+                        subTotal = subCh.subtopics.length;
+                        for (final s in subCh.subtopics) {
+                          if (_topicCheckState[s.id] ?? s.isCompleted) subDone++;
+                        }
+                      } else {
+                        subTotal = 1;
+                        if (_topicCheckState[subCh.id] ?? subCh.isCompleted) subDone++;
+                      }
+                      final double subRatio = subTotal > 0 ? (subDone / subTotal) : 0.0;
+                      final subPct = '${(subRatio * 100).toInt()}%';
+
+                      return Container(
+                        margin: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: colors.recessed,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: colors.surfaceBorder),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      if (subCh.topicCode.isNotEmpty) ...[
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          margin: const EdgeInsets.only(right: 8),
+                                          decoration: BoxDecoration(
+                                            color: colors.primary.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            subCh.topicCode,
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: colors.primary,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                      Expanded(
+                                        child: Text(
+                                          subCh.title,
+                                          style: GoogleFonts.plusJakartaSans(
+                                            color: colors.textPrimary,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '$subDone / $subTotal topics ($subPct)',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: subRatio >= 1.0 ? colors.success : colors.primary,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(2),
+                              child: LinearProgressIndicator(
+                                value: subRatio,
+                                minHeight: 4,
+                                backgroundColor: isDark ? const Color(0xFF1E2633) : const Color(0xFFDCD7C8),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  subRatio >= 1.0 ? colors.success : colors.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
                 ],
               ),
             );

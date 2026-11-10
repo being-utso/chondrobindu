@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../models/assessment_model.dart';
@@ -237,17 +238,135 @@ class AssessmentRepository {
     }
   }
 
-  Future<void> deleteAssessment(String uid, String assessmentId, [String? courseId]) async {
-    if (_firestore == null || uid.isEmpty || assessmentId.isEmpty) return;
-    await _assessmentsRef(uid)!.doc(assessmentId).delete();
-    if (courseId != null && courseId.isNotEmpty) {
+  Future<void> deleteAssessment(
+    String uid,
+    String assessmentId, [
+    String? courseId,
+    String? assessmentName,
+    int? itemIndex,
+  ]) async {
+    if (_firestore == null || uid.isEmpty) return;
+
+    if (assessmentId.isNotEmpty) {
       try {
-        await _coursesRef(uid)!
-            .doc(courseId)
-            .collection('assessments')
-            .doc(assessmentId)
-            .delete();
+        await _assessmentsRef(uid)!.doc(assessmentId).delete();
       } catch (_) {}
+    }
+
+    if (courseId != null && courseId.isNotEmpty) {
+      if (assessmentId.isNotEmpty) {
+        try {
+          await _coursesRef(uid)!
+              .doc(courseId)
+              .collection('assessments')
+              .doc(assessmentId)
+              .delete();
+        } catch (_) {}
+      }
+
+      // Also clean up any embedded assessment in course document (both map and array structures)
+      try {
+        final docRef = _coursesRef(uid)!.doc(courseId);
+        final snap = await docRef.get();
+        if (snap.exists) {
+          final data = snap.data();
+          if (data != null) {
+            bool modified = false;
+            final updates = <String, dynamic>{};
+
+            final rawAss = data['assessments'];
+            if (rawAss is Map) {
+              final assMap = Map<String, dynamic>.from(rawAss);
+              const catKeys = [
+                'classTests',
+                'quizzesViva',
+                'quizzes',
+                'labReportsAssignments',
+                'labReports',
+                'continuousAssessment',
+                'labFinalPractical',
+                'assignments',
+                'items',
+              ];
+
+              for (final key in catKeys) {
+                if (assMap[key] is List) {
+                  final list = List<dynamic>.from(assMap[key]);
+                  bool removed = false;
+                  for (int i = 0; i < list.length; i++) {
+                    final it = list[i];
+                    if (it is Map) {
+                      final matchId = assessmentId.isNotEmpty && it['id'] == assessmentId;
+                      final matchName = assessmentName != null &&
+                          assessmentName.isNotEmpty &&
+                          (it['name'] == assessmentName || it['title'] == assessmentName);
+                      if (matchId || matchName) {
+                        list.removeAt(i);
+                        removed = true;
+                        break;
+                      }
+                    }
+                  }
+                  if (removed) {
+                    assMap[key] = list;
+                    modified = true;
+                    break;
+                  }
+                }
+              }
+              if (modified) {
+                updates['assessments'] = assMap;
+              }
+            } else if (rawAss is List) {
+              final list = List<dynamic>.from(rawAss);
+              for (int i = 0; i < list.length; i++) {
+                final it = list[i];
+                if (it is Map) {
+                  final matchId = assessmentId.isNotEmpty && it['id'] == assessmentId;
+                  final matchName = assessmentName != null &&
+                      assessmentName.isNotEmpty &&
+                      (it['name'] == assessmentName || it['title'] == assessmentName);
+                  if (matchId || matchName) {
+                    list.removeAt(i);
+                    updates['assessments'] = list;
+                    modified = true;
+                    break;
+                  }
+                }
+              }
+            }
+
+            const topLevelKeys = ['classTests', 'quizzes', 'assignments'];
+            for (final k in topLevelKeys) {
+              if (data[k] is List) {
+                final list = List<dynamic>.from(data[k]);
+                for (int i = 0; i < list.length; i++) {
+                  final it = list[i];
+                  if (it is Map) {
+                    final matchId = assessmentId.isNotEmpty && it['id'] == assessmentId;
+                    final matchName = assessmentName != null &&
+                        assessmentName.isNotEmpty &&
+                        (it['name'] == assessmentName || it['title'] == assessmentName);
+                    if (matchId || matchName) {
+                      list.removeAt(i);
+                      updates[k] = list;
+                      modified = true;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+
+            if (modified) {
+              updates['lastUpdated'] = FieldValue.serverTimestamp();
+              await docRef.set(updates, SetOptions(merge: true));
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error removing embedded assessment from course doc: $e');
+      }
     }
   }
 }

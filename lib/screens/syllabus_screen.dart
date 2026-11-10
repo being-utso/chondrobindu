@@ -1100,9 +1100,13 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
           final chapter = subject.chapters[cIdx];
           chapter.sections.removeWhere((sec) {
             final compositeKey = '${subject.id}|${chapter.id}|${sec.id}';
-            return selectedSectionKeys.contains(compositeKey) || selectedSectionKeys.contains(sec.id);
+            return selectedSectionKeys.contains(compositeKey) ||
+                selectedSectionKeys.contains(sec.id) ||
+                selectedSectionKeys.contains('${subject.id}|${chapter.id}');
           });
         }
+        // Also remove any chapter that was directly selected
+        subject.chapters.removeWhere((ch) => selectedSectionKeys.contains('${subject.id}|${ch.id}'));
       }
       isSelectionMode = false;
       selectedSectionKeys.clear();
@@ -1480,10 +1484,21 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                               ],
                             ),
                           ),
-                          IconButton(
-                            icon: Icon(Icons.download_rounded, color: colors.textMuted),
-                            tooltip: 'Reset to Presets',
-                            onPressed: _showResetPresetConfirmation,
+                          Tooltip(
+                            message: 'Reset Syllabus',
+                            child: InkWell(
+                              onTap: _showResetPresetConfirmation,
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: colors.surface,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: colors.surfaceBorder),
+                                ),
+                                child: Icon(Icons.restart_alt_rounded, color: colors.textMuted, size: 20),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -1493,99 +1508,140 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                       _buildOverallProgressBar(rustColor),
                       const SizedBox(height: 12),
 
-                      // Mode Toggles & Action Bar
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            ActionChip(
-                              label: Text('Add Subject', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
-                              avatar: Icon(Icons.add_rounded, size: 16, color: colors.textPrimary),
-                              backgroundColor: cardColor,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                side: BorderSide(color: colors.surfaceBorder),
-                              ),
-                              onPressed: () => _showSubjectBottomSheet(),
-                            ),
-                            const SizedBox(width: 8),
-
-                            ActionChip(
-                              label: Text('Manage Global Sections', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
-                              avatar: Icon(Icons.tune_rounded, size: 16, color: colors.textPrimary),
-                              backgroundColor: cardColor,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                side: BorderSide(color: colors.surfaceBorder),
-                              ),
-                              onPressed: () => _showManageGlobalSectionsModal(),
-                            ),
-                            const SizedBox(width: 8),
-
-                            ActionChip(
-                              label: Text(
-                                'Bulk Select',
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: rustColor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11.5,
+                      // Mode Toggles & Action Bar (2-Row Responsive Layout)
+                      Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 40,
+                                  child: OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      backgroundColor: cardColor,
+                                      foregroundColor: colors.textPrimary,
+                                      side: BorderSide(color: colors.surfaceBorder),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                    ),
+                                    onPressed: () => _showSubjectBottomSheet(),
+                                    icon: Icon(Icons.add_rounded, size: 16, color: colors.textPrimary),
+                                    label: Text(
+                                      'Add Subject',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                              avatar: Icon(
-                                Icons.checklist_rounded,
-                                size: 16,
-                                color: rustColor,
-                              ),
-                              backgroundColor: rustColor.withValues(alpha: 0.12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                side: BorderSide(color: rustColor.withValues(alpha: 0.35)),
-                              ),
-                              onPressed: () {
-                                SafeHaptics.lightImpact();
-                                setState(() {
-                                  isSelectionMode = true;
-                                  selectedSectionKeys.clear();
-                                });
-                              },
-                            ),
-                            const SizedBox(width: 8),
-
-                            FilterChip(
-                              label: Text(
-                                isEditMode ? 'Done' : 'Edit',
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: isEditMode ? (isDark ? const Color(0xFF171C24) : Colors.white) : colors.textPrimary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11.5,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 40,
+                                  child: OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      backgroundColor: cardColor,
+                                      foregroundColor: colors.textPrimary,
+                                      side: BorderSide(color: colors.surfaceBorder),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                    ),
+                                    onPressed: () => _showManageGlobalSectionsModal(),
+                                    icon: Icon(Icons.tune_rounded, size: 16, color: colors.textPrimary),
+                                    label: Text(
+                                      'Global Sections',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                              selected: isEditMode,
-                              onSelected: (val) {
-                                setState(() {
-                                  isEditMode = val;
-                                });
-                                if (!val) {
-                                  _autoSaveToFirestore();
-                                }
-                              },
-                              selectedColor: accentColor,
-                              backgroundColor: cardColor,
-                              avatar: Icon(
-                                isEditMode ? Icons.check_circle_rounded : Icons.edit_note_rounded,
-                                size: 16,
-                                color: isEditMode ? (isDark ? const Color(0xFF171C24) : Colors.white) : colors.textPrimary,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                side: BorderSide(
-                                  color: isEditMode ? accentColor : colors.surfaceBorder,
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 40,
+                                  child: OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      backgroundColor: rustColor.withValues(alpha: 0.12),
+                                      foregroundColor: rustColor,
+                                      side: BorderSide(color: rustColor.withValues(alpha: 0.35)),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                    ),
+                                    onPressed: () {
+                                      SafeHaptics.lightImpact();
+                                      setState(() {
+                                        isSelectionMode = true;
+                                        selectedSectionKeys.clear();
+                                      });
+                                    },
+                                    icon: Icon(Icons.checklist_rounded, size: 16, color: rustColor),
+                                    label: Text(
+                                      'Bulk Select',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                              showCheckmark: false,
-                            ),
-                          ],
-                        ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 40,
+                                  child: OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      backgroundColor: isEditMode ? accentColor : cardColor,
+                                      foregroundColor: isEditMode
+                                          ? (isDark ? const Color(0xFF171C24) : Colors.white)
+                                          : colors.textPrimary,
+                                      side: BorderSide(
+                                        color: isEditMode ? accentColor : colors.surfaceBorder,
+                                      ),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        isEditMode = !isEditMode;
+                                      });
+                                      if (!isEditMode) {
+                                        _autoSaveToFirestore();
+                                      }
+                                    },
+                                    icon: Icon(
+                                      isEditMode ? Icons.check_circle_rounded : Icons.edit_note_rounded,
+                                      size: 16,
+                                      color: isEditMode
+                                          ? (isDark ? const Color(0xFF171C24) : Colors.white)
+                                          : colors.textPrimary,
+                                    ),
+                                    label: Text(
+                                      isEditMode ? 'Done' : 'Edit Order',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -1637,6 +1693,18 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
     final doneSecs = subject.chapters.fold<int>(0, (total, c) => total + c.sections.where((s) => s.isCompleted).length);
     final percent = totalSecs > 0 ? (doneSecs / totalSecs * 100) : 0.0;
     final iconData = _getSubjectIcon(subject.iconName, subject.title);
+
+    final allSubjSectionKeys = <String>{};
+    for (final ch in subject.chapters) {
+      for (final sec in ch.sections) {
+        allSubjSectionKeys.add('${subject.id}|${ch.id}|${sec.id}');
+      }
+    }
+    final bool isAllSubjSelected = allSubjSectionKeys.isNotEmpty &&
+        allSubjSectionKeys.every((k) => selectedSectionKeys.contains(k));
+    final bool isPartialSubjSelected = !isAllSubjSelected &&
+        allSubjSectionKeys.any((k) => selectedSectionKeys.contains(k));
+
     return Container(
       decoration: BoxDecoration(
         color: cardColor,
@@ -1659,13 +1727,47 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                 }
               });
             },
-            leading: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(iconData, color: accentColor, size: 22),
+            leading: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isSelectionMode) ...[
+                  InkWell(
+                    onTap: () {
+                      SafeHaptics.lightImpact();
+                      setState(() {
+                        if (isAllSubjSelected) {
+                          selectedSectionKeys.removeAll(allSubjSectionKeys);
+                        } else {
+                          selectedSectionKeys.addAll(allSubjSectionKeys);
+                        }
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: Icon(
+                        isAllSubjSelected
+                            ? Icons.check_box_rounded
+                            : (isPartialSubjSelected
+                                ? Icons.indeterminate_check_box_rounded
+                                : Icons.check_box_outline_blank_rounded),
+                        color: (isAllSubjSelected || isPartialSubjSelected)
+                            ? const Color(0xFFEF4444)
+                            : colors.textMuted,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ],
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(iconData, color: accentColor, size: 22),
+                ),
+              ],
             ),
             title: Text(
               subject.title,
@@ -1783,6 +1885,12 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
     final totalSecs = chapter.sections.length;
     final doneSecs = chapter.sections.where((s) => s.isCompleted).length;
 
+    final chapterSectionKeys = chapter.sections.map((s) => '${subject.id}|${chapter.id}|${s.id}').toSet();
+    final bool isAllChapterSelected = chapterSectionKeys.isNotEmpty &&
+        chapterSectionKeys.every((k) => selectedSectionKeys.contains(k));
+    final bool isPartialChapterSelected = !isAllChapterSelected &&
+        chapterSectionKeys.any((k) => selectedSectionKeys.contains(k));
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12.0),
       decoration: BoxDecoration(
@@ -1810,6 +1918,39 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
               child: Row(
                 children: [
+                  if (isSelectionMode) ...[
+                    InkWell(
+                      onTap: () {
+                        SafeHaptics.lightImpact();
+                        setState(() {
+                          if (isAllChapterSelected) {
+                            selectedSectionKeys.removeAll(chapterSectionKeys);
+                            selectedSectionKeys.remove('${subject.id}|${chapter.id}');
+                          } else {
+                            selectedSectionKeys.addAll(chapterSectionKeys);
+                            if (chapterSectionKeys.isEmpty) {
+                              selectedSectionKeys.add('${subject.id}|${chapter.id}');
+                            }
+                          }
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 10.0),
+                        child: Icon(
+                          isAllChapterSelected
+                              ? Icons.check_box_rounded
+                              : (isPartialChapterSelected
+                                  ? Icons.indeterminate_check_box_rounded
+                                  : Icons.check_box_outline_blank_rounded),
+                          color: (isAllChapterSelected || isPartialChapterSelected)
+                              ? const Color(0xFFEF4444)
+                              : colors.textMuted,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ],
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

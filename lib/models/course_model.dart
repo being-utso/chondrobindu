@@ -66,7 +66,7 @@ class Course {
   // Compatibility aliases
   String get courseCode => code;
   String get courseName => title;
-  String? get teacherBadge => teacherInitials.isNotEmpty ? teacherInitials.first : null;
+  String? get teacherBadge => teacherInitials.isNotEmpty ? teacherInitials.join(' • ') : null;
   double get progressFraction => totalTopicsCount > 0
       ? (completedTopicsCount / totalTopicsCount).clamp(0.0, 1.0)
       : 0.0;
