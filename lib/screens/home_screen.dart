@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../core/theme/app_colors.dart';
+import '../models/assessment_model.dart';
+import '../models/course_model.dart';
+import '../providers/analytics_provider.dart';
 import '../providers/firestore_providers.dart';
 import '../providers/nav_provider.dart';
 import '../providers/timer_provider.dart';
@@ -136,52 +139,43 @@ class HomeScreen extends ConsumerWidget {
     dynamic profile,
     String name,
   ) {
-    String metadataPrefix = 'Level 1 • Term 1 • EEE • Batch \'25 • Week 04';
-
-    try {
-      if (profile != null) {
-        if (profile is UserProfile && profile.profileSubtitle.isNotEmpty) {
-          metadataPrefix = profile.profileSubtitle;
-        } else if (profile.institutionType == InstitutionType.college) {
-          final collegeClass = (profile.collegeClass != null && profile.collegeClass.toString().trim().isNotEmpty)
-              ? profile.collegeClass.toString().trim()
-              : 'Class 11';
-          final group = (profile.academicGroup != null && profile.academicGroup.toString().trim().isNotEmpty)
-              ? profile.academicGroup.toString().trim()
-              : 'Science';
-          final b = (profile.batch != null && profile.batch.toString().trim().isNotEmpty)
-              ? profile.batch.toString().trim()
-              : '2025';
-          metadataPrefix = '$collegeClass • $group • Batch $b';
-        } else {
-          final rawLevel = (profile.level != null && (profile.level as String).trim().isNotEmpty)
-              ? (profile.level as String).trim()
-              : '1';
-          final levelStr = rawLevel.toLowerCase().startsWith('level') ? rawLevel : 'Level $rawLevel';
-
-          final rawTerm = (profile.term != null && (profile.term as String).trim().isNotEmpty)
-              ? (profile.term as String).trim()
-              : '1';
-          final termStr = rawTerm.toLowerCase().startsWith('term') ? rawTerm : 'Term $rawTerm';
-
-          final rawDept = (profile.department != null && (profile.department as String).trim().isNotEmpty)
-              ? (profile.department as String).trim()
-              : ((profile.major != null && (profile.major as String).trim().isNotEmpty)
-                  ? (profile.major as String).trim()
-                  : 'EEE');
-          final deptStr = rawDept.toUpperCase();
-
-          final rawBatch = (profile.batch != null && (profile.batch as String).trim().isNotEmpty)
-              ? (profile.batch as String).trim()
-              : ((profile.hscBatch != null && (profile.hscBatch as String).trim().isNotEmpty)
-                  ? (profile.hscBatch as String).trim()
-                  : 'Varsity');
-          final batchStr = rawBatch.toLowerCase().startsWith('batch') ? rawBatch : 'Batch \'$rawBatch';
-
-          metadataPrefix = '$levelStr • $termStr • $deptStr • $batchStr • Week 04';
-        }
+    String metadataPrefix = '';
+    if (profile != null) {
+      if (profile is UserProfile && profile.profileSubtitle.isNotEmpty) {
+        metadataPrefix = profile.profileSubtitle;
+      } else if (profile.institutionType == InstitutionType.college || (profile is UserProfile && !profile.isUniversityStudent)) {
+        final b = (profile.hscBatch != null && profile.hscBatch.toString().trim().isNotEmpty)
+            ? profile.hscBatch.toString().trim()
+            : (profile.batch != null ? profile.batch.toString().trim() : '2025');
+        final g = (profile.hscGroup != null && profile.hscGroup.toString().trim().isNotEmpty)
+            ? profile.hscGroup.toString().trim()
+            : (profile.academicGroup != null ? profile.academicGroup.toString().trim() : 'Science');
+        final t = (profile.primaryTarget != null && profile.primaryTarget.toString().trim().isNotEmpty)
+            ? profile.primaryTarget.toString().trim()
+            : 'Engineering';
+        metadataPrefix = 'HSC \'$b • $g • $t';
+      } else {
+        final uni = (profile.universityName != null && profile.universityName.toString().trim().isNotEmpty)
+            ? profile.universityName.toString().trim()
+            : 'BUET';
+        final dept = (profile.department != null && profile.department.toString().trim().isNotEmpty)
+            ? profile.department.toString().trim()
+            : ((profile.major != null && profile.major.toString().trim().isNotEmpty)
+                ? profile.major.toString().trim()
+                : 'EEE');
+        final rawLvl = (profile.level != null && profile.level.toString().trim().isNotEmpty)
+            ? profile.level.toString().trim()
+            : '1';
+        final lvl = rawLvl.toLowerCase().startsWith('level') ? rawLvl : 'Level $rawLvl';
+        final rawTrm = (profile.term != null && profile.term.toString().trim().isNotEmpty)
+            ? profile.term.toString().trim()
+            : '1';
+        final trm = rawTrm.toLowerCase().startsWith('term') ? rawTrm : 'Term $rawTrm';
+        metadataPrefix = '$uni • $dept • $lvl - $trm';
       }
-    } catch (_) {}
+    } else {
+      metadataPrefix = 'BUET • EEE • Level 1 - Term 1';
+    }
 
     final hour = DateTime.now().hour;
     final timeGreeting = hour < 12
@@ -366,9 +360,9 @@ class HomeScreen extends ConsumerWidget {
     dynamic profile,
     bool isTablet,
   ) {
-    final card1 = _buildKpiCardStudyStreak(colors, profile);
+    final card1 = _buildKpiCardStudyStreak(ref, colors, profile);
     final card2 = _buildKpiCardTotalFocus(ref, colors, profile);
-    final card3 = _buildKpiCardCgpaForecaster(colors, profile);
+    final card3 = _buildKpiCardCgpaForecaster(ref, colors, profile);
 
     if (isTablet) {
       return IntrinsicHeight(
@@ -397,13 +391,27 @@ class HomeScreen extends ConsumerWidget {
   }
 
   // --- KPI Card 1: Study Streak ---
-  Widget _buildKpiCardStudyStreak(ChondrobinduThemeColors colors, dynamic profile) {
-    int streak = 0;
-    try {
-      streak = (profile?.streakDays as int?) ?? 0;
-    } catch (_) {}
+  Widget _buildKpiCardStudyStreak(WidgetRef ref, ChondrobinduThemeColors colors, dynamic profile) {
+    final computedStreak = ref.watch(currentStreakProvider);
+    final profileStreak = (profile?.streakDays as int?) ?? 0;
+    final int streak = profileStreak > 0 ? profileStreak : computedStreak;
 
     final streakText = '$streak ${streak == 1 ? 'day' : 'days'}';
+
+    final String momentumBadge;
+    if (streak >= 7) {
+      momentumBadge = 'TOP 5%';
+    } else if (streak >= 3) {
+      momentumBadge = 'TOP 15%';
+    } else if (streak > 0) {
+      momentumBadge = 'ACTIVE';
+    } else {
+      momentumBadge = 'DAY 0';
+    }
+
+    final weeklyTrend = ref.watch(weeklyTrendProvider);
+    final maxMins = weeklyTrend.fold<int>(0, (max, item) => item.totalMinutes > max ? item.totalMinutes : max);
+    final now = DateTime.now();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -443,7 +451,7 @@ class HomeScreen extends ConsumerWidget {
                   border: Border.all(color: colors.secondary.withValues(alpha: 0.25)),
                 ),
                 child: Text(
-                  'TOP 5%',
+                  momentumBadge,
                   style: GoogleFonts.jetBrainsMono(
                     color: colors.secondary,
                     fontSize: 10,
@@ -485,19 +493,31 @@ class HomeScreen extends ConsumerWidget {
           Divider(color: colors.surfaceBorder, height: 1),
           const SizedBox(height: 12),
 
-          // 7-bar sparkline visualizer (M T W T F S S)
+          // 7-bar sparkline visualizer from real weekly activity
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _buildSparklineCol('M', 28, colors.secondary),
-              _buildSparklineCol('T', 36, colors.secondary),
-              _buildSparklineCol('W', 32, colors.secondary),
-              _buildSparklineCol('T', 44, colors.secondary),
-              _buildSparklineCol('F', 40, colors.secondary),
-              _buildSparklineCol('S', 48, colors.secondary, isToday: true),
-              _buildSparklineCol('S', 24, colors.secondary.withValues(alpha: 0.45)),
-            ],
+            children: weeklyTrend.isNotEmpty
+                ? weeklyTrend.map((day) {
+                    final isToday = day.date.year == now.year && day.date.month == now.month && day.date.day == now.day;
+                    final double barHeight = (maxMins > 0 && day.totalMinutes > 0)
+                        ? (12.0 + (day.totalMinutes / maxMins) * 36.0).clamp(12.0, 48.0)
+                        : 6.0;
+                    final Color barColor = day.totalMinutes > 0
+                        ? colors.secondary
+                        : colors.surfaceBorder;
+                    final dayLetter = day.dayName.isNotEmpty ? day.dayName.substring(0, 1) : 'D';
+                    return _buildSparklineCol(dayLetter, barHeight, barColor, isToday: isToday);
+                  }).toList()
+                : [
+                    _buildSparklineCol('M', 6, colors.surfaceBorder),
+                    _buildSparklineCol('T', 6, colors.surfaceBorder),
+                    _buildSparklineCol('W', 6, colors.surfaceBorder),
+                    _buildSparklineCol('T', 6, colors.surfaceBorder),
+                    _buildSparklineCol('F', 6, colors.surfaceBorder),
+                    _buildSparklineCol('S', 6, colors.surfaceBorder),
+                    _buildSparklineCol('S', 6, colors.surfaceBorder, isToday: true),
+                  ],
           ),
         ],
       ),
@@ -532,14 +552,67 @@ class HomeScreen extends ConsumerWidget {
   // --- KPI Card 2: Total Focus Time ---
   Widget _buildKpiCardTotalFocus(WidgetRef ref, ChondrobinduThemeColors colors, dynamic profile) {
     final sessionsAsync = ref.watch(recentStudySessionsStreamProvider);
-    final sessions = sessionsAsync.value ?? [];
-    final int sessionCount = sessions.length;
-    final int totalMinutes = sessions.fold<int>(0, (sum, s) => sum + (s.durationSeconds ~/ 60));
-    final int profileMinutes = (profile?.totalFocusMinutes as num?)?.toInt() ?? 0;
-    final int effectiveMinutes = totalMinutes > 0 ? totalMinutes : profileMinutes;
+    final sessions = sessionsAsync.valueOrNull ?? [];
+    final studyLogs = ref.watch(studyLogsProvider);
+    final allSessionsCount = sessions.isNotEmpty ? sessions.length : studyLogs.length;
 
-    final hrs = (effectiveMinutes / 60.0).toStringAsFixed(1);
-    final sessionsSubtitle = 'Recorded across $sessionCount ${sessionCount == 1 ? 'deep block' : 'deep blocks'}';
+    final int sessionSecondsTotal = sessions.fold<int>(0, (sum, s) => sum + s.durationSeconds);
+    final int logsMinutesTotal = studyLogs.fold<int>(0, (sum, l) => sum + l.durationInMinutes);
+    final int profileMinutes = (profile?.totalFocusMinutes as num?)?.toInt() ?? 0;
+
+    final int effectiveTotalMinutes = sessionSecondsTotal > 0
+        ? (sessionSecondsTotal ~/ 60)
+        : (logsMinutesTotal > 0 ? logsMinutesTotal : profileMinutes);
+
+    final double totalHours = effectiveTotalMinutes / 60.0;
+    final String hrsString = '${totalHours.toStringAsFixed(1)} hrs';
+
+    final String sessionsSubtitle = allSessionsCount > 0
+        ? 'Recorded across $allSessionsCount ${allSessionsCount == 1 ? 'deep block' : 'deep blocks'}'
+        : 'No focus sessions recorded yet';
+
+    // Calculate this week vs last week trend
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+    final fourteenDaysAgo = now.subtract(const Duration(days: 14));
+
+    int thisWeekMinutes = 0;
+    int lastWeekMinutes = 0;
+    int thisWeekSessionCount = 0;
+
+    if (sessions.isNotEmpty) {
+      for (final s in sessions) {
+        if (s.startedAt.isAfter(sevenDaysAgo)) {
+          thisWeekMinutes += (s.durationSeconds ~/ 60);
+          thisWeekSessionCount++;
+        } else if (s.startedAt.isAfter(fourteenDaysAgo)) {
+          lastWeekMinutes += (s.durationSeconds ~/ 60);
+        }
+      }
+    } else {
+      for (final l in studyLogs) {
+        if (l.date.isAfter(sevenDaysAgo)) {
+          thisWeekMinutes += l.durationInMinutes;
+          thisWeekSessionCount++;
+        } else if (l.date.isAfter(fourteenDaysAgo)) {
+          lastWeekMinutes += l.durationInMinutes;
+        }
+      }
+    }
+
+    final double diffHours = (thisWeekMinutes - lastWeekMinutes) / 60.0;
+    final bool isPositive = diffHours >= 0;
+    final String trendText = '${isPositive ? '+' : ''}${diffHours.toStringAsFixed(1)}h';
+
+    // Daily Mean over last 7 days
+    final int dailyMeanMins = (thisWeekMinutes / 7).round();
+    final String dailyMeanStr = '${dailyMeanMins ~/ 60}h ${dailyMeanMins % 60}m';
+
+    // Session Avg
+    final int sessionAvgMins = thisWeekSessionCount > 0
+        ? (thisWeekMinutes / thisWeekSessionCount).round()
+        : (allSessionsCount > 0 ? (effectiveTotalMinutes / allSessionsCount).round() : 0);
+    final String sessionAvgStr = '${sessionAvgMins}m';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -584,7 +657,7 @@ class HomeScreen extends ConsumerWidget {
                     Icon(Icons.trending_up_rounded, size: 13, color: colors.success),
                     const SizedBox(width: 3),
                     Text(
-                      '+2.4h',
+                      trendText,
                       style: GoogleFonts.jetBrainsMono(
                         color: colors.success,
                         fontSize: 10,
@@ -604,7 +677,7 @@ class HomeScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$hrs hrs',
+                hrsString,
                 style: GoogleFonts.jetBrainsMono(
                   color: colors.textPrimary,
                   fontSize: 28,
@@ -638,14 +711,14 @@ class HomeScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text('Daily Mean: ', style: GoogleFonts.jetBrainsMono(fontSize: 11, color: colors.textMuted)),
-                  Text('2h 38m', style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.bold, color: colors.primary)),
+                  Text(dailyMeanStr, style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.bold, color: colors.primary)),
                 ],
               ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text('Session Avg: ', style: GoogleFonts.jetBrainsMono(fontSize: 11, color: colors.textMuted)),
-                  Text('46m', style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.bold, color: colors.textPrimary)),
+                  Text(sessionAvgStr, style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.bold, color: colors.textPrimary)),
                 ],
               ),
             ],
@@ -656,27 +729,61 @@ class HomeScreen extends ConsumerWidget {
   }
 
   // --- KPI Card 3: CGPA Forecaster ---
-  Widget _buildKpiCardCgpaForecaster(ChondrobinduThemeColors colors, dynamic profile) {
-    final bool isCollege = profile != null && profile.institutionType == InstitutionType.college;
+  Widget _buildKpiCardCgpaForecaster(WidgetRef ref, ChondrobinduThemeColors colors, dynamic profile) {
+    final bool isCollege = profile != null &&
+        (profile.institutionType == InstitutionType.college || (profile is UserProfile && !profile.isUniversityStudent));
     final double maxGpa = isCollege ? 5.00 : 4.00;
     final String label = isCollege ? 'GPA PROJECTION' : 'CGPA FORECASTER';
 
+    final double targetGpa = (profile?.targetGpa as num?)?.toDouble() ?? (isCollege ? 5.00 : 3.75);
+
+    final coursesAsync = ref.watch(coursesStreamProvider);
+    final courses = (coursesAsync.valueOrNull ?? []).where((c) => !c.isArchived).toList();
+
+    // Calculate real syllabus / semester completion
+    int totalTopics = 0;
+    int completedTopics = 0;
+    double weightedProgressSum = 0.0;
+    double totalCredits = 0.0;
+
+    for (final c in courses) {
+      totalTopics += c.totalTopicsCount;
+      completedTopics += c.completedTopicsCount;
+      totalCredits += c.credits;
+      weightedProgressSum += (c.credits * c.progressFraction);
+    }
+
+    final double overallCompletionFraction = totalCredits > 0
+        ? (weightedProgressSum / totalCredits).clamp(0.0, 1.0)
+        : (totalTopics > 0 ? (completedTopics / totalTopics).clamp(0.0, 1.0) : 0.0);
+    final int completionPct = (overallCompletionFraction * 100).round();
+
+    // Forecasted GPA based on real target GPA and syllabus completion
     double currentGpa = 0.0;
-    double targetGpa = maxGpa;
     try {
       if (profile != null) {
         currentGpa = (profile.currentGpa as num?)?.toDouble() ?? 0.0;
-        targetGpa = (profile.targetGpa as num?)?.toDouble() ?? maxGpa;
       }
     } catch (_) {}
 
     if (currentGpa <= 0.0) {
-      currentGpa = isCollege ? 4.85 : 3.72;
-      targetGpa = isCollege ? 5.00 : 3.75;
+      if (courses.isNotEmpty && overallCompletionFraction > 0) {
+        currentGpa = (targetGpa * (0.85 + (overallCompletionFraction * 0.15))).clamp(0.0, maxGpa);
+      } else {
+        currentGpa = targetGpa;
+      }
     }
 
-    final double progressFactor = maxGpa > 0 ? (currentGpa / maxGpa).clamp(0.0, 1.0) : 0.0;
-    final int pct = (progressFactor * 100).round();
+    final String bandSubtitle;
+    if (currentGpa >= (isCollege ? 4.75 : 3.75)) {
+      bandSubtitle = 'In Honor Roll Band';
+    } else if (currentGpa >= (isCollege ? 4.00 : 3.25)) {
+      bandSubtitle = 'On Academic Track';
+    } else if (currentGpa > 0.0) {
+      bandSubtitle = 'Needs Acceleration';
+    } else {
+      bandSubtitle = 'No Grades Recorded Yet';
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -766,7 +873,7 @@ class HomeScreen extends ConsumerWidget {
                   Icon(Icons.check_circle_rounded, size: 14, color: colors.success),
                   const SizedBox(width: 4),
                   Text(
-                    'In Honor Roll Band',
+                    bandSubtitle,
                     style: GoogleFonts.plusJakartaSans(
                       color: colors.success,
                       fontSize: 12.5,
@@ -801,7 +908,7 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '$pct% Complete',
+                    '$completionPct% Complete',
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -821,7 +928,7 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 child: FractionallySizedBox(
                   alignment: Alignment.centerLeft,
-                  widthFactor: progressFactor,
+                  widthFactor: overallCompletionFraction.clamp(0.0, 1.0),
                   child: Container(
                     decoration: BoxDecoration(
                       color: colors.primary,
@@ -849,20 +956,66 @@ class HomeScreen extends ConsumerWidget {
     bool isDark,
   ) {
     final coursesAsync = ref.watch(coursesStreamProvider);
-    final courses = coursesAsync.valueOrNull ?? [];
-    final activeCourse = courses.isNotEmpty
-        ? courses.firstWhere((c) => !c.isArchived, orElse: () => courses.first)
-        : null;
+    final courses = (coursesAsync.valueOrNull ?? []).where((c) => !c.isArchived).toList();
+    final Course? activeCourse = courses.isNotEmpty ? courses.first : null;
 
-    final String courseCodeTitle = activeCourse != null
-        ? (activeCourse.courseCode.isNotEmpty
-            ? '${activeCourse.courseCode} • ${activeCourse.courseName}'
-            : activeCourse.courseName)
-        : 'EEE 101 • 1.2 Kirchhoff\'s Current & Voltage Laws';
+    final upcomingAssessmentsAsync = ref.watch(upcomingAssessmentsStreamProvider);
+    final upcomingAssessments = upcomingAssessmentsAsync.valueOrNull ?? [];
 
-    final String targetText = activeCourse != null
-        ? courseCodeTitle
-        : 'Select or create a course to begin';
+    // Find assessment for the active course or earliest upcoming assessment
+    Assessment? courseAssessment;
+    if (activeCourse != null && upcomingAssessments.isNotEmpty) {
+      courseAssessment = upcomingAssessments.cast<Assessment?>().firstWhere(
+        (a) => a?.courseCode == activeCourse.code || a?.courseId == activeCourse.id,
+        orElse: () => upcomingAssessments.first,
+      );
+    } else if (upcomingAssessments.isNotEmpty) {
+      courseAssessment = upcomingAssessments.first;
+    }
+
+    final bool hasAssessment = courseAssessment != null && courseAssessment.name.isNotEmpty;
+
+    final String targetText;
+    if (activeCourse != null) {
+      targetText = activeCourse.code.isNotEmpty
+          ? '${activeCourse.code} • ${activeCourse.title}'
+          : activeCourse.title;
+    } else {
+      targetText = 'Select or create a course to begin';
+    }
+
+    String prioritySubtitle;
+    if (hasAssessment) {
+      final days = courseAssessment.date != null
+          ? courseAssessment.date!.difference(DateTime.now()).inDays
+          : 0;
+      final daysText = days > 0 ? 'in $days days' : 'due soon';
+      final weightText = courseAssessment.weightage > 0
+          ? ' • Priority: High (${courseAssessment.weightage.toStringAsFixed(0)}% Course Grade)'
+          : '';
+      prioritySubtitle = 'Upcoming ${courseAssessment.name} $daysText$weightText • Estimated Focus: 2 Pomodoros (50 mins).';
+    } else if (activeCourse != null) {
+      final remainingTopics = activeCourse.totalTopicsCount - activeCourse.completedTopicsCount;
+      if (remainingTopics > 0) {
+        prioritySubtitle = '$remainingTopics topics remaining in syllabus • Estimated Focus: 2 Pomodoros (50 mins).';
+      } else {
+        prioritySubtitle = 'Syllabus on track • Ready for practice or revision focus block.';
+      }
+    } else {
+      prioritySubtitle = 'Enroll in active courses to receive personalized deep work recommendations.';
+    }
+
+    // Dynamic problem/handout chips
+    final List<String> topicChips = [];
+    if (activeCourse != null) {
+      if (activeCourse.totalTopicsCount > 0) {
+        topicChips.add('${activeCourse.completedTopicsCount}/${activeCourse.totalTopicsCount} Syllabus Topics Done');
+      }
+      topicChips.add('${activeCourse.credits.toStringAsFixed(1)} Credit Hours');
+      if (activeCourse.teacherBadge != null && activeCourse.teacherBadge!.isNotEmpty) {
+        topicChips.add('Instructor: [${activeCourse.teacherBadge}]');
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -948,7 +1101,7 @@ class HomeScreen extends ConsumerWidget {
                       if (activeCourse != null) {
                         ref.read(timerProvider.notifier).changeSubject(activeCourse.title);
                       }
-                      ref.read(navigationIndexProvider.notifier).state = 2; // Timer
+                      ref.read(navigationIndexProvider.notifier).state = 2; // Jump to Timer
                     },
                     icon: const Icon(Icons.play_arrow_rounded, size: 18),
                     label: Text(
@@ -985,7 +1138,7 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 8),
 
               Text(
-                'Upcoming Quiz 1 in 4 days • Priority: High (15% Course Grade) • Estimated Focus: 2 Pomodoros (50 mins).',
+                prioritySubtitle,
                 style: GoogleFonts.plusJakartaSans(
                   color: colors.textMuted,
                   fontSize: 13,
@@ -993,41 +1146,31 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
 
-              const SizedBox(height: 16),
-              Divider(color: colors.surfaceBorder, height: 1),
-              const SizedBox(height: 12),
+              if (topicChips.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Divider(color: colors.surfaceBorder, height: 1),
+                const SizedBox(height: 12),
 
-              // Bottom topic problem pills
-              Wrap(
-                spacing: 16,
-                runSpacing: 8,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(color: colors.secondary, shape: BoxShape.circle),
-                      ),
-                      const SizedBox(width: 6),
-                      Text('14 Textbook Problems', style: GoogleFonts.jetBrainsMono(fontSize: 12, color: colors.textMuted)),
-                    ],
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(color: colors.primary, shape: BoxShape.circle),
-                      ),
-                      const SizedBox(width: 6),
-                      Text('Sessional Lab Handout #2', style: GoogleFonts.jetBrainsMono(fontSize: 12, color: colors.textMuted)),
-                    ],
-                  ),
-                ],
-              ),
+                // Bottom topic problem pills
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: topicChips.map((chipText) {
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(color: colors.secondary, shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(chipText, style: GoogleFonts.jetBrainsMono(fontSize: 12, color: colors.textMuted)),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ],
             ],
           ),
         ],
@@ -1046,6 +1189,10 @@ class HomeScreen extends ConsumerWidget {
     final today = DateTime(now.year, now.month, now.day);
     final agendaAsync = ref.watch(dailyAgendaStreamProvider(today));
     final slots = agendaAsync.valueOrNull ?? [];
+
+    final upcomingAssessmentsAsync = ref.watch(upcomingAssessmentsStreamProvider);
+    final upcomingAssessments = upcomingAssessmentsAsync.valueOrNull ?? [];
+    final Assessment? nearestAssessment = upcomingAssessments.isNotEmpty ? upcomingAssessments.first : null;
 
     final weekdayName = DateFormat('EEEE').format(now);
 
@@ -1105,66 +1252,71 @@ class HomeScreen extends ConsumerWidget {
           const SizedBox(height: 20),
 
           // Timeline items
-          if (slots.isEmpty) ...[
-            // Default Stitch Agenda Sample Timeline
-            _buildStitchAgendaItem(
-              time: '08:30 – 09:50',
-              statusDotColor: colors.success,
-              code: 'EEE 101',
-              title: 'Electric Circuits I',
-              subtitle: 'Room 302 • Instructor: Prof. [MSR]',
-              statusLabel: 'Completed',
-              statusColor: colors.success,
-              colors: colors,
-            ),
-            const SizedBox(height: 12),
-            _buildStitchAgendaItem(
-              time: '10:10 – 11:30',
-              statusDotColor: colors.secondary,
-              code: 'CSE 109',
-              title: 'Computer Programming',
-              subtitle: 'Lab 3 • Instructor: Dr. [FAK]',
-              statusLabel: 'Up Next',
-              statusColor: colors.secondary,
-              isUpNext: true,
-              colors: colors,
-            ),
-            const SizedBox(height: 12),
-            _buildStitchAgendaItem(
-              time: '14:00 – 16:30',
-              statusDotColor: colors.textMuted,
-              code: 'EEE 102',
-              title: 'Circuits Simulation Sessional',
-              subtitle: 'Simulation Lab 2 • Instructors: [MSR, NJ]',
-              statusLabel: 'Sessional',
-              statusColor: colors.textMuted,
-              colors: colors,
-            ),
-            const SizedBox(height: 16),
-            // Empty State Notice for Unit Tests
-            Center(
-              child: Text(
-                'No classes scheduled for today.',
-                style: GoogleFonts.plusJakartaSans(
-                  color: colors.textMuted,
-                  fontSize: 12,
-                  fontStyle: FontStyle.italic,
+          if (slots.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 28.0),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.event_available_outlined, color: colors.textMuted, size: 32),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No classes scheduled for today.',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textMuted,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'No classes or tasks scheduled for today',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textMuted.withValues(alpha: 0.7),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ] else ...[
+            )
+          else ...[
             ...slots.take(4).map((slot) {
+              bool isCompleted = false;
+              try {
+                final parts = slot.endTime.trim().split(' ');
+                if (parts.length == 2) {
+                  final timeParts = parts[0].split(':');
+                  int hour = int.parse(timeParts[0]);
+                  final minute = int.parse(timeParts[1]);
+                  final isPm = parts[1].toUpperCase() == 'PM';
+                  if (isPm && hour != 12) hour += 12;
+                  if (!isPm && hour == 12) hour = 0;
+                  final slotEnd = DateTime(now.year, now.month, now.day, hour, minute);
+                  isCompleted = now.isAfter(slotEnd);
+                }
+              } catch (_) {}
+
+              final timeString = slot.startTime.isNotEmpty
+                  ? (slot.endTime.isNotEmpty ? '${slot.startTime} – ${slot.endTime}' : slot.startTime)
+                  : 'Time N/A';
+              final roomString = slot.roomNumber.isNotEmpty ? 'Room ${slot.roomNumber}' : 'Room N/A';
+              final teacherString = slot.teacherBadge != null && slot.teacherBadge!.isNotEmpty
+                  ? ' • Instructor: [${slot.teacherBadge}]'
+                  : '';
+
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
                 child: _buildStitchAgendaItem(
-                  time: slot.startTime.isNotEmpty ? slot.startTime : '09:00',
-                  statusDotColor: colors.primary,
+                  time: timeString,
+                  statusDotColor: isCompleted ? colors.success : colors.secondary,
                   code: slot.courseCode.isNotEmpty ? slot.courseCode : 'CLASS',
-                  title: slot.courseName.isNotEmpty ? slot.courseName : 'Signals & Systems',
-                  subtitle: '${slot.slotType.displayName} • ${slot.roomNumber.isNotEmpty ? slot.roomNumber : 'Room 101'}',
-                  statusLabel: slot.slotType.displayName,
-                  statusColor: colors.primary,
+                  title: slot.courseName.isNotEmpty ? slot.courseName : 'Class Session',
+                  subtitle: '$roomString$teacherString',
+                  statusLabel: isCompleted ? 'Completed' : slot.slotType.displayName,
+                  statusColor: isCompleted ? colors.success : colors.primary,
                   colors: colors,
+                  isUpNext: !isCompleted,
                 ),
               );
             }),
@@ -1189,7 +1341,9 @@ class HomeScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'CE 106 Class Test in 3 days',
+                        nearestAssessment != null
+                            ? '${nearestAssessment.courseCode} ${nearestAssessment.name} in ${nearestAssessment.date != null ? nearestAssessment.date!.difference(DateTime.now()).inDays : 0} days'
+                            : 'All caught up on assessments',
                         style: GoogleFonts.plusJakartaSans(
                           color: colors.textPrimary,
                           fontSize: 13,
@@ -1197,11 +1351,15 @@ class HomeScreen extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        'Room 401 • Syllabus: Friction & Trusses',
+                        nearestAssessment != null && nearestAssessment.syllabusSummary != null && nearestAssessment.syllabusSummary!.isNotEmpty
+                            ? 'Syllabus: ${nearestAssessment.syllabusSummary}'
+                            : 'Maintain momentum with scheduled daily routine blocks',
                         style: GoogleFonts.plusJakartaSans(
                           color: colors.textMuted,
                           fontSize: 12,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -1213,7 +1371,9 @@ class HomeScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    'QUIZ BLOCK A',
+                    nearestAssessment != null
+                        ? (nearestAssessment.type.isNotEmpty ? nearestAssessment.type.toUpperCase() : 'ASSESSMENT')
+                        : 'ROUTINE',
                     style: GoogleFonts.jetBrainsMono(
                       color: colors.secondary,
                       fontSize: 10,
@@ -1365,6 +1525,7 @@ class HomeScreen extends ConsumerWidget {
   ) {
     final coursesAsync = ref.watch(coursesStreamProvider);
     final courses = (coursesAsync.valueOrNull ?? []).where((c) => !c.isArchived).toList();
+    final double totalCr = courses.fold<double>(0.0, (sum, c) => sum + c.credits);
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -1401,7 +1562,9 @@ class HomeScreen extends ConsumerWidget {
                   border: Border.all(color: colors.surfaceBorder),
                 ),
                 child: Text(
-                  courses.isNotEmpty ? '${courses.length} Active Courses' : '4 Courses • 19.5 Cr',
+                  courses.isNotEmpty
+                      ? '${courses.length} Active Courses • ${totalCr.toStringAsFixed(1)} Cr'
+                      : '0 Courses Enrolled',
                   style: GoogleFonts.jetBrainsMono(
                     color: colors.textMuted,
                     fontSize: 11,
@@ -1414,68 +1577,53 @@ class HomeScreen extends ConsumerWidget {
 
           const SizedBox(height: 18),
 
-          if (courses.isEmpty) ...[
-            // Default 4 Courses from Stitch Reference
-            _buildCourseHealthItem(
-              code: 'EEE 101',
-              name: 'Electric Circuits I',
-              credits: '3.0 Cr',
-              progress: 0.72,
-              progressPct: '72% Syllabus Covered',
-              statusAlert: 'CT 1 in 4 days',
-              statusAlertColor: colors.secondary,
-              barColor: colors.primary,
-              colors: colors,
-            ),
-            const SizedBox(height: 12),
-            _buildCourseHealthItem(
-              code: 'EEE 102',
-              name: 'Circuits I Sessional',
-              credits: '1.5 Cr',
-              progress: 0.60,
-              progressPct: '60% Labs Completed',
-              statusAlert: 'Lab Report 3 due Tue',
-              statusAlertColor: colors.textPrimary,
-              barColor: colors.primary,
-              colors: colors,
-            ),
-            const SizedBox(height: 12),
-            _buildCourseHealthItem(
-              code: 'CE 106',
-              name: 'Engineering Mechanics',
-              credits: '3.0 Cr',
-              progress: 0.45,
-              progressPct: '45% Problem Sets Done',
-              statusAlert: 'Assignment 2 due Fri',
-              statusAlertColor: colors.secondary,
-              barColor: colors.secondary,
-              colors: colors,
-            ),
-            const SizedBox(height: 12),
-            _buildCourseHealthItem(
-              code: 'CSE 109',
-              name: 'Computer Programming',
-              credits: '3.0 Cr',
-              progress: 0.85,
-              progressPct: '85% Practice Problems',
-              statusAlert: 'Lab Quiz 2 in 8 days',
-              statusAlertColor: colors.success,
-              barColor: colors.success,
-              colors: colors,
-            ),
-          ] else ...[
+          if (courses.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24.0),
+              child: Center(
+                child: Text(
+                  'No active courses enrolled yet.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: colors.textMuted,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            )
+          else ...[
             ...courses.take(4).map((c) {
+              final double fraction = c.progressFraction.clamp(0.0, 1.0);
+              final int pct = (fraction * 100).toInt();
+
+              final String statusAlert;
+              final Color statusAlertColor;
+              final Color barColor;
+
+              if (fraction == 0.0) {
+                statusAlert = 'Not Started';
+                statusAlertColor = colors.textMuted;
+                barColor = colors.surfaceBorder;
+              } else if (fraction >= 0.70) {
+                statusAlert = 'On Track';
+                statusAlertColor = colors.success;
+                barColor = colors.success;
+              } else {
+                statusAlert = 'Needs Attention';
+                statusAlertColor = colors.secondary;
+                barColor = colors.secondary;
+              }
+
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
                 child: _buildCourseHealthItem(
-                  code: c.courseCode.isNotEmpty ? c.courseCode : 'COURSE',
-                  name: c.courseName,
-                  credits: '${c.creditHours.toStringAsFixed(1)} Cr',
-                  progress: c.progressFraction,
-                  progressPct: '${(c.progressFraction * 100).toInt()}% Syllabus Covered',
-                  statusAlert: 'On Track',
-                  statusAlertColor: colors.success,
-                  barColor: colors.primary,
+                  code: c.code.isNotEmpty ? c.code : 'COURSE',
+                  name: c.title,
+                  credits: '${c.credits.toStringAsFixed(1)} Cr',
+                  progress: fraction,
+                  progressPct: '$pct% Syllabus Covered',
+                  statusAlert: statusAlert,
+                  statusAlertColor: statusAlertColor,
+                  barColor: barColor,
                   colors: colors,
                 ),
               );
@@ -1606,6 +1754,25 @@ class HomeScreen extends ConsumerWidget {
     ChondrobinduThemeColors colors,
     bool isDark,
   ) {
+    final distList = ref.watch(subjectDistributionProvider);
+    final studyLogs = ref.watch(studyLogsProvider);
+
+    final now = DateTime.now();
+    final sevenDaysAgo = now.subtract(const Duration(days: 7));
+    final int weekMinutes = studyLogs
+        .where((l) => l.date.isAfter(sevenDaysAgo))
+        .fold<int>(0, (sum, l) => sum + l.durationInMinutes);
+    final double weekHours = weekMinutes / 60.0;
+    const double targetHours = 20.0;
+    final int pctMet = ((weekHours / targetHours) * 100).round();
+
+    final List<Color> palette = [
+      colors.primary,
+      colors.success,
+      colors.secondary,
+      colors.primary.withValues(alpha: 0.5),
+    ];
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -1641,13 +1808,39 @@ class HomeScreen extends ConsumerWidget {
 
           const SizedBox(height: 16),
 
-          _buildFocusCourseBar('EEE 101', '7.5 hrs (40%)', 0.405, colors.primary, colors),
-          const SizedBox(height: 12),
-          _buildFocusCourseBar('CSE 109', '6.0 hrs (32%)', 0.324, colors.success, colors),
-          const SizedBox(height: 12),
-          _buildFocusCourseBar('CE 106', '3.2 hrs (17%)', 0.173, colors.secondary, colors),
-          const SizedBox(height: 12),
-          _buildFocusCourseBar('EEE 102', '1.8 hrs (10%)', 0.098, colors.primary.withValues(alpha: 0.5), colors),
+          if (distList.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20.0),
+              child: Center(
+                child: Text(
+                  'No study sessions logged in past 7 days.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: colors.textMuted,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            )
+          else ...[
+            ...distList.take(4).toList().asMap().entries.map((entry) {
+              final index = entry.key;
+              final dist = entry.value;
+              final hrs = (dist.totalMinutes / 60.0).toStringAsFixed(1);
+              final pct = dist.percentage.toStringAsFixed(0);
+              final color = palette[index % palette.length];
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: _buildFocusCourseBar(
+                  dist.subjectName,
+                  '$hrs hrs ($pct%)',
+                  (dist.percentage / 100.0).clamp(0.0, 1.0),
+                  color,
+                  colors,
+                ),
+              );
+            }),
+          ],
 
           const SizedBox(height: 16),
           Divider(color: colors.surfaceBorder, height: 1),
@@ -1657,18 +1850,18 @@ class HomeScreen extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Weekly Target: 20 hrs',
+                'Weekly Target: ${targetHours.toStringAsFixed(0)} hrs',
                 style: GoogleFonts.jetBrainsMono(
                   fontSize: 11.5,
                   color: colors.textMuted,
                 ),
               ),
               Text(
-                '92.5% Met',
+                '$pctMet% Met',
                 style: GoogleFonts.jetBrainsMono(
                   fontSize: 11.5,
                   fontWeight: FontWeight.bold,
-                  color: colors.primary,
+                  color: pctMet >= 100 ? colors.success : colors.primary,
                 ),
               ),
             ],
@@ -1691,14 +1884,18 @@ class HomeScreen extends ConsumerWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              code,
-              style: GoogleFonts.jetBrainsMono(
-                color: colors.textPrimary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+            Expanded(
+              child: Text(
+                code,
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               stat,
               style: GoogleFonts.jetBrainsMono(
