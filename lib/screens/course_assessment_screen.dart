@@ -14,6 +14,7 @@ import '../services/attendance_grading_service.dart';
 import '../widgets/attendance_override_dialog.dart';
 import '../widgets/app_preloader.dart';
 import 'package:chondrobindu/utils/safe_haptics.dart';
+import '../core/theme/app_colors.dart';
 
 /// Aliases for assessment screens requested by user specifications
 typedef AssessmentMarksScreen = CourseAssessmentScreen;
@@ -40,6 +41,9 @@ class CourseAssessmentScreen extends ConsumerStatefulWidget {
 }
 
 class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen> {
+  ChondrobinduThemeColors get colors => AppColors.of(context);
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
   final _formKey = GlobalKey<FormState>();
 
   bool _isLoading = true;
@@ -519,14 +523,14 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
       builder: (ctx) {
         final ctrl = TextEditingController(text: _attendanceWeightageController.text);
         return AlertDialog(
-          backgroundColor: const Color(0xFF1C1412),
+          backgroundColor: colors.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFF382A24)),
+            side: BorderSide(color: colors.surfaceBorder),
           ),
           title: Text(
             'Attendance Weightage',
-            style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -534,21 +538,42 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
             children: [
               Text(
                 'Enter the overall course percentage weightage for attendance (e.g., 10% or 8%):',
-                style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 13),
+                style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: ctrl,
-                autofocus: true,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: GoogleFonts.jetBrainsMono(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: const Color(0xFF241C1A),
-                  suffixText: '%',
-                  suffixStyle: GoogleFonts.jetBrainsMono(color: const Color(0xFFF2B78A), fontWeight: FontWeight.bold),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF4A3830))),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFF2B78A))),
+              Container(
+                height: 48,
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colors.surfaceBorder, width: 1),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: ctrl,
+                        autofocus: true,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 15),
+                        decoration: InputDecoration(
+                          hintText: '10',
+                          hintStyle: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 14),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '%',
+                      style: GoogleFonts.jetBrainsMono(color: colors.primary, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -556,12 +581,12 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093))),
+              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF2B78A),
-                foregroundColor: const Color(0xFF110D0C),
+                backgroundColor: colors.primary,
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               onPressed: () {
@@ -592,10 +617,10 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
     final tile = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: highlight ? const Color(0xFFF2B78A).withValues(alpha: 0.08) : const Color(0xFF241C1A),
+        color: highlight ? colors.secondary.withValues(alpha: 0.12) : colors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: highlight ? const Color(0xFFF2B78A).withValues(alpha: 0.3) : const Color(0xFF382A24),
+          color: highlight ? colors.secondary.withValues(alpha: 0.4) : colors.surfaceBorder,
           width: 0.8,
         ),
       ),
@@ -606,7 +631,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
           Text(
             label,
             style: GoogleFonts.plusJakartaSans(
-              color: const Color(0xFFABA093),
+              color: colors.textMuted,
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
@@ -617,7 +642,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
           Text(
             value,
             style: GoogleFonts.jetBrainsMono(
-              color: highlight ? const Color(0xFFF2B78A) : Colors.white,
+              color: highlight ? colors.secondary : colors.textPrimary,
               fontSize: 17,
               fontWeight: FontWeight.bold,
             ),
@@ -628,7 +653,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
           Text(
             sublabel,
             style: GoogleFonts.plusJakartaSans(
-              color: highlight ? const Color(0xFFF2B78A).withValues(alpha: 0.8) : const Color(0xFF7E726B),
+              color: highlight ? colors.secondary.withValues(alpha: 0.9) : colors.textMuted,
               fontSize: 10,
             ),
             maxLines: 1,
@@ -975,9 +1000,9 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
 
   Color _getGradeColor(String letterGrade) {
     if (letterGrade.startsWith('A')) return const Color(0xFF10B981);
-    if (letterGrade.startsWith('B')) return const Color(0xFFF2B78A);
-    if (letterGrade.startsWith('C')) return const Color(0xFFF59E0B);
-    if (letterGrade.startsWith('D')) return const Color(0xFFFB923C);
+    if (letterGrade.startsWith('B')) return colors.secondary;
+    if (letterGrade.startsWith('C')) return colors.secondary;
+    if (letterGrade.startsWith('D')) return colors.secondary;
     return const Color(0xFFEF4444);
   }
 
@@ -1056,7 +1081,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.35)),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1066,23 +1091,23 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+                  color: colors.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.auto_graph_rounded, color: Color(0xFF8B5CF6), size: 20),
+                child: Icon(Icons.auto_graph_rounded, color: colors.primary, size: 20),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Course Grade Projector',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     Text(
                       'Simulate Final Exam & pending assessments in real time',
-                      style: TextStyle(color: Colors.white54, fontSize: 11),
+                      style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11),
                     ),
                   ],
                 ),
@@ -1095,15 +1120,16 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF170F0D),
+              color: colors.recessed,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colors.surfaceBorder),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 Column(
                   children: [
-                    const Text('Secured Marks', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                    Text('Secured Marks', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11)),
                     const SizedBox(height: 3),
                     Text(
                       '${evaluatedSecured.toStringAsFixed(1)} / ${evaluatedWeight.toStringAsFixed(0)}',
@@ -1111,21 +1137,21 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                     ),
                   ],
                 ),
-                Container(width: 1, height: 28, color: Colors.white12),
+                Container(width: 1, height: 28, color: colors.surfaceBorder),
                 Column(
                   children: [
-                    const Text('Projected Total', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                    Text('Projected Total', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11)),
                     const SizedBox(height: 3),
                     Text(
                       '${projectedTotal.toStringAsFixed(1)}%',
-                      style: const TextStyle(color: Color(0xFFF2B78A), fontWeight: FontWeight.bold, fontSize: 13.5),
+                      style: TextStyle(color: colors.secondary, fontWeight: FontWeight.bold, fontSize: 13.5),
                     ),
                   ],
                 ),
-                Container(width: 1, height: 28, color: Colors.white12),
+                Container(width: 1, height: 28, color: colors.surfaceBorder),
                 Column(
                   children: [
-                    const Text('Course GPA', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                    Text('Course GPA', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11)),
                     const SizedBox(height: 3),
                     Text(
                       '${projectedGrade.letterGrade} (${projectedGrade.gradePoint.toStringAsFixed(2)})',
@@ -1145,15 +1171,15 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
               children: [
                 _buildProjectionPill('Attendance', '${attSecured.toStringAsFixed(1)} pts', const Color(0xFF10B981)),
                 const SizedBox(width: 6),
-                const Text('+', style: TextStyle(color: Colors.white38, fontWeight: FontWeight.bold)),
+                Text('+', style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.bold)),
                 const SizedBox(width: 6),
-                _buildProjectionPill(isTheory ? 'CT Scores' : 'Quizzes', '${ctSecured.toStringAsFixed(1)} pts', const Color(0xFFF2B78A)),
+                _buildProjectionPill(isTheory ? 'CT Scores' : 'Quizzes', '${ctSecured.toStringAsFixed(1)} pts', colors.secondary),
                 const SizedBox(width: 6),
-                const Text('+', style: TextStyle(color: Colors.white38, fontWeight: FontWeight.bold)),
+                Text('+', style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.bold)),
                 const SizedBox(width: 6),
-                _buildProjectionPill('Final Exam', '${simulatedFinalWeighted.toStringAsFixed(1)} pts', const Color(0xFF8B5CF6)),
+                _buildProjectionPill('Final Exam', '${simulatedFinalWeighted.toStringAsFixed(1)} pts', colors.primary),
                 const SizedBox(width: 6),
-                const Text('=', style: TextStyle(color: Colors.white38, fontWeight: FontWeight.bold)),
+                Text('=', style: TextStyle(color: colors.textMuted, fontWeight: FontWeight.bold)),
                 const SizedBox(width: 6),
                 _buildProjectionPill('Total', '${projectedTotal.toStringAsFixed(1)}%', _getGradeColor(projectedGrade.letterGrade)),
               ],
@@ -1165,22 +1191,22 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Projected Final Exam Score:',
-                style: TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600),
+                style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 12.5, fontWeight: FontWeight.w600),
               ),
               Text(
                 '${simulatedFinalExamMarks.toStringAsFixed(1)} / ${finTot.toStringAsFixed(0)} Marks (${simulatedFinalPercent.toStringAsFixed(0)}%)',
-                style: const TextStyle(color: Color(0xFF8B5CF6), fontSize: 12.5, fontWeight: FontWeight.bold),
+                style: TextStyle(color: colors.primary, fontSize: 12.5, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              activeTrackColor: const Color(0xFF8B5CF6),
-              inactiveTrackColor: Colors.white12,
-              thumbColor: const Color(0xFF8B5CF6),
-              overlayColor: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+              activeTrackColor: colors.primary,
+              inactiveTrackColor: colors.surfaceBorder,
+              thumbColor: colors.primary,
+              overlayColor: colors.primary.withValues(alpha: 0.2),
             ),
             child: Slider(
               value: _whatIfPendingScorePercent,
@@ -1197,9 +1223,9 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
           const SizedBox(height: 6),
 
           // Target Grade Threshold Matrix
-          const Text(
+          Text(
             'Target Grade Threshold Matrix:',
-            style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+            style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 12, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           ...targets.map((t) {
@@ -1212,7 +1238,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
             final isImpossible = reqPercent > 100;
             final badgeColor = isSecured
                 ? const Color(0xFF10B981)
-                : (isImpossible ? const Color(0xFFEF4444) : const Color(0xFFF2B78A));
+                : (isImpossible ? const Color(0xFFEF4444) : colors.secondary);
 
             final statusText = isSecured
                 ? 'Secured ✓'
@@ -1224,9 +1250,9 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFF170F0D),
+                color: colors.recessed,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+                border: Border.all(color: colors.surfaceBorder),
               ),
               child: Row(
                 children: [
@@ -1251,7 +1277,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                   const SizedBox(width: 8),
                   Text(
                     '${cutoff.toStringAsFixed(0)}% (${(t['point'] as double).toStringAsFixed(2)})',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    style: TextStyle(color: colors.textMuted, fontSize: 12),
                   ),
                   const Spacer(),
                   Container(
@@ -1302,9 +1328,9 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFF110D0C);
-    const cardColor = Color(0xFF241C1A);
-    const accentColor = Color(0xFFF2B78A);
+    final backgroundColor = colors.background;
+    final cardColor = colors.surface;
+    final accentColor = colors.secondary;
 
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final predictedGrade = _computeOverallPredictedGrade();
@@ -1316,12 +1342,12 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
         backgroundColor: backgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Assessment & Marks (${widget.courseType})',
-          style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
+          style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 17),
           overflow: TextOverflow.ellipsis,
         ),
       ),
@@ -1388,9 +1414,9 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                             width: double.infinity,
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1C1412),
+                              color: colors.surface,
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFF3D2D26), width: 0.8),
+                              border: Border.all(color: colors.surfaceBorder, width: 1.0),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1404,10 +1430,10 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                                         Container(
                                           padding: const EdgeInsets.all(7),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFF2B78A).withValues(alpha: 0.12),
+                                            color: colors.primary.withValues(alpha: 0.15),
                                             borderRadius: BorderRadius.circular(8),
                                           ),
-                                          child: const Icon(Icons.co_present_rounded, color: Color(0xFFF2B78A), size: 18),
+                                          child: Icon(Icons.co_present_rounded, color: colors.primary, size: 18),
                                         ),
                                         const SizedBox(width: 10),
                                         Column(
@@ -1416,7 +1442,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                                             Text(
                                               'Attendance Grading',
                                               style: GoogleFonts.plusJakartaSans(
-                                                color: Colors.white,
+                                                color: colors.textPrimary,
                                                 fontWeight: FontWeight.w700,
                                                 fontSize: 14.5,
                                               ),
@@ -1426,7 +1452,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                                                   ? 'Manual bulk override active'
                                                   : 'Synced with daily routine',
                                               style: GoogleFonts.plusJakartaSans(
-                                                color: const Color(0xFFABA093),
+                                                color: colors.textMuted,
                                                 fontSize: 11,
                                               ),
                                             ),
@@ -1435,7 +1461,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                                       ],
                                     ),
                                     IconButton(
-                                      icon: const Icon(Icons.tune_rounded, size: 20, color: Color(0xFFF2B78A)),
+                                      icon: Icon(Icons.tune_rounded, size: 20, color: colors.primary),
                                       tooltip: 'Attendance Settings & Override',
                                       onPressed: () => _openAttendanceOverrideDialog(
                                         context,
@@ -1490,7 +1516,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                                   borderRadius: BorderRadius.circular(4),
                                   child: LinearProgressIndicator(
                                     value: totalHeld > 0 ? (attendanceRate / 100.0).clamp(0.0, 1.0) : 0.0,
-                                    backgroundColor: const Color(0xFF2E221E),
+                                    backgroundColor: colors.recessed,
                                     valueColor: AlwaysStoppedAnimation<Color>(
                                       isSafe ? const Color(0xFF06D6A0) : const Color(0xFFFF5964),
                                     ),
@@ -1557,20 +1583,20 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                           decoration: BoxDecoration(
                             color: cardColor,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFF4A3830)),
+                            border: Border.all(color: colors.surfaceBorder),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Row(
+                              Row(
                                 children: [
                                   Icon(Icons.assignment_turned_in_rounded, color: accentColor, size: 20),
-                                  SizedBox(width: 8),
+                                  const SizedBox(width: 8),
                                   Flexible(
                                     child: Text(
                                       'Major Exams (Midterm & Final)',
-                                      style: TextStyle(
-                                        color: Colors.white,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: colors.textPrimary,
                                         fontSize: 15,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -1612,7 +1638,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                         _buildAssessmentCategorySection(
                           title: 'Quizzes / Viva',
                           icon: Icons.record_voice_over_rounded,
-                          categoryColor: const Color(0xFFF2B78A),
+                          categoryColor: colors.secondary,
                           cardColor: cardColor,
                           items: _quizzesViva,
                           weightageController: _quizzesWeightageController,
@@ -1862,8 +1888,8 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                         height: 52,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: accentColor,
-                            foregroundColor: const Color(0xFF140F0E),
+                            backgroundColor: colors.primary,
+                            foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
@@ -1873,7 +1899,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                               ? const AppPreloader(
                                   size: 20,
                                   strokeWidth: 2,
-                                  color: Color(0xFF140F0E),
+                                  color: Colors.white,
                                 )
                               : Text(
                                   'Save Marks',
@@ -1925,7 +1951,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF4A3830)),
+        border: Border.all(color: colors.surfaceBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1942,8 +1968,8 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                     Flexible(
                       child: Text(
                         title,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textPrimary,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1964,7 +1990,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                 ),
                 onPressed: onAdd,
                 icon: const Icon(Icons.add_rounded, size: 16),
-                label: Text(addLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                label: Text(addLabel, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -1974,9 +2000,9 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF170F0D),
+              color: colors.recessed,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+              border: Border.all(color: colors.surfaceBorder),
             ),
             child: Wrap(
               alignment: WrapAlignment.spaceBetween,
@@ -1988,30 +2014,36 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'Weight:',
-                      style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
+                      style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(width: 6),
-                    SizedBox(
-                      width: 46,
-                      height: 30,
+                    Container(
+                      width: 52,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: colors.surfaceBorder),
+                      ),
                       child: TextFormField(
                         controller: weightageController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: categoryColor, fontWeight: FontWeight.bold, fontSize: 12.5),
-                        decoration: InputDecoration(
+                        style: GoogleFonts.jetBrainsMono(color: categoryColor, fontWeight: FontWeight.bold, fontSize: 12.5),
+                        decoration: const InputDecoration(
                           contentPadding: EdgeInsets.zero,
-                          filled: true,
-                          fillColor: const Color(0xFF241C1A),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          isDense: true,
                         ),
                         onChanged: (_) => onChanged(),
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Text('%', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                    Text('%', style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 12, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 // Best-of-N Switch & Input
@@ -2020,7 +2052,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                   children: [
                     Text(
                       'Best of N',
-                      style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 12, fontWeight: FontWeight.w500),
+                      style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12, fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(width: 4),
                     Transform.scale(
@@ -2034,21 +2066,27 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                     ),
                     if (useBestOf) ...[
                       const SizedBox(width: 2),
-                      const Text('N:', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                      Text('N:', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 11)),
                       const SizedBox(width: 4),
-                      SizedBox(
-                        width: 36,
-                        height: 28,
+                      Container(
+                        width: 40,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: colors.surfaceBorder),
+                        ),
                         child: TextFormField(
                           controller: bestCountController,
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                          decoration: InputDecoration(
+                          style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 12),
+                          decoration: const InputDecoration(
                             contentPadding: EdgeInsets.zero,
-                            filled: true,
-                            fillColor: const Color(0xFF241C1A),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            isDense: true,
                           ),
                           onChanged: (_) => onChanged(),
                         ),
@@ -2056,7 +2094,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                       const SizedBox(width: 4),
                       Text(
                         'of ${items.length}',
-                        style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
+                        style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11),
                       ),
                     ],
                   ],
@@ -2072,7 +2110,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
                 emptyLabel,
-                style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 12),
+                style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
               ),
             )
           else
@@ -2111,9 +2149,9 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: categoryColor.withValues(alpha: 0.08),
+              color: colors.recessed,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: categoryColor.withValues(alpha: 0.2)),
+              border: Border.all(color: colors.surfaceBorder),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2123,7 +2161,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                     useBestOf
                         ? 'Avg (Best ${catResult.countedItems} of ${catResult.totalItems}): ${catResult.percentage.toStringAsFixed(1)}%'
                         : 'Avg: ${catResult.percentage.toStringAsFixed(1)}%',
-                    style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 11.5, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11.5, fontWeight: FontWeight.w600),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -2160,7 +2198,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
         nameLower.contains('quiz') ||
         typeLower.contains('quiz')) {
       glyphIcon = Icons.quiz_outlined;
-      glyphColor = const Color(0xFFF2B78A); // Warm peach
+      glyphColor = colors.secondary;
     } else if (nameLower.contains('report') ||
         typeLower.contains('report') ||
         nameLower.contains('assignment') ||
@@ -2182,7 +2220,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
         nameLower.contains('presentation') ||
         typeLower.contains('presentation')) {
       glyphIcon = Icons.co_present_outlined;
-      glyphColor = const Color(0xFFA855F7); // Lavender
+      glyphColor = colors.primary;
     } else {
       glyphIcon = Icons.assignment_outlined;
       glyphColor = categoryColor;
@@ -2210,21 +2248,21 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
       if (pct >= 80.0) {
         pctColor = const Color(0xFF10B981);
       } else if (pct >= 50.0) {
-        pctColor = const Color(0xFFF2B78A);
+        pctColor = colors.secondary;
       } else {
         pctColor = const Color(0xFFEF4444);
       }
     } else {
       pctStr = ct.date != null ? 'Scheduled' : 'Pending';
-      pctColor = const Color(0xFF9E8C82);
+      pctColor = colors.textMuted;
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F1816),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF382A24), width: 1.0),
+        border: Border.all(color: colors.surfaceBorder, width: 1.0),
       ),
       child: Material(
         color: Colors.transparent,
@@ -2264,7 +2302,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                             child: Text(
                               ct.title,
                               style: GoogleFonts.plusJakartaSans(
-                                color: const Color(0xFFF5EBE6),
+                                color: colors.textPrimary,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 15,
                               ),
@@ -2276,9 +2314,9 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                             InkWell(
                               onTap: () => _showEditItemTopicDialog(context, ct, onChanged),
                               borderRadius: BorderRadius.circular(4),
-                              child: const Padding(
-                                padding: EdgeInsets.all(2),
-                                child: Icon(Icons.menu_book_outlined, size: 15, color: Color(0xFFABA093)),
+                              child: Padding(
+                                padding: const EdgeInsets.all(2),
+                                child: Icon(Icons.menu_book_outlined, size: 15, color: colors.textMuted),
                               ),
                             ),
                           ],
@@ -2289,7 +2327,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                     Text(
                       marksStr,
                       style: GoogleFonts.jetBrainsMono(
-                        color: const Color(0xFFF5EBE6),
+                        color: colors.textPrimary,
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),
@@ -2325,7 +2363,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                           child: Text(
                             'Weight: ${ct.weightage.toStringAsFixed(0)}% • $dateStr',
                             style: GoogleFonts.jetBrainsMono(
-                              color: const Color(0xFF9E8C82),
+                              color: colors.textMuted,
                               fontSize: 12,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -2346,10 +2384,10 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(
+                        Icon(
                           Icons.chevron_right_rounded,
                           size: 16,
-                          color: Color(0xFF786B63),
+                          color: colors.textMuted,
                         ),
                       ],
                     ),
@@ -2368,23 +2406,23 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1412),
+        backgroundColor: colors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFF382A24)),
+          side: BorderSide(color: colors.surfaceBorder),
         ),
         title: Text(
           'Delete ${ct.title}?',
-          style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold),
+          style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold),
         ),
         content: Text(
           'Are you sure you want to remove this assessment? This will permanently delete it from both Course Dashboard and Planner.',
-          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 13),
+          style: GoogleFonts.plusJakartaSans(color: colors.textSecondary, fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093))),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textSecondary)),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
@@ -2458,13 +2496,13 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
             Flexible(
               child: Text(
                 title,
-                style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
+                style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13.5, fontWeight: FontWeight.bold),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             Text(
               '${weighted.toStringAsFixed(2)} / ${weight.toStringAsFixed(0)} pts (${pct.toStringAsFixed(1)}%)',
-              style: TextStyle(color: accentColor, fontSize: 11.5, fontWeight: FontWeight.bold),
+              style: GoogleFonts.jetBrainsMono(color: accentColor, fontSize: 11.5, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -2473,58 +2511,85 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
           children: [
             Expanded(
               flex: 3,
-              child: TextFormField(
-                controller: obtainedController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Color(0xFFF2B78A), fontWeight: FontWeight.bold, fontSize: 13),
-                decoration: InputDecoration(
-                  labelText: 'Obtained',
-                  labelStyle: TextStyle(color: Colors.blueGrey.shade300, fontSize: 11),
-                  filled: true,
-                  fillColor: const Color(0xFF170F0D),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: colors.surfaceBorder),
                 ),
-                validator: (val) => (double.tryParse(val ?? '') == null) ? 'Invalid' : null,
-                onChanged: (_) => onChanged(),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                alignment: Alignment.center,
+                child: TextFormField(
+                  controller: obtainedController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 13),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    labelText: 'Obtained',
+                    labelStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  validator: (val) => (double.tryParse(val ?? '') == null) ? 'Invalid' : null,
+                  onChanged: (_) => onChanged(),
+                ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               flex: 3,
-              child: TextFormField(
-                controller: totalController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-                decoration: InputDecoration(
-                  labelText: 'Total',
-                  labelStyle: TextStyle(color: Colors.blueGrey.shade300, fontSize: 11),
-                  filled: true,
-                  fillColor: const Color(0xFF170F0D),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: colors.surfaceBorder),
                 ),
-                validator: (val) => (double.tryParse(val ?? '') == null) ? 'Invalid' : null,
-                onChanged: (_) => onChanged(),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                alignment: Alignment.center,
+                child: TextFormField(
+                  controller: totalController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 13),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    labelText: 'Total',
+                    labelStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  validator: (val) => (double.tryParse(val ?? '') == null) ? 'Invalid' : null,
+                  onChanged: (_) => onChanged(),
+                ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               flex: 2,
-              child: TextFormField(
-                controller: weightageController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: TextStyle(color: accentColor, fontWeight: FontWeight.bold, fontSize: 13),
-                decoration: InputDecoration(
-                  labelText: 'Weight %',
-                  labelStyle: TextStyle(color: Colors.blueGrey.shade300, fontSize: 11),
-                  filled: true,
-                  fillColor: const Color(0xFF170F0D),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: colors.surfaceBorder),
                 ),
-                validator: (val) => (double.tryParse(val ?? '') == null) ? 'Invalid' : null,
-                onChanged: (_) => onChanged(),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                alignment: Alignment.center,
+                child: TextFormField(
+                  controller: weightageController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: GoogleFonts.jetBrainsMono(color: accentColor, fontWeight: FontWeight.bold, fontSize: 13),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    labelText: 'Weight %',
+                    labelStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  validator: (val) => (double.tryParse(val ?? '') == null) ? 'Invalid' : null,
+                  onChanged: (_) => onChanged(),
+                ),
               ),
             ),
           ],
@@ -2542,10 +2607,10 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
       context: context,
       builder: (ctx) {
         return Dialog(
-          backgroundColor: const Color(0xFF140F0E),
+          backgroundColor: colors.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Color(0xFF4A3830)),
+            side: BorderSide(color: colors.surfaceBorder),
           ),
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -2556,12 +2621,15 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Enter Marks: ${item.name}',
-                      style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    Expanded(
+                      child: Text(
+                        'Enter Marks: ${item.name}',
+                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Color(0xFFABA093), size: 18),
+                      icon: Icon(Icons.close_rounded, color: colors.textMuted, size: 18),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
@@ -2570,7 +2638,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                   const SizedBox(height: 4),
                   Text(
                     'Held on ${item.date!.day} ${_getMonthName(item.date!.month)}, ${item.date!.year}',
-                    style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 12),
+                    style: GoogleFonts.plusJakartaSans(color: colors.textSecondary, fontSize: 12),
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -2582,20 +2650,30 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                         children: [
                           Text(
                             'OBTAINED',
-                            style: GoogleFonts.plusJakartaSans(color: const Color(0xFFF2B78A), fontSize: 10, fontWeight: FontWeight.bold),
+                            style: GoogleFonts.plusJakartaSans(color: colors.secondary, fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 6),
-                          TextField(
-                            controller: obtCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            autofocus: true,
-                            style: GoogleFonts.jetBrainsMono(color: Colors.white, fontSize: 14),
-                            decoration: InputDecoration(
-                              hintText: 'e.g. 18.5',
-                              hintStyle: GoogleFonts.jetBrainsMono(color: const Color(0xFFABA093), fontSize: 13),
-                              filled: true,
-                              fillColor: const Color(0xFF241C1A),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF4A3830))),
+                          Container(
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: colors.recessed,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: colors.surfaceBorder),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            alignment: Alignment.center,
+                            child: TextField(
+                              controller: obtCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              autofocus: true,
+                              style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 14),
+                              decoration: InputDecoration(
+                                isDense: true,
+                                hintText: 'e.g. 18.5',
+                                hintStyle: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 13),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                              ),
                             ),
                           ),
                         ],
@@ -2608,18 +2686,29 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                         children: [
                           Text(
                             'TOTAL',
-                            style: GoogleFonts.plusJakartaSans(color: const Color(0xFFF2B78A), fontSize: 10, fontWeight: FontWeight.bold),
+                            style: GoogleFonts.plusJakartaSans(color: colors.secondary, fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 6),
-                          TextField(
-                            controller: totCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            style: GoogleFonts.jetBrainsMono(color: Colors.white, fontSize: 14),
-                            decoration: InputDecoration(
-                              hintText: '20',
-                              filled: true,
-                              fillColor: const Color(0xFF241C1A),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF4A3830))),
+                          Container(
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: colors.recessed,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: colors.surfaceBorder),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            alignment: Alignment.center,
+                            child: TextField(
+                              controller: totCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 14),
+                              decoration: InputDecoration(
+                                isDense: true,
+                                hintText: '20',
+                                hintStyle: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 13),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                              ),
                             ),
                           ),
                         ],
@@ -2630,12 +2719,13 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
-                  height: 44,
+                  height: 48,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF2B78A),
-                      foregroundColor: const Color(0xFF140F0E),
+                      backgroundColor: colors.primary,
+                      foregroundColor: isDark ? const Color(0xFF171C24) : Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 0,
                     ),
                     onPressed: () {
                       final rawObt = obtCtrl.text.trim();
@@ -2670,11 +2760,11 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                         SafeHaptics.lightImpact();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            backgroundColor: const Color(0xFF1C1412),
+                            backgroundColor: colors.surface,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
-                              side: const BorderSide(color: Color(0xFF382A24)),
+                              side: BorderSide(color: colors.surfaceBorder),
                             ),
                             content: Row(
                               children: [
@@ -2685,7 +2775,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                                     item.obtainedMarks != null
                                         ? 'Marks for ${item.name} saved: ${item.obtainedMarks!.toStringAsFixed(item.obtainedMarks!.truncateToDouble() == item.obtainedMarks! ? 0 : 1)}/${tot.toStringAsFixed(0)}'
                                         : 'Marks for ${item.name} reset to pending',
-                                    style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                    style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 13),
                                   ),
                                 ),
                               ],
@@ -2694,7 +2784,7 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
                         );
                       }
                     },
-                    child: Text('Save Marks', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+                    child: Text('Save Marks', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 14)),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -2739,15 +2829,21 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF241C1A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colors.surfaceBorder),
+        ),
         title: Row(
           children: [
-            const Icon(Icons.menu_book_rounded, color: Color(0xFFF2B78A), size: 18),
+            Icon(Icons.menu_book_rounded, color: colors.secondary, size: 18),
             const SizedBox(width: 8),
-            Text(
-              'Topics for ${item.name}',
-              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+            Expanded(
+              child: Text(
+                'Topics for ${item.name}',
+                style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 15, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -2755,20 +2851,30 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Enter syllabus topics or chapters covered:',
-              style: TextStyle(color: Colors.white70, fontSize: 12),
+              style: GoogleFonts.plusJakartaSans(color: colors.textSecondary, fontSize: 12),
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: ctrl,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'e.g., K-Maps, Quine-McCluskey, Multiplexers',
-                hintStyle: TextStyle(color: Colors.blueGrey.shade500, fontSize: 12),
-                filled: true,
-                fillColor: const Color(0xFF170F0D),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+            Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: colors.recessed,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: colors.surfaceBorder),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              alignment: Alignment.center,
+              child: TextField(
+                controller: ctrl,
+                style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'e.g., K-Maps, Quine-McCluskey, Multiplexers',
+                  hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
               ),
             ),
           ],
@@ -2776,20 +2882,21 @@ class _CourseAssessmentScreenState extends ConsumerState<CourseAssessmentScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.blueGrey)),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF2B78A),
-              foregroundColor: const Color(0xFF140F0E),
+              backgroundColor: colors.primary,
+              foregroundColor: isDark ? const Color(0xFF171C24) : Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              elevation: 0,
             ),
             onPressed: () {
               item.syllabusSummary = ctrl.text.trim().isNotEmpty ? ctrl.text.trim() : null;
               Navigator.pop(ctx);
               onChanged();
             },
-            child: const Text('Save Topic', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text('Save Topic', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
           ),
         ],
       ),

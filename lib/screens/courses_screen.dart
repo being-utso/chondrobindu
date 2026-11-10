@@ -337,8 +337,27 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
     final int archivedCount = allCourses.where((c) => c.isArchived).length;
 
     final double totalCredits = allCourses.fold(0.0, (acc, c) => acc + c.credits);
-    final int totalTopics = allCourses.fold(0, (acc, c) => acc + c.totalTopicsCount);
-    final int totalCompleted = allCourses.fold(0, (acc, c) => acc + c.completedTopicsCount);
+    int totalTopics = 0;
+    int totalCompleted = 0;
+    for (final c in allCourses) {
+      final topics = ref.watch(syllabusTopicsStreamProvider(c.id)).valueOrNull;
+      if (topics != null && topics.isNotEmpty) {
+        for (final t in topics) {
+          if (t.hasSubtopics) {
+            totalTopics += t.subtopics.length;
+            for (final s in t.subtopics) {
+              if (_topicCheckState[s.id] ?? s.isCompleted) totalCompleted++;
+            }
+          } else {
+            totalTopics += 1;
+            if (_topicCheckState[t.id] ?? t.isCompleted) totalCompleted++;
+          }
+        }
+      } else {
+        totalTopics += c.totalTopicsCount;
+        totalCompleted += c.completedTopicsCount;
+      }
+    }
     final int overallPct = totalTopics > 0 ? ((totalCompleted / totalTopics) * 100).toInt() : 0;
 
     return Container(
@@ -612,7 +631,33 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
   }
 
   Widget _buildCourseCard(Course course, int index, bool isSelected) {
-    final double progress = course.progressFraction;
+    final topicsAsync = ref.watch(syllabusTopicsStreamProvider(course.id));
+    final liveTopics = topicsAsync.valueOrNull;
+
+    int cardTotal = course.totalTopicsCount;
+    int cardCompleted = course.completedTopicsCount;
+
+    if (liveTopics != null && liveTopics.isNotEmpty) {
+      int tCount = 0;
+      int cCount = 0;
+      for (final t in liveTopics) {
+        if (t.hasSubtopics) {
+          tCount += t.subtopics.length;
+          for (final s in t.subtopics) {
+            if (_topicCheckState[s.id] ?? s.isCompleted) cCount++;
+          }
+        } else {
+          tCount += 1;
+          if (_topicCheckState[t.id] ?? t.isCompleted) cCount++;
+        }
+      }
+      if (tCount > 0) {
+        cardTotal = tCount;
+        cardCompleted = cCount;
+      }
+    }
+
+    final double progress = cardTotal > 0 ? (cardCompleted / cardTotal).clamp(0.0, 1.0) : 0.0;
     final pctText = '${(progress * 100).toInt()}%';
 
     return InkWell(
@@ -1063,23 +1108,31 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
             children: [
               // Radial Completion Chart
               SizedBox(
-                width: 72,
-                height: 72,
+                width: 80,
+                height: 80,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
                     CircularProgressIndicator(
                       value: progress,
-                      strokeWidth: 7,
-                      backgroundColor: colors.recessed,
+                      strokeWidth: 6,
+                      backgroundColor: isDark ? const Color(0xFF2E3846) : const Color(0xFFDCD7C8),
                       valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
                     ),
-                    Text(
-                      pctText,
-                      style: GoogleFonts.jetBrainsMono(
-                        color: colors.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Center(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            pctText,
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.primary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -2344,40 +2397,98 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                   : 'Pending / ${a.totalMarks.toStringAsFixed(0)}';
               final isAttended = a.status.toLowerCase() == 'attended' || a.isCompleted;
 
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: colors.surfaceBorder),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: (isAttended ? colors.success : colors.secondary).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
+              return InkWell(
+                onTap: () => _showEditAssessmentDialog(course, a),
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: colors.surfaceBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: (isAttended ? colors.success : colors.secondary).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          isAttended ? Icons.check_circle_outline_rounded : Icons.pending_actions_rounded,
+                          color: isAttended ? colors.success : colors.secondary,
+                          size: 20,
+                        ),
                       ),
-                      child: Icon(
-                        isAttended ? Icons.check_circle_outline_rounded : Icons.pending_actions_rounded,
-                        color: isAttended ? colors.success : colors.secondary,
-                        size: 20,
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  a.name,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: colors.textPrimary,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: colors.recessed,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    a.type.toUpperCase(),
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: colors.primary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              a.syllabusSummary?.isNotEmpty == true
+                                  ? a.syllabusSummary!
+                                  : 'Topics: Standard evaluation module',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: colors.textMuted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
+                          Text(
+                            dateStr,
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
                           Row(
                             children: [
                               Text(
-                                a.name,
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: colors.textPrimary,
-                                  fontSize: 14,
+                                marksStr,
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: isAttended ? colors.success : colors.textPrimary,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -2385,78 +2496,45 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: colors.recessed,
+                                  color: colors.secondary.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  a.type.toUpperCase(),
+                                  'Weight: ${a.weightage.toStringAsFixed(0)}%',
                                   style: GoogleFonts.jetBrainsMono(
-                                    color: colors.primary,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
+                                    color: colors.secondary,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            a.syllabusSummary?.isNotEmpty == true
-                                ? a.syllabusSummary!
-                                : 'Topics: Standard evaluation module',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: colors.textMuted,
-                              fontSize: 12,
-                            ),
+                        ],
+                      ),
+                      const SizedBox(width: 12),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.edit_outlined, size: 18, color: colors.textMuted),
+                            tooltip: 'Edit Assessment / Log Marks',
+                            onPressed: () => _showEditAssessmentDialog(course, a),
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(6),
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
+                            tooltip: 'Delete Assessment',
+                            onPressed: () => _confirmDeleteAssessment(course, a),
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(6),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          dateStr,
-                          style: GoogleFonts.jetBrainsMono(
-                            color: colors.textMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Text(
-                              marksStr,
-                              style: GoogleFonts.jetBrainsMono(
-                                color: isAttended ? colors.success : colors.textPrimary,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: colors.secondary.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'Weight: ${a.weightage.toStringAsFixed(0)}%',
-                                style: GoogleFonts.jetBrainsMono(
-                                  color: colors.secondary,
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
@@ -2636,6 +2714,302 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _showEditAssessmentDialog(Course course, Assessment assessment) async {
+    SafeHaptics.selectionClick();
+    final nameCtrl = TextEditingController(text: assessment.name);
+    final totalMarksCtrl = TextEditingController(text: assessment.totalMarks.toStringAsFixed(0));
+    final obtainedMarksCtrl = TextEditingController(
+      text: assessment.obtainedMarks != null ? assessment.obtainedMarks!.toString() : '',
+    );
+    final weightageCtrl = TextEditingController(text: assessment.weightage.toStringAsFixed(0));
+    final syllabusCtrl = TextEditingController(text: assessment.syllabusSummary ?? '');
+    String selectedType = assessment.type;
+    DateTime selectedDate = assessment.date ?? DateTime.now();
+    bool isCompleted = assessment.isCompleted || assessment.status.toLowerCase() == 'attended';
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          backgroundColor: colors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: colors.surfaceBorder),
+          ),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Edit Assessment / Log Marks',
+                style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.w700, fontSize: 16),
+              ),
+              IconButton(
+                icon: Icon(Icons.close_rounded, color: colors.textMuted, size: 20),
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 440,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildFormInput(
+                    controller: nameCtrl,
+                    label: 'Assessment Name',
+                    hintText: 'e.g. CT 1, Lab Quiz 1',
+                  ),
+                  const SizedBox(height: 14),
+                  _buildFormDropdown<String>(
+                    label: 'Assessment Type',
+                    value: selectedType,
+                    items: const [
+                      DropdownMenuItem(value: 'ct', child: Text('Class Test (CT)', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'quiz', child: Text('Quiz', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'assignment', child: Text('Assignment', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'midterm', child: Text('Midterm Exam', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'final', child: Text('Term Final', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(value: 'lab', child: Text('Lab Quiz / Viva', overflow: TextOverflow.ellipsis)),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setDlgState(() => selectedType = val);
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildFormInput(
+                          controller: obtainedMarksCtrl,
+                          label: 'Obtained Marks',
+                          hintText: 'e.g. 18.5',
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildFormInput(
+                          controller: totalMarksCtrl,
+                          label: 'Total Marks',
+                          hintText: '20',
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildFormInput(
+                          controller: weightageCtrl,
+                          label: 'Weightage (%)',
+                          hintText: '10',
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'STATUS',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: colors.textMuted,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            InkWell(
+                              onTap: () => setDlgState(() => isCompleted = !isCompleted),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                height: 48,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: colors.recessed,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: colors.surfaceBorder),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isCompleted ? Icons.check_circle_rounded : Icons.pending_rounded,
+                                      color: isCompleted ? colors.success : colors.secondary,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      isCompleted ? 'Completed' : 'Pending',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: colors.textPrimary,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _buildFormInput(
+                    controller: syllabusCtrl,
+                    label: 'Syllabus / Topics Covered',
+                    hintText: 'e.g. Chapter 1 (§1.1–1.3)',
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'DATE',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.textMuted,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: ctx,
+                        initialDate: selectedDate,
+                        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (picked != null) {
+                        setDlgState(() => selectedDate = picked);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      height: 48,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: colors.recessed,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: colors.surfaceBorder, width: 1),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            DateFormat('EEE, MMM d, yyyy').format(selectedDate),
+                            style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 13),
+                          ),
+                          Icon(Icons.calendar_today_rounded, color: colors.primary, size: 16),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () async {
+                final name = nameCtrl.text.trim();
+                if (name.isEmpty) return;
+                final total = double.tryParse(totalMarksCtrl.text.trim()) ?? 20.0;
+                final obtained = double.tryParse(obtainedMarksCtrl.text.trim());
+                final weight = double.tryParse(weightageCtrl.text.trim()) ?? 10.0;
+                final syllabus = syllabusCtrl.text.trim();
+
+                final updated = assessment.copyWith(
+                  name: name,
+                  type: selectedType,
+                  totalMarks: total,
+                  obtainedMarks: obtained,
+                  weightage: weight,
+                  syllabusSummary: syllabus.isNotEmpty ? syllabus : null,
+                  date: selectedDate,
+                  status: isCompleted || obtained != null ? 'Attended' : 'Pending',
+                );
+
+                String uid = '';
+                try {
+                  uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                } catch (_) {}
+                if (uid.isNotEmpty) {
+                  await ref.read(assessmentRepositoryProvider).updateAssessment(uid, updated);
+                }
+                if (ctx.mounted) Navigator.of(ctx).pop();
+              },
+              child: Text('Save Changes', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteAssessment(Course course, Assessment assessment) async {
+    SafeHaptics.lightImpact();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colors.surfaceBorder),
+        ),
+        title: Text(
+          'Delete Assessment',
+          style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'Are you sure you want to delete "${assessment.name}"? This action cannot be undone.',
+          style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Delete', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      String uid = '';
+      try {
+        uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      } catch (_) {}
+      if (uid.isNotEmpty) {
+        await ref.read(assessmentRepositoryProvider).deleteAssessment(uid, assessment.id, course.id);
+      }
+    }
   }
 
   Widget _buildCourseResourcesWorkspace(Course course) {
@@ -2955,23 +3329,31 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
           child: Row(
             children: [
               SizedBox(
-                width: 90,
-                height: 90,
+                width: 96,
+                height: 96,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
                     CircularProgressIndicator(
                       value: progress,
-                      strokeWidth: 8,
-                      backgroundColor: colors.recessed,
+                      strokeWidth: 6.5,
+                      backgroundColor: isDark ? const Color(0xFF2E3846) : const Color(0xFFDCD7C8),
                       valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
                     ),
-                    Text(
-                      pctText,
-                      style: GoogleFonts.jetBrainsMono(
-                        color: colors.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
+                    Padding(
+                      padding: const EdgeInsets.all(10.0),
+                      child: Center(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            pctText,
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.primary,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],

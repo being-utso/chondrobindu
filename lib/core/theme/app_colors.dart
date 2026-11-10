@@ -159,6 +159,9 @@ class ChondrobinduThemeColors extends ThemeExtension<ChondrobinduThemeColors> {
   final Color secondary;
   final Color success;
 
+  Color get textSecondary => textMuted;
+  Color get border => surfaceBorder;
+
   const ChondrobinduThemeColors({
     required this.background,
     required this.surface,

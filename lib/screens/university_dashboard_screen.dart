@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/routine_models.dart';
 import '../providers/user_profile_provider.dart';
@@ -15,6 +16,7 @@ import '../services/course_service.dart';
 import '../widgets/app_preloader.dart';
 import '../widgets/attendance_override_dialog.dart';
 import 'package:chondrobindu/utils/safe_haptics.dart';
+import '../core/theme/app_colors.dart';
 
 /// University Dashboard Screen displaying registered courses for University Mode
 class UniversityDashboardScreen extends ConsumerStatefulWidget {
@@ -25,6 +27,9 @@ class UniversityDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardScreen> {
+  ChondrobinduThemeColors get colors => AppColors.of(context);
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
   bool _isSyncingCourses = false;
 
   /// TASK 1: Scans active routine across all 7 days and creates missing course entries
@@ -42,17 +47,20 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
       if (newlyCreated.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFF10B981),
+            backgroundColor: colors.surface,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: colors.surfaceBorder),
+            ),
             content: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: Color(0xFF110D0C), size: 20),
+                const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Synced ${newlyCreated.length} course(s): ${newlyCreated.join(', ')}',
-                    style: const TextStyle(color: Color(0xFF110D0C), fontWeight: FontWeight.bold),
+                    style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -62,20 +70,20 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFF1C1412),
+            backgroundColor: colors.surface,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: Color(0xFFF2B78A), width: 0.5),
+              side: BorderSide(color: colors.surfaceBorder),
             ),
-            content: const Row(
+            content: Row(
               children: [
-                Icon(Icons.info_outline_rounded, color: Color(0xFFF2B78A), size: 20),
-                SizedBox(width: 10),
+                Icon(Icons.info_outline_rounded, color: colors.secondary, size: 20),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'All routine courses are already synchronized.',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                    style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
@@ -101,9 +109,10 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFF110D0C);
-    const cardColor = Color(0xFF241C1A);
-    const accentColor = Color(0xFFF2B78A);
+    final backgroundColor = colors.background;
+    final cardColor = colors.surface;
+    final accentColor = colors.primary;
+    final rustColor = colors.secondary;
 
     final userProfile = ref.watch(userProfileProvider);
     final universityName = userProfile.universityName?.trim().isNotEmpty == true
@@ -119,26 +128,26 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
         elevation: 0,
         leading: Navigator.canPop(context)
             ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                icon: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary, size: 20),
                 onPressed: () => Navigator.pop(context),
               )
             : null,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'University Dashboard',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+              style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 18),
             ),
             Text(
               universityName,
-              style: const TextStyle(color: accentColor, fontSize: 12, fontWeight: FontWeight.w500),
+              style: GoogleFonts.jetBrainsMono(color: rustColor, fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.calendar_view_week_rounded, color: accentColor, size: 22),
+            icon: Icon(Icons.calendar_view_week_rounded, color: accentColor, size: 22),
             tooltip: 'Weekly Class Routine',
             onPressed: () {
               SafeHaptics.lightImpact();
@@ -149,11 +158,11 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
             },
           ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded, color: accentColor, size: 22),
+            icon: Icon(Icons.more_vert_rounded, color: colors.textMuted, size: 22),
             color: cardColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: Color(0xFF4A3830)),
+              side: BorderSide(color: colors.surfaceBorder),
             ),
             onSelected: (val) {
               SafeHaptics.lightImpact();
@@ -169,10 +178,14 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                 final term = userProfile.term?.trim() ?? '1';
                 if (uni == null || uni.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      backgroundColor: Color(0xFF241C1A),
+                    SnackBar(
+                      backgroundColor: colors.surface,
                       behavior: SnackBarBehavior.floating,
-                      content: Text('Loading profile data...'),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: colors.surfaceBorder),
+                      ),
+                      content: Text('Loading profile data...', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary)),
                     ),
                   );
                   return;
@@ -191,43 +204,43 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
               }
             },
             itemBuilder: (ctx) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'sync',
                 child: Row(
                   children: [
                     Icon(Icons.sync_rounded, color: accentColor, size: 18),
-                    SizedBox(width: 8),
-                    Text('Sync with Routine', style: TextStyle(color: Colors.white, fontSize: 13)),
+                    const SizedBox(width: 8),
+                    Text('Sync with Routine', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'matrix',
                 child: Row(
                   children: [
                     Icon(Icons.fact_check_rounded, color: accentColor, size: 18),
-                    SizedBox(width: 8),
-                    Text('Attendance Matrix', style: TextStyle(color: Colors.white, fontSize: 13)),
+                    const SizedBox(width: 8),
+                    Text('Attendance Matrix', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'cgpa',
                 child: Row(
                   children: [
                     Icon(Icons.assessment_outlined, color: accentColor, size: 18),
-                    SizedBox(width: 8),
-                    Text('Term Performance & CGPA', style: TextStyle(color: Colors.white, fontSize: 13)),
+                    const SizedBox(width: 8),
+                    Text('Term Performance & CGPA', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'settings',
                 child: Row(
                   children: [
                     Icon(Icons.tune_rounded, color: accentColor, size: 18),
-                    SizedBox(width: 8),
-                    Text('Profile & Mode Settings', style: TextStyle(color: Colors.white, fontSize: 13)),
+                    const SizedBox(width: 8),
+                    Text('Profile & Mode Settings', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
                   ],
                 ),
               ),
@@ -300,49 +313,50 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                 Container(
                                   padding: const EdgeInsets.all(24),
                                   decoration: BoxDecoration(
-                                    color: cardColor,
+                                    color: colors.recessed,
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                                    border: Border.all(color: colors.surfaceBorder),
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.school_outlined,
                                     size: 56,
-                                    color: Color(0xFF64748B),
+                                    color: colors.textMuted,
                                   ),
                                 ),
                                 const SizedBox(height: 20),
-                                const Text(
+                                Text(
                                   'No Courses Added Yet',
-                                  style: TextStyle(
-                                    color: Colors.white,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: colors.textPrimary,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 18,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                const Text(
+                                Text(
                                   'No courses added yet. Tap + to add a course or auto-import from your weekly routine.',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Color(0xFF94A3B8),
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: colors.textMuted,
                                     fontSize: 13,
                                   ),
                                 ),
                                 const SizedBox(height: 18),
                                 ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: accentColor,
-                                    foregroundColor: const Color(0xFF110D0C),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    backgroundColor: colors.primary,
+                                    foregroundColor: isDark ? const Color(0xFF171C24) : Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    elevation: 0,
                                   ),
                                   onPressed: _isSyncingCourses ? null : _syncCoursesWithRoutine,
                                   icon: _isSyncingCourses
-                                      ? const AppPreloader(size: 16, strokeWidth: 2, color: Color(0xFF140F0E))
+                                      ? AppPreloader(size: 16, strokeWidth: 2, color: isDark ? const Color(0xFF171C24) : Colors.white)
                                       : const Icon(Icons.sync_rounded, size: 18),
-                                  label: const Text(
+                                  label: Text(
                                     'Sync Courses with Routine',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 13.5),
                                   ),
                                 ),
                               ],
@@ -361,16 +375,16 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                               margin: const EdgeInsets.only(bottom: 16),
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: cardColor,
+                                color: colors.surface,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFF4A3830)),
+                                border: Border.all(color: colors.surfaceBorder),
                               ),
                               child: Row(
                                 children: [
                                   Text(
                                     '${semesterStats.percentage.toStringAsFixed(1)}%',
-                                    style: TextStyle(
-                                      color: semesterStats.percentage >= 75.0 ? const Color(0xFF06D6A0) : const Color(0xFFEF4444),
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: semesterStats.percentage >= 75.0 ? const Color(0xFF10B981) : const Color(0xFFEF4444),
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -378,14 +392,14 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                   const SizedBox(width: 8),
                                   Text(
                                     '${semesterStats.attended + semesterStats.extra}/${semesterStats.validClassesCount} classes',
-                                    style: const TextStyle(color: Color(0xFFABA093), fontSize: 12),
+                                    style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 12),
                                   ),
                                   const Spacer(),
                                   OutlinedButton.icon(
                                     style: OutlinedButton.styleFrom(
-                                      foregroundColor: accentColor,
-                                      side: BorderSide(color: accentColor.withValues(alpha: 0.4)),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      foregroundColor: colors.primary,
+                                      side: BorderSide(color: colors.surfaceBorder),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                       minimumSize: Size.zero,
                                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -394,16 +408,17 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                     icon: _isSyncingCourses
                                         ? const AppPreloader(size: 14, strokeWidth: 1.5)
                                         : const Icon(Icons.sync_rounded, size: 14),
-                                    label: const Text('Sync', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    label: Text('Sync', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 12)),
                                   ),
                                   const SizedBox(width: 6),
                                   ElevatedButton.icon(
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: cardColor,
-                                      foregroundColor: accentColor,
+                                      backgroundColor: colors.recessed,
+                                      foregroundColor: colors.textPrimary,
+                                      elevation: 0,
                                       shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        side: const BorderSide(color: Color(0xFF4A3830)),
+                                        borderRadius: BorderRadius.circular(8),
+                                        side: BorderSide(color: colors.surfaceBorder),
                                       ),
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                       minimumSize: Size.zero,
@@ -417,7 +432,7 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                       );
                                     },
                                     icon: const Icon(Icons.calendar_view_week_rounded, size: 14),
-                                    label: const Text('Routine', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    label: Text('Routine', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 12)),
                                   ),
                                 ],
                               ),
@@ -454,16 +469,9 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
                             decoration: BoxDecoration(
-                              color: cardColor,
+                              color: colors.surface,
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.15),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
+                              border: Border.all(color: colors.surfaceBorder),
                             ),
                             child: Material(
                               color: Colors.transparent,
@@ -491,7 +499,7 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                           borderRadius: BorderRadius.circular(12),
                                           border: Border.all(color: accentColor.withValues(alpha: 0.25)),
                                         ),
-                                        child: const Icon(
+                                        child: Icon(
                                           Icons.class_rounded,
                                           color: accentColor,
                                           size: 24,
@@ -506,17 +514,17 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                           children: [
                                             Text(
                                               courseCode,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 16,
+                                              style: GoogleFonts.jetBrainsMono(
+                                                color: colors.textPrimary,
+                                                fontSize: 15.5,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
                                             const SizedBox(height: 3),
                                             Text(
                                               courseName,
-                                              style: TextStyle(
-                                                color: Colors.blueGrey.shade300,
+                                              style: GoogleFonts.plusJakartaSans(
+                                                color: colors.textSecondary,
                                                 fontSize: 13,
                                               ),
                                               maxLines: 1,
@@ -536,7 +544,7 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                                 Flexible(
                                                   child: Text(
                                                     '${courseStats.percentage.toStringAsFixed(0)}% Attendance (${courseStats.attended}/${courseStats.totalClasses})',
-                                                    style: TextStyle(
+                                                    style: GoogleFonts.jetBrainsMono(
                                                       color: courseStats.percentage >= 75.0
                                                           ? const Color(0xFF10B981)
                                                           : const Color(0xFFEF4444),
@@ -566,11 +574,11 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                                     );
                                                   },
                                                   child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                     decoration: BoxDecoration(
-                                                      color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                                                      color: rustColor.withValues(alpha: 0.15),
                                                       borderRadius: BorderRadius.circular(5),
-                                                      border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                                                      border: Border.all(color: rustColor.withValues(alpha: 0.3)),
                                                     ),
                                                     child: Row(
                                                       mainAxisSize: MainAxisSize.min,
@@ -578,13 +586,13 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                                         Icon(
                                                           useManualOverride ? Icons.edit_note_rounded : Icons.tune_rounded,
                                                           size: 10,
-                                                          color: const Color(0xFFF59E0B),
+                                                          color: rustColor,
                                                         ),
                                                         const SizedBox(width: 2),
                                                         Text(
                                                           useManualOverride ? 'Override' : 'Sync',
-                                                          style: const TextStyle(
-                                                            color: Color(0xFFF59E0B),
+                                                          style: GoogleFonts.jetBrainsMono(
+                                                            color: rustColor,
                                                             fontSize: 9.5,
                                                             fontWeight: FontWeight.bold,
                                                           ),
@@ -606,12 +614,13 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                             decoration: BoxDecoration(
-                                              color: Colors.white.withValues(alpha: 0.06),
+                                              color: colors.recessed,
                                               borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: colors.surfaceBorder),
                                             ),
                                             child: Text(
                                               '${creditHours.toStringAsFixed(1)} Cr',
-                                              style: const TextStyle(
+                                              style: GoogleFonts.jetBrainsMono(
                                                 color: accentColor,
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 12,
@@ -621,8 +630,8 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                           const SizedBox(height: 4),
                                           Text(
                                             courseType,
-                                            style: TextStyle(
-                                              color: Colors.blueGrey.shade400,
+                                            style: GoogleFonts.plusJakartaSans(
+                                              color: colors.textMuted,
                                               fontSize: 11,
                                             ),
                                           ),
@@ -631,7 +640,7 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                                       const SizedBox(width: 4),
                                       Icon(
                                         Icons.chevron_right_rounded,
-                                        color: Colors.blueGrey.shade400,
+                                        color: colors.textMuted,
                                         size: 20,
                                       ),
                                     ],
@@ -649,8 +658,8 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: accentColor,
-        foregroundColor: const Color(0xFF140F0E),
-        elevation: 4,
+        foregroundColor: isDark ? const Color(0xFF171C24) : Colors.white,
+        elevation: 0,
         onPressed: () {
           SafeHaptics.lightImpact();
           Navigator.push(
@@ -679,16 +688,14 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF241C1A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      backgroundColor: colors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        side: BorderSide(color: colors.surfaceBorder),
       ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            const accentColor = Color(0xFFF2B78A);
-            const cardColor = Color(0xFF241C1A);
-
             return Padding(
               padding: EdgeInsets.only(
                 left: 20,
@@ -704,16 +711,16 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'University Profile Settings',
-                          style: TextStyle(
-                            color: Colors.white,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: colors.textPrimary,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close, color: Colors.blueGrey),
+                          icon: Icon(Icons.close, color: colors.textMuted),
                           onPressed: () => Navigator.pop(ctx),
                         ),
                       ],
@@ -723,15 +730,15 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                     // University Mode Switch
                     SwitchListTile.adaptive(
                       value: isUni,
-                      activeThumbColor: accentColor,
+                      activeThumbColor: colors.primary,
                       contentPadding: EdgeInsets.zero,
-                      title: const Text(
+                      title: Text(
                         'University Student Mode Active',
-                        style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
                         isUni ? 'University Mode active' : 'Switch back to HSC / Admission mode',
-                        style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 12),
+                        style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
                       ),
                       onChanged: (val) {
                         setModalState(() {
@@ -743,31 +750,53 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
 
                     if (isUni) ...[
                       // University Name
-                      const Text('University Name', style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
+                      Text('University Name', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11)),
                       const SizedBox(height: 6),
-                      TextField(
-                        controller: uniCtrl,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'e.g. BUET, DU, CUET',
-                          filled: true,
-                          fillColor: const Color(0xFF170F0D),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: colors.recessed,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: colors.surfaceBorder),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        alignment: Alignment.center,
+                        child: TextField(
+                          controller: uniCtrl,
+                          style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: 'e.g. BUET, DU, CUET',
+                            hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
 
                       // Major / Department
-                      const Text('Major / Department', style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
+                      Text('Major / Department', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11)),
                       const SizedBox(height: 6),
-                      TextField(
-                        controller: majorCtrl,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'e.g. EEE, CSE, Mechanical',
-                          filled: true,
-                          fillColor: const Color(0xFF170F0D),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: colors.recessed,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: colors.surfaceBorder),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        alignment: Alignment.center,
+                        child: TextField(
+                          controller: majorCtrl,
+                          style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: 'e.g. EEE, CSE, Mechanical',
+                            hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -779,24 +808,34 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Level', style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
+                                Text('Level', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11)),
                                 const SizedBox(height: 6),
-                                DropdownButtonFormField<String>(
-                                  isExpanded: true,
-                                  initialValue: level,
-                                  dropdownColor: cardColor,
-                                  style: const TextStyle(color: Colors.white, fontSize: 13.5),
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: const Color(0xFF170F0D),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                Container(
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: colors.recessed,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: colors.surfaceBorder),
                                   ),
-                                  items: ['1', '2', '3', '4']
-                                      .map((l) => DropdownMenuItem(value: l, child: Text('Level $l', overflow: TextOverflow.ellipsis)))
-                                      .toList(),
-                                  onChanged: (val) {
-                                    if (val != null) setModalState(() => level = val);
-                                  },
+                                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                                  alignment: Alignment.center,
+                                  child: DropdownButtonFormField<String>(
+                                    isExpanded: true,
+                                    initialValue: level,
+                                    dropdownColor: colors.surface,
+                                    style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 13.5),
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                    items: ['1', '2', '3', '4']
+                                        .map((l) => DropdownMenuItem(value: l, child: Text('Level $l', overflow: TextOverflow.ellipsis)))
+                                        .toList(),
+                                    onChanged: (val) {
+                                      if (val != null) setModalState(() => level = val);
+                                    },
+                                  ),
                                 ),
                               ],
                             ),
@@ -806,24 +845,34 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Term', style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
+                                Text('Term', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11)),
                                 const SizedBox(height: 6),
-                                DropdownButtonFormField<String>(
-                                  isExpanded: true,
-                                  initialValue: term,
-                                  dropdownColor: cardColor,
-                                  style: const TextStyle(color: Colors.white, fontSize: 13.5),
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: const Color(0xFF170F0D),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                Container(
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: colors.recessed,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: colors.surfaceBorder),
                                   ),
-                                  items: ['1', '2']
-                                      .map((t) => DropdownMenuItem(value: t, child: Text('Term $t', overflow: TextOverflow.ellipsis)))
-                                      .toList(),
-                                  onChanged: (val) {
-                                    if (val != null) setModalState(() => term = val);
-                                  },
+                                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                                  alignment: Alignment.center,
+                                  child: DropdownButtonFormField<String>(
+                                    isExpanded: true,
+                                    initialValue: term,
+                                    dropdownColor: colors.surface,
+                                    style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 13.5),
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                    items: ['1', '2']
+                                        .map((t) => DropdownMenuItem(value: t, child: Text('Term $t', overflow: TextOverflow.ellipsis)))
+                                        .toList(),
+                                    onChanged: (val) {
+                                      if (val != null) setModalState(() => term = val);
+                                    },
+                                  ),
                                 ),
                               ],
                             ),
@@ -836,12 +885,12 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                     if (isUni) ...[
                       SizedBox(
                         width: double.infinity,
+                        height: 44,
                         child: OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: accentColor,
-                            side: BorderSide(color: accentColor.withValues(alpha: 0.4)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            foregroundColor: colors.primary,
+                            side: BorderSide(color: colors.surfaceBorder),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           onPressed: () {
                             Navigator.pop(ctx);
@@ -851,9 +900,9 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                             );
                           },
                           icon: const Icon(Icons.history_edu_rounded, size: 20),
-                          label: const Text(
+                          label: Text(
                             'Access Previous Admission Data',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 13),
                           ),
                         ),
                       ),
@@ -862,12 +911,13 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
 
                     SizedBox(
                       width: double.infinity,
+                      height: 48,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: accentColor,
-                          foregroundColor: const Color(0xFF140F0E),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          backgroundColor: colors.primary,
+                          foregroundColor: isDark ? const Color(0xFF171C24) : Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
                         ),
                         onPressed: () async {
                           await ref.read(userProfileProvider.notifier).updateProfile(
@@ -893,17 +943,21 @@ class _UniversityDashboardScreenState extends ConsumerState<UniversityDashboardS
                           if (ctx.mounted) {
                             Navigator.pop(ctx);
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                backgroundColor: Color(0xFFF2B78A),
+                              SnackBar(
+                                backgroundColor: colors.surface,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(color: colors.surfaceBorder),
+                                ),
                                 content: Text(
                                   'Profile settings updated!',
-                                  style: TextStyle(color: Color(0xFF140F0E), fontWeight: FontWeight.bold),
+                                  style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold),
                                 ),
                               ),
                             );
                           }
                         },
-                        child: const Text('Save Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+                        child: Text('Save Settings', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 14)),
                       ),
                     ),
                   ],

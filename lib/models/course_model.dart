@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'syllabus_node.dart';
 export '../screens/add_course_screen.dart' show Teacher, WeightageDistribution, CourseModel;
 export '../screens/course_syllabus_screen.dart' show CourseDashboardScreen, CourseSyllabusScreen;
 export '../screens/course_attendance_screen.dart' show CourseAttendanceScreen, CourseAttendanceAuditScreen;
@@ -126,8 +127,37 @@ class Course {
             .toList() ??
         const [];
 
-    final total = (map['totalTopicsCount'] as num?)?.toInt() ?? 0;
-    final completed = (map['completedTopicsCount'] as num?)?.toInt() ?? 0;
+    int total = (map['totalTopicsCount'] as num?)?.toInt() ?? 0;
+    int completed = (map['completedTopicsCount'] as num?)?.toInt() ?? 0;
+
+    // Dynamically calculate topics count from nested syllabusData if present
+    final rawSyllabus = map['syllabusData'] ?? map['syllabus'];
+    if (rawSyllabus != null) {
+      try {
+        List<dynamic> rawList = [];
+        if (rawSyllabus is List) {
+          rawList = rawSyllabus;
+        } else if (rawSyllabus is Map) {
+          if (rawSyllabus['nodes'] is List) {
+            rawList = rawSyllabus['nodes'] as List;
+          } else if (rawSyllabus['chapters'] is List) {
+            rawList = rawSyllabus['chapters'] as List;
+          }
+        }
+        if (rawList.isNotEmpty) {
+          final nodes = rawList
+              .whereType<Map>()
+              .map((c) => SyllabusNode.fromMap(Map<String, dynamic>.from(c)))
+              .toList();
+          final parsedTotal = nodes.fold<int>(0, (acc, n) => acc + n.totalLeafCount);
+          final parsedCompleted = nodes.fold<int>(0, (acc, n) => acc + n.completedLeafCount);
+          if (parsedTotal > 0) {
+            total = parsedTotal;
+            completed = parsedCompleted;
+          }
+        }
+      } catch (_) {}
+    }
     final isArchived = map['isArchived'] as bool? ?? false;
     final semester = map['semester'] as String? ?? 'Active';
 

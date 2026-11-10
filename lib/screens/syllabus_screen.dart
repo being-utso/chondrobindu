@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../providers/syllabus_provider.dart';
 import '../services/syllabus_factory.dart';
 import '../providers/user_profile_provider.dart';
@@ -9,6 +10,7 @@ import 'university_dashboard_screen.dart';
 import '../widgets/app_loading_screen.dart';
 import '../widgets/app_preloader.dart';
 import 'package:chondrobindu/utils/safe_haptics.dart';
+import '../core/theme/app_colors.dart';
 
 /// Syllabus Screen featuring dynamic Subjects, Chapters, and StudySections
 /// with Global Section Management (Add/Delete across subjects via WriteBatch),
@@ -21,6 +23,9 @@ class SyllabusScreen extends ConsumerStatefulWidget {
 }
 
 class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
+  ChondrobinduThemeColors get colors => AppColors.of(context);
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
   List<Subject> mySyllabus = [];
   String? _lastTarget;
   final Set<String> expandedSubjectIds = {};
@@ -144,9 +149,10 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1C1412),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      backgroundColor: colors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        side: BorderSide(color: colors.surfaceBorder),
       ),
       builder: (ctx) {
         return Padding(
@@ -165,31 +171,37 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                 children: [
                   Text(
                     isEditing ? 'Edit Subject' : 'Add New Subject',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.blueGrey),
+                    icon: Icon(Icons.close, color: colors.textMuted),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              TextField(
-                controller: titleController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Subject Title',
-                  labelStyle: TextStyle(color: Colors.blueGrey.shade400),
-                  filled: true,
-                  fillColor: const Color(0xFF241C1A),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFF2B78A)),
+              Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: colors.surfaceBorder),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                alignment: Alignment.center,
+                child: TextField(
+                  controller: titleController,
+                  style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: 'Subject Title (e.g. Physics 1st Paper)',
+                    hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
                   ),
                 ),
               ),
@@ -212,44 +224,47 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                     const SizedBox(width: 8),
                   ],
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final text = titleController.text.trim();
-                        if (text.isNotEmpty) {
-                          setState(() {
-                            if (isEditing) {
-                              final idx = mySyllabus.indexOf(existingSubject);
-                              if (idx != -1) {
-                                mySyllabus[idx] = Subject(
-                                  id: existingSubject.id,
+                    child: SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final text = titleController.text.trim();
+                          if (text.isNotEmpty) {
+                            setState(() {
+                              if (isEditing) {
+                                final idx = mySyllabus.indexOf(existingSubject);
+                                if (idx != -1) {
+                                  mySyllabus[idx] = Subject(
+                                    id: existingSubject.id,
+                                    title: text,
+                                    chapters: existingSubject.chapters,
+                                    iconName: existingSubject.iconName,
+                                  );
+                                }
+                              } else {
+                                final newId = _generateUniqueId('subj');
+                                mySyllabus.add(Subject(
+                                  id: newId,
                                   title: text,
-                                  chapters: existingSubject.chapters,
-                                  iconName: existingSubject.iconName,
-                                );
+                                  chapters: [],
+                                ));
+                                expandedSubjectIds.add(newId);
                               }
-                            } else {
-                              final newId = _generateUniqueId('subj');
-                              mySyllabus.add(Subject(
-                                id: newId,
-                                title: text,
-                                chapters: [],
-                              ));
-                              expandedSubjectIds.add(newId);
-                            }
-                          });
-                          _autoSaveToFirestore();
-                        }
-                        Navigator.pop(ctx);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF2B78A),
-                        foregroundColor: const Color(0xFF110D0C),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Text(
-                        isEditing ? 'Save Changes' : 'Add Subject',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                            });
+                            _autoSaveToFirestore();
+                          }
+                          Navigator.pop(ctx);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colors.primary,
+                          foregroundColor: isDark ? const Color(0xFF171C24) : Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          isEditing ? 'Save Changes' : 'Add Subject',
+                          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
                       ),
                     ),
                   ),
@@ -306,9 +321,10 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1C1412),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      backgroundColor: colors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        side: BorderSide(color: colors.surfaceBorder),
       ),
       builder: (ctx) {
         return StatefulBuilder(
@@ -331,8 +347,8 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                         Expanded(
                           child: Text(
                             isEditing ? 'Edit Chapter' : 'Add Chapter to ${subject.title}',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: colors.textPrimary,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -340,53 +356,51 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close, color: Colors.blueGrey),
+                          icon: Icon(Icons.close, color: colors.textMuted),
                           onPressed: () => Navigator.pop(ctx),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
 
-                    const Text(
+                    Text(
                       'CHAPTER NAME',
-                      style: TextStyle(
-                        color: Color(0xFFF2B78A),
-                        fontSize: 10,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.textMuted,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
+                        letterSpacing: 0.8,
                       ),
                     ),
                     const SizedBox(height: 6),
-                    TextField(
-                      controller: titleController,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                      decoration: InputDecoration(
-                        hintText: 'e.g. Chapter 3: Dynamics',
-                        hintStyle: TextStyle(color: Colors.blueGrey.shade500, fontSize: 13),
-                        filled: true,
-                        fillColor: const Color(0xFF241C1A),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF382A24)),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF382A24)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFFF2B78A)),
+                    Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: colors.recessed,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: colors.surfaceBorder),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      alignment: Alignment.center,
+                      child: TextField(
+                        controller: titleController,
+                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: 'e.g. Chapter 3: Dynamics',
+                          hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
 
-                    const Text(
+                    Text(
                       'AVAILABLE SUBJECT SECTIONS (TAP TO ADD/REMOVE)',
-                      style: TextStyle(
-                        color: Color(0xFFF2B78A),
-                        fontSize: 10,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.textMuted,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.8,
                       ),
@@ -400,16 +414,21 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                         return ChoiceChip(
                           label: Text(
                             secName,
-                            style: TextStyle(
-                              color: isAlreadyAdded ? const Color(0xFF110D0C) : Colors.blueGrey.shade300,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: isAlreadyAdded ? colors.primary : colors.textMuted,
                               fontSize: 11,
                               fontWeight: isAlreadyAdded ? FontWeight.bold : FontWeight.normal,
                             ),
                           ),
                           selected: isAlreadyAdded,
-                          selectedColor: const Color(0xFFF2B78A),
-                          backgroundColor: const Color(0xFF241C1A),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          selectedColor: colors.primary.withValues(alpha: 0.15),
+                          backgroundColor: colors.recessed,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(
+                              color: isAlreadyAdded ? colors.primary : colors.surfaceBorder,
+                            ),
+                          ),
                           onSelected: (selected) {
                             setModalState(() {
                               if (selected) {
@@ -431,18 +450,18 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'CONFIGURED CHAPTER SECTIONS',
-                          style: TextStyle(
-                            color: Color(0xFFF2B78A),
-                            fontSize: 10,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.textMuted,
+                            fontSize: 10.5,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
+                            letterSpacing: 0.8,
                           ),
                         ),
                         Text(
                           '${sectionControllers.length} Section(s)',
-                          style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
+                          style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11),
                         ),
                       ],
                     ),
@@ -454,26 +473,24 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                         child: Row(
                           children: [
                             Expanded(
-                              child: TextField(
-                                controller: sectionControllers[idx],
-                                style: const TextStyle(color: Colors.white, fontSize: 13),
-                                decoration: InputDecoration(
-                                  hintText: 'Section ${idx + 1}',
-                                  hintStyle: TextStyle(color: Colors.blueGrey.shade500, fontSize: 12),
-                                  filled: true,
-                                  fillColor: const Color(0xFF241C1A),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(color: Color(0xFF382A24)),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(color: Color(0xFF382A24)),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(color: Color(0xFFF2B78A)),
+                              child: Container(
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: colors.recessed,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: colors.surfaceBorder),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 14),
+                                alignment: Alignment.center,
+                                child: TextField(
+                                  controller: sectionControllers[idx],
+                                  style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    hintText: 'Section ${idx + 1}',
+                                    hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
                                   ),
                                 ),
                               ),
@@ -498,8 +515,8 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                           sectionControllers.add(TextEditingController());
                         });
                       },
-                      icon: const Icon(Icons.add_rounded, size: 16, color: Color(0xFFF2B78A)),
-                      label: const Text('Add Custom Section Field', style: TextStyle(color: Color(0xFFF2B78A))),
+                      icon: Icon(Icons.add_rounded, size: 16, color: colors.secondary),
+                      label: Text('Add Custom Section Field', style: GoogleFonts.plusJakartaSans(color: colors.secondary, fontWeight: FontWeight.w600)),
                     ),
                     const SizedBox(height: 16),
 
@@ -572,14 +589,15 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                               Navigator.pop(ctx);
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFF2B78A),
-                              foregroundColor: const Color(0xFF110D0C),
+                              backgroundColor: colors.primary,
+                              foregroundColor: isDark ? const Color(0xFF171C24) : Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 0,
                             ),
                             child: Text(
                               isEditing ? 'Save Changes' : 'Save Chapter',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 14),
                             ),
                           ),
                         ),
@@ -616,9 +634,10 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1C1412),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      backgroundColor: colors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        side: BorderSide(color: colors.surfaceBorder),
       ),
       builder: (ctx) {
         return StatefulBuilder(
@@ -644,14 +663,14 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.layers_rounded, color: Color(0xFFF2B78A), size: 22),
-                            SizedBox(width: 8),
+                            Icon(Icons.layers_rounded, color: colors.primary, size: 22),
+                            const SizedBox(width: 8),
                             Text(
                               'Manage Global Sections',
-                              style: TextStyle(
-                                color: Colors.white,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: colors.textPrimary,
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -659,7 +678,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                           ],
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close, color: Colors.blueGrey),
+                          icon: Icon(Icons.close, color: colors.textMuted),
                           onPressed: () => Navigator.pop(ctx),
                         ),
                       ],
@@ -667,37 +686,35 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                     const SizedBox(height: 14),
 
                     // Section Name Field
-                    const Text(
+                    Text(
                       'SECTION NAME',
-                      style: TextStyle(
-                        color: Color(0xFFF2B78A),
-                        fontSize: 10,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.textMuted,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
+                        letterSpacing: 0.8,
                       ),
                     ),
                     const SizedBox(height: 6),
-                    TextField(
-                      controller: sectionNameController,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                      decoration: InputDecoration(
-                        hintText: 'e.g. Exercise MCQ',
-                        hintStyle: TextStyle(color: Colors.blueGrey.shade500, fontSize: 13),
-                        filled: true,
-                        fillColor: const Color(0xFF241C1A),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF382A24)),
+                    Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: colors.recessed,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: colors.surfaceBorder),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      alignment: Alignment.center,
+                      child: TextField(
+                        controller: sectionNameController,
+                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: 'e.g. Exercise MCQ',
+                          hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF382A24)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFFF2B78A)),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -710,12 +727,12 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                         return ActionChip(
                           label: Text(
                             suggestion,
-                            style: const TextStyle(color: Color(0xFFF2B78A), fontSize: 11),
+                            style: GoogleFonts.plusJakartaSans(color: colors.primary, fontSize: 11, fontWeight: FontWeight.w600),
                           ),
-                          backgroundColor: const Color(0xFF241C1A),
+                          backgroundColor: colors.recessed,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(color: const Color(0xFFF2B78A).withValues(alpha: 0.3)),
+                            side: BorderSide(color: colors.surfaceBorder),
                           ),
                           onPressed: () {
                             setModalState(() {
@@ -728,22 +745,22 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                     const SizedBox(height: 16),
 
                     // Action Selector (Add to Subjects vs Remove from Subjects)
-                    const Text(
+                    Text(
                       'ACTION',
-                      style: TextStyle(
-                        color: Color(0xFFF2B78A),
-                        fontSize: 10,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.textMuted,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
+                        letterSpacing: 0.8,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF241C1A),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF382A24)),
+                        color: colors.recessed,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: colors.surfaceBorder),
                       ),
                       child: Row(
                         children: [
@@ -770,13 +787,13 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                                       Icon(
                                         Icons.add_circle_outline_rounded,
                                         size: 15,
-                                        color: isAddAction ? const Color(0xFF10B981) : Colors.blueGrey,
+                                        color: isAddAction ? const Color(0xFF10B981) : colors.textMuted,
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
                                         'Add to Subject(s)',
-                                        style: TextStyle(
-                                          color: isAddAction ? Colors.white : Colors.blueGrey,
+                                        style: GoogleFonts.plusJakartaSans(
+                                          color: isAddAction ? colors.textPrimary : colors.textMuted,
                                           fontSize: 12,
                                           fontWeight: isAddAction ? FontWeight.bold : FontWeight.w500,
                                         ),
@@ -811,13 +828,13 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                                       Icon(
                                         Icons.remove_circle_outline_rounded,
                                         size: 15,
-                                        color: !isAddAction ? const Color(0xFFEF4444) : Colors.blueGrey,
+                                        color: !isAddAction ? const Color(0xFFEF4444) : colors.textMuted,
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
                                         'Remove from Subject(s)',
-                                        style: TextStyle(
-                                          color: !isAddAction ? Colors.white : Colors.blueGrey,
+                                        style: GoogleFonts.plusJakartaSans(
+                                          color: !isAddAction ? colors.textPrimary : colors.textMuted,
                                           fontSize: 12,
                                           fontWeight: !isAddAction ? FontWeight.bold : FontWeight.w500,
                                         ),
@@ -837,13 +854,13 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'TARGET SUBJECTS',
-                          style: TextStyle(
-                            color: Color(0xFFF2B78A),
-                            fontSize: 10,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.textMuted,
+                            fontSize: 10.5,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 1.0,
+                            letterSpacing: 0.8,
                           ),
                         ),
                         TextButton(
@@ -862,7 +879,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                           ),
                           child: Text(
                             allSelected ? 'Deselect All' : 'Select All',
-                            style: const TextStyle(color: Color(0xFFF2B78A), fontSize: 12),
+                            style: GoogleFonts.plusJakartaSans(color: colors.secondary, fontSize: 12, fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
@@ -873,9 +890,9 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                     Container(
                       constraints: const BoxConstraints(maxHeight: 200),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF241C1A),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF382A24)),
+                        color: colors.recessed,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: colors.surfaceBorder),
                       ),
                       child: ListView(
                         shrinkWrap: true,
@@ -886,15 +903,15 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                             visualDensity: VisualDensity.compact,
                             title: Text(
                               subj.title,
-                              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                              style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
                             ),
                             subtitle: Text(
                               '${subj.chapters.length} chapter(s)',
-                              style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
+                              style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11),
                             ),
                             value: isSel,
-                            activeColor: const Color(0xFFF2B78A),
-                            checkColor: const Color(0xFF110D0C),
+                            activeColor: colors.primary,
+                            checkColor: isDark ? const Color(0xFF171C24) : Colors.white,
                             onChanged: (checked) {
                               setModalState(() {
                                 if (checked == true) {
@@ -930,7 +947,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                               isAddAction
                                   ? 'Will append "${sectionNameController.text.trim()}" across $affectedChaptersCount chapter(s) in ${selectedSubjectIds.length} subject(s).'
                                   : 'Will delete all instances of "${sectionNameController.text.trim()}" across $affectedChaptersCount chapter(s) in ${selectedSubjectIds.length} subject(s).',
-                              style: TextStyle(
+                              style: GoogleFonts.plusJakartaSans(
                                 color: isAddAction ? const Color(0xFF10B981) : const Color(0xFFEF4444),
                                 fontSize: 11.5,
                               ),
@@ -944,6 +961,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                     // Submit Button with WriteBatch
                     SizedBox(
                       width: double.infinity,
+                      height: 48,
                       child: ElevatedButton.icon(
                         onPressed: selectedSubjectIds.isEmpty || sectionNameController.text.trim().isEmpty
                             ? null
@@ -962,13 +980,13 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                         ),
                         label: Text(
                           isAddAction ? 'Apply Global Add' : 'Apply Global Delete',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isAddAction ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          backgroundColor: isAddAction ? colors.primary : const Color(0xFFEF4444),
+                          foregroundColor: isDark ? const Color(0xFF171C24) : Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
                         ),
                       ),
                     ),
@@ -1135,9 +1153,10 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1C1412),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      backgroundColor: colors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        side: BorderSide(color: colors.surfaceBorder),
       ),
       builder: (ctx) {
         return Padding(
@@ -1156,32 +1175,37 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                 children: [
                   Text(
                     isEditing ? 'Edit Section' : 'Add Section',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.blueGrey),
+                    icon: Icon(Icons.close, color: colors.textMuted),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              TextField(
-                controller: titleController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Section Title',
-                  labelStyle: TextStyle(color: Colors.blueGrey.shade400),
-                  filled: true,
-                  fillColor: const Color(0xFF241C1A),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF382A24))),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF382A24))),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFF2B78A)),
+              Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: colors.surfaceBorder),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                alignment: Alignment.center,
+                child: TextField(
+                  controller: titleController,
+                  style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: 'Section Title (e.g. Theory & Formulas)',
+                    hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
                   ),
                 ),
               ),
@@ -1203,41 +1227,44 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                     const SizedBox(width: 8),
                   ],
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final text = titleController.text.trim();
-                        if (text.isNotEmpty) {
-                          setState(() {
-                            if (isEditing) {
-                              final secIdx = chapter.sections.indexOf(existingSection);
-                              if (secIdx != -1) {
-                                chapter.sections[secIdx] = StudySection(
-                                  id: existingSection.id,
+                    child: SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final text = titleController.text.trim();
+                          if (text.isNotEmpty) {
+                            setState(() {
+                              if (isEditing) {
+                                final secIdx = chapter.sections.indexOf(existingSection);
+                                if (secIdx != -1) {
+                                  chapter.sections[secIdx] = StudySection(
+                                    id: existingSection.id,
+                                    title: text,
+                                    isCompleted: existingSection.isCompleted,
+                                  );
+                                }
+                              } else {
+                                chapter.sections.add(StudySection(
+                                  id: _generateUniqueId('sec'),
                                   title: text,
-                                  isCompleted: existingSection.isCompleted,
-                                );
+                                  isCompleted: false,
+                                ));
                               }
-                            } else {
-                              chapter.sections.add(StudySection(
-                                id: _generateUniqueId('sec'),
-                                title: text,
-                                isCompleted: false,
-                              ));
-                            }
-                          });
-                          _autoSaveToFirestore();
-                        }
-                        Navigator.pop(ctx);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF2B78A),
-                        foregroundColor: const Color(0xFF110D0C),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Text(
-                        isEditing ? 'Save Changes' : 'Add Section',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                            });
+                            _autoSaveToFirestore();
+                          }
+                          Navigator.pop(ctx);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colors.primary,
+                          foregroundColor: isDark ? const Color(0xFF171C24) : Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          isEditing ? 'Save Changes' : 'Add Section',
+                          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
                       ),
                     ),
                   ),
@@ -1262,9 +1289,10 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
       return const UniversityDashboardScreen();
     }
 
-    const backgroundColor = Color(0xFF110D0C);
-    const cardColor = Color(0xFF1C1412);
-    const accentColor = Color(0xFFF2B78A);
+    final backgroundColor = colors.background;
+    final cardColor = colors.surface;
+    final accentColor = colors.primary;
+    final rustColor = colors.secondary;
 
     final currentTarget = userProfile.primaryTarget.isNotEmpty ? userProfile.primaryTarget : 'Engineering';
     final providerSubjects = ref.watch(syllabusProvider);
@@ -1311,7 +1339,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                 icon: const Icon(Icons.delete_sweep_rounded, color: Colors.white),
                 label: Text(
                   'Delete Selected (${selectedSectionKeys.length})',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                  style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 onPressed: () {
                   SafeHaptics.lightImpact();
@@ -1319,26 +1347,26 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                     context: context,
                     builder: (dCtx) {
                       return AlertDialog(
-                        backgroundColor: const Color(0xFF1C1412),
+                        backgroundColor: colors.surface,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(18),
-                          side: const BorderSide(color: Color(0xFF382A24)),
+                          side: BorderSide(color: colors.surfaceBorder),
                         ),
-                        title: const Row(
+                        title: Row(
                           children: [
-                            Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 24),
-                            SizedBox(width: 8),
-                            Text('Confirm Delete', style: TextStyle(color: Colors.white, fontSize: 17)),
+                            const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 24),
+                            const SizedBox(width: 8),
+                            Text('Confirm Delete', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 17, fontWeight: FontWeight.bold)),
                           ],
                         ),
                         content: Text(
                           'Are you sure you want to delete ${selectedSectionKeys.length} selected section(s)? This will atomically remove them from your syllabus.',
-                          style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 13.5),
+                          style: GoogleFonts.plusJakartaSans(color: colors.textSecondary, fontSize: 13.5),
                         ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(dCtx),
-                            child: const Text('Cancel', style: TextStyle(color: Colors.blueGrey)),
+                            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textSecondary)),
                           ),
                           ElevatedButton(
                             onPressed: () {
@@ -1350,7 +1378,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
-                            child: const Text('Delete Permanently', style: TextStyle(fontWeight: FontWeight.bold)),
+                            child: Text('Delete Permanently', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
                           ),
                         ],
                       );
@@ -1367,11 +1395,14 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
               if (isSelectionMode)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                  color: const Color(0xFF1C1412),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    border: Border(bottom: BorderSide(color: colors.surfaceBorder)),
+                  ),
                   child: Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, color: Colors.white),
+                        icon: Icon(Icons.close_rounded, color: colors.textPrimary),
                         onPressed: () {
                           setState(() {
                             isSelectionMode = false;
@@ -1383,8 +1414,8 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                       Expanded(
                         child: Text(
                           '${selectedSectionKeys.length} Section(s) Selected',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: colors.textPrimary,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1410,7 +1441,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                         },
                         child: Text(
                           selectedSectionKeys.isNotEmpty ? 'Deselect' : 'Select All',
-                          style: const TextStyle(color: Color(0xFFF2B78A), fontWeight: FontWeight.bold),
+                          style: GoogleFonts.plusJakartaSans(color: colors.secondary, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -1431,8 +1462,8 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                               children: [
                                 Text(
                                   currentTarget,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: colors.textPrimary,
                                     fontSize: 22,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: -0.5,
@@ -1441,8 +1472,8 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                                 const SizedBox(height: 4),
                                 Text(
                                   'Complete coverage for ${userProfile.hscBatch.isNotEmpty ? 'HSC ${userProfile.hscBatch}' : 'your academic journey'}',
-                                  style: TextStyle(
-                                    color: Colors.blueGrey.shade400,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: colors.textMuted,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -1450,7 +1481,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.download_rounded, color: Colors.blueGrey),
+                            icon: Icon(Icons.download_rounded, color: colors.textMuted),
                             tooltip: 'Reset to Presets',
                             onPressed: _showResetPresetConfirmation,
                           ),
@@ -1459,7 +1490,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                       const SizedBox(height: 14),
 
                       // Overall Progress Indicator
-                      _buildOverallProgressBar(accentColor),
+                      _buildOverallProgressBar(rustColor),
                       const SizedBox(height: 12),
 
                       // Mode Toggles & Action Bar
@@ -1468,47 +1499,47 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                         child: Row(
                           children: [
                             ActionChip(
-                              label: const Text('Add Subject', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                              avatar: const Icon(Icons.add_rounded, size: 16, color: Colors.white),
+                              label: Text('Add Subject', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
+                              avatar: Icon(Icons.add_rounded, size: 16, color: colors.textPrimary),
                               backgroundColor: cardColor,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide(color: colors.surfaceBorder),
                               ),
                               onPressed: () => _showSubjectBottomSheet(),
                             ),
                             const SizedBox(width: 8),
 
                             ActionChip(
-                              label: const Text('Manage Global Sections', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                              avatar: const Icon(Icons.tune_rounded, size: 16, color: Colors.white),
+                              label: Text('Manage Global Sections', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 12, fontWeight: FontWeight.w600)),
+                              avatar: Icon(Icons.tune_rounded, size: 16, color: colors.textPrimary),
                               backgroundColor: cardColor,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide(color: colors.surfaceBorder),
                               ),
                               onPressed: () => _showManageGlobalSectionsModal(),
                             ),
                             const SizedBox(width: 8),
 
                             ActionChip(
-                              label: const Text(
+                              label: Text(
                                 'Bulk Select',
-                                style: TextStyle(
-                                  color: Color(0xFFF2B78A),
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: rustColor,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11.5,
                                 ),
                               ),
-                              avatar: const Icon(
+                              avatar: Icon(
                                 Icons.checklist_rounded,
                                 size: 16,
-                                color: Color(0xFFF2B78A),
+                                color: rustColor,
                               ),
-                              backgroundColor: const Color(0xFFF2B78A).withValues(alpha: 0.12),
+                              backgroundColor: rustColor.withValues(alpha: 0.12),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(color: const Color(0xFFF2B78A).withValues(alpha: 0.35)),
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide(color: rustColor.withValues(alpha: 0.35)),
                               ),
                               onPressed: () {
                                 SafeHaptics.lightImpact();
@@ -1523,8 +1554,8 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                             FilterChip(
                               label: Text(
                                 isEditMode ? 'Done' : 'Edit',
-                                style: TextStyle(
-                                  color: isEditMode ? const Color(0xFF110D0C) : Colors.blueGrey.shade300,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: isEditMode ? (isDark ? const Color(0xFF171C24) : Colors.white) : colors.textPrimary,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11.5,
                                 ),
@@ -1543,12 +1574,12 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                               avatar: Icon(
                                 isEditMode ? Icons.check_circle_rounded : Icons.edit_note_rounded,
                                 size: 16,
-                                color: isEditMode ? const Color(0xFF110D0C) : Colors.blueGrey.shade300,
+                                color: isEditMode ? (isDark ? const Color(0xFF171C24) : Colors.white) : colors.textPrimary,
                               ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(10),
                                 side: BorderSide(
-                                  color: isEditMode ? accentColor : Colors.white.withValues(alpha: 0.08),
+                                  color: isEditMode ? accentColor : colors.surfaceBorder,
                                 ),
                               ),
                               showCheckmark: false,
@@ -1607,13 +1638,12 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
     final percent = totalSecs > 0 ? (doneSecs / totalSecs * 100) : 0.0;
     final iconData = _getSubjectIcon(subject.iconName, subject.title);
     return Container(
-
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16.0),
         border: Border.all(
-          color: isExpanded ? accentColor.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.06),
-          width: isExpanded ? 1.2 : 1.0,
+          color: isExpanded ? accentColor.withValues(alpha: 0.5) : colors.surfaceBorder,
+          width: 1.0,
         ),
       ),
       child: Column(
@@ -1632,15 +1662,15 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: 0.15),
+                color: accentColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(iconData, color: accentColor, size: 22),
             ),
             title: Text(
               subject.title,
-              style: const TextStyle(
-                color: Colors.white,
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textPrimary,
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
               ),
@@ -1653,8 +1683,8 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                   children: [
                     Text(
                       '$doneSecs / $totalSecs Done (${percent.round()}%)',
-                      style: TextStyle(
-                        color: Colors.blueGrey.shade400,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.textMuted,
                         fontSize: 12,
                       ),
                     ),
@@ -1665,7 +1695,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                   borderRadius: BorderRadius.circular(2),
                   child: LinearProgressIndicator(
                     value: totalSecs > 0 ? (doneSecs / totalSecs) : 0,
-                    backgroundColor: const Color(0xFF382A24),
+                    backgroundColor: colors.recessed,
                     color: accentColor,
                     minHeight: 4,
                   ),
@@ -1682,7 +1712,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                     tooltip: 'Manage Global Sections for Subject',
                   ),
                   IconButton(
-                    icon: const Icon(Icons.edit_outlined, color: Colors.blueGrey, size: 18),
+                    icon: Icon(Icons.edit_outlined, color: colors.textMuted, size: 18),
                     onPressed: () => _showSubjectBottomSheet(existingSubject: subject),
                     tooltip: 'Edit Subject',
                   ),
@@ -1696,7 +1726,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                   isExpanded
                       ? Icons.keyboard_arrow_up_rounded
                       : Icons.keyboard_arrow_down_rounded,
-                  color: Colors.blueGrey.shade400,
+                  color: colors.textMuted,
                   size: 26,
                 ),
               ],
@@ -1704,7 +1734,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
           ),
 
           if (isExpanded) ...[
-            Divider(height: 1, color: Colors.white.withValues(alpha: 0.08)),
+            Divider(height: 1, color: colors.surfaceBorder),
             Padding(
               padding: const EdgeInsets.all(14.0),
               child: Column(
@@ -1718,7 +1748,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
                       child: Text(
                         'No chapters in this subject.',
-                        style: TextStyle(color: Colors.blueGrey.shade500, fontSize: 12.5),
+                        style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12.5),
                       ),
                     ),
                   if (isEditMode)
@@ -1727,14 +1757,14 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                         TextButton.icon(
                           onPressed: () => _showChapterBottomSheet(subject),
                           icon: const Icon(Icons.add_rounded, size: 16),
-                          label: const Text('Add Chapter'),
+                          label: Text('Add Chapter', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
                           style: TextButton.styleFrom(foregroundColor: accentColor),
                         ),
                         const SizedBox(width: 8),
                         TextButton.icon(
                           onPressed: () => _showManageGlobalSectionsModal(initialSubjectId: subject.id),
                           icon: const Icon(Icons.layers_rounded, size: 16),
-                          label: const Text('Global Section'),
+                          label: Text('Global Section', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
                           style: TextButton.styleFrom(foregroundColor: const Color(0xFF10B981)),
                         ),
                       ],
@@ -1756,10 +1786,10 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12.0),
       decoration: BoxDecoration(
-        color: const Color(0xFF241C1A),
+        color: colors.recessed,
         borderRadius: BorderRadius.circular(12.0),
         border: Border.all(
-          color: isChapterExpanded ? accentColor.withValues(alpha: 0.3) : const Color(0xFF382A24),
+          color: isChapterExpanded ? accentColor.withValues(alpha: 0.4) : colors.surfaceBorder,
         ),
       ),
       child: Column(
@@ -1786,8 +1816,8 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                       children: [
                         Text(
                           chapter.title,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: colors.textPrimary,
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1796,8 +1826,8 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                           const SizedBox(height: 2),
                           Text(
                             '$doneSecs / $totalSecs done',
-                            style: TextStyle(
-                              color: Colors.blueGrey.shade400,
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.textMuted,
                               fontSize: 11,
                             ),
                           ),
@@ -1807,7 +1837,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                   ),
                   if (isEditMode) ...[
                     IconButton(
-                      icon: const Icon(Icons.edit_outlined, color: Colors.blueGrey, size: 16),
+                      icon: Icon(Icons.edit_outlined, color: colors.textMuted, size: 16),
                       onPressed: () => _showChapterBottomSheet(subject, existingChapter: chapter),
                       constraints: const BoxConstraints(),
                       padding: const EdgeInsets.all(4),
@@ -1823,7 +1853,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                     isChapterExpanded
                         ? Icons.keyboard_arrow_up_rounded
                         : Icons.keyboard_arrow_down_rounded,
-                    color: Colors.blueGrey.shade400,
+                    color: colors.textMuted,
                     size: 20,
                   ),
                 ],
@@ -1831,7 +1861,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
             ),
           ),
           if (isChapterExpanded) ...[
-            Divider(height: 1, color: Colors.white.withValues(alpha: 0.05)),
+            Divider(height: 1, color: colors.surfaceBorder),
             Padding(
               padding: const EdgeInsets.fromLTRB(8.0, 4.0, 8.0, 8.0),
               child: Column(
@@ -1875,15 +1905,15 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                                     : Icons.check_box_outline_blank_rounded,
                                 color: isSelectedInBatch
                                     ? const Color(0xFFEF4444)
-                                    : Colors.blueGrey.shade500,
+                                    : colors.textMuted,
                                 size: 20,
                               ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
                                   section.title,
-                                  style: TextStyle(
-                                    color: isSelectedInBatch ? Colors.white : Colors.blueGrey.shade200,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: isSelectedInBatch ? colors.textPrimary : colors.textSecondary,
                                     fontSize: 12.5,
                                     fontWeight: isSelectedInBatch ? FontWeight.bold : FontWeight.normal,
                                   ),
@@ -1905,14 +1935,14 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                       },
                       child: Theme(
                         data: ThemeData.dark().copyWith(
-                          unselectedWidgetColor: Colors.blueGrey.shade500,
+                          unselectedWidgetColor: colors.textMuted,
                         ),
                         child: CheckboxListTile(
                           dense: true,
                           visualDensity: VisualDensity.compact,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 4.0),
                           activeColor: accentColor,
-                          checkColor: const Color(0xFF110D0C),
+                          checkColor: isDark ? const Color(0xFF171C24) : Colors.white,
                           value: section.isCompleted,
                           onChanged: (bool? value) {
                             if (value == true) {
@@ -1936,18 +1966,18 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                               Expanded(
                                 child: Text(
                                   section.title,
-                                  style: TextStyle(
-                                    color: section.isCompleted ? Colors.blueGrey.shade400 : Colors.white,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: section.isCompleted ? colors.textMuted : colors.textPrimary,
                                     fontSize: 12.5,
                                     decoration:
                                         section.isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
-                                    decorationColor: Colors.blueGrey.shade400,
+                                    decorationColor: colors.textMuted,
                                   ),
                                 ),
                               ),
                               if (isEditMode)
                                 IconButton(
-                                  icon: const Icon(Icons.edit_outlined, color: Colors.blueGrey, size: 14),
+                                  icon: Icon(Icons.edit_outlined, color: colors.textMuted, size: 14),
                                   onPressed: () =>
                                       _showSectionBottomSheet(chapter, existingSection: section),
                                   constraints: const BoxConstraints(),
@@ -1965,7 +1995,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                       padding: const EdgeInsets.all(8.0),
                       child: Text(
                         'No sections added yet.',
-                        style: TextStyle(color: Colors.blueGrey.shade500, fontSize: 12),
+                        style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
                       ),
                     ),
                 ],
@@ -1981,26 +2011,30 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1412),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Reset Syllabus to Presets?',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: colors.surfaceBorder),
         ),
-        content: const Text(
+        title: Text(
+          'Reset Syllabus to Presets?',
+          style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        content: Text(
           'This will overwrite any custom syllabus changes and restore the default syllabus preset for your current target.',
-          style: TextStyle(color: Color(0xFFABA093), fontSize: 13.5),
+          style: GoogleFonts.plusJakartaSans(color: colors.textSecondary, fontSize: 13.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.blueGrey)),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
             ),
             onPressed: () {
               Navigator.pop(ctx);
@@ -2010,16 +2044,20 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
               _autoSaveToFirestore();
               setState(() {});
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  backgroundColor: Color(0xFF10B981),
+                SnackBar(
+                  backgroundColor: colors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: colors.surfaceBorder),
+                  ),
                   content: Text(
                     'Syllabus successfully reset to presets!',
-                    style: TextStyle(color: Color(0xFF110D0C), fontWeight: FontWeight.bold),
+                    style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold),
                   ),
                 ),
               );
             },
-            child: const Text('Reset', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text('Reset', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -2045,9 +2083,9 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1412),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF382A24)),
+        border: Border.all(color: colors.surfaceBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2055,13 +2093,13 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Overall Syllabus Completion',
-                style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13, fontWeight: FontWeight.bold),
               ),
               Text(
                 '$percentage%',
-                style: TextStyle(color: accentColor, fontSize: 14, fontWeight: FontWeight.bold),
+                style: GoogleFonts.jetBrainsMono(color: accentColor, fontSize: 14, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -2071,14 +2109,14 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 6,
-              backgroundColor: const Color(0xFF382A24),
+              backgroundColor: colors.recessed,
               valueColor: AlwaysStoppedAnimation<Color>(accentColor),
             ),
           ),
           const SizedBox(height: 6),
           Text(
             '$completedSections of $totalSections sections completed',
-            style: const TextStyle(color: Color(0xFFABA093), fontSize: 11),
+            style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11),
           ),
         ],
       ),
