@@ -1183,14 +1183,35 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 children: [
                   _buildFieldLabel('HSC BATCH', colors, isSmall: true),
                   const SizedBox(height: 4),
-                  SizedBox(
+                  Container(
                     height: 48,
-                    child: _buildTextInput(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: colors.recessed,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colors.surfaceBorder, width: 1.0),
+                    ),
+                    child: TextField(
                       controller: _hscBatchController,
-                      hintText: 'e.g. 2025',
-                      colors: colors,
-                      isDense: true,
-                      height: 48,
+                      keyboardType: TextInputType.text,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'e.g. 2025',
+                        hintStyle: GoogleFonts.plusJakartaSans(
+                          color: colors.textMuted.withValues(alpha: 0.7),
+                          fontSize: 12,
+                        ),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
                     ),
                   ),
                 ],
@@ -1203,46 +1224,43 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 children: [
                   _buildFieldLabel('HSC GROUP / DIVISION', colors, isSmall: true),
                   const SizedBox(height: 4),
-                  SizedBox(
+                  Container(
                     height: 48,
-                    child: Container(
-                      height: 48,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: colors.recessed,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: colors.surfaceBorder, width: 1.0),
-                      ),
-                      alignment: Alignment.center,
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _hscGroup,
-                          isExpanded: true,
-                          isDense: true,
-                          hint: Text(
-                            'Select group...',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: colors.textMuted.withValues(alpha: 0.7),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          dropdownColor: colors.surface,
-                          icon: Icon(Icons.keyboard_arrow_down_rounded, color: colors.textMuted, size: 18),
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: colors.recessed,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colors.surfaceBorder, width: 1.0),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _hscGroup,
+                        isExpanded: true,
+                        isDense: true,
+                        hint: Text(
+                          'Select group...',
                           style: GoogleFonts.plusJakartaSans(
-                            color: colors.textPrimary,
+                            color: colors.textMuted.withValues(alpha: 0.7),
                             fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                           ),
-                          items: const [
-                            DropdownMenuItem(value: 'Science', child: Text('Science')),
-                            DropdownMenuItem(value: 'Humanities', child: Text('Humanities')),
-                            DropdownMenuItem(value: 'Commerce', child: Text('Commerce')),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) _onHscGroupChanged(val);
-                          },
                         ),
+                        dropdownColor: colors.surface,
+                        icon: Icon(Icons.keyboard_arrow_down_rounded, color: colors.textMuted, size: 18),
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'Science', child: Text('Science')),
+                          DropdownMenuItem(value: 'Humanities', child: Text('Humanities')),
+                          DropdownMenuItem(value: 'Commerce', child: Text('Commerce')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) _onHscGroupChanged(val);
+                        },
                       ),
                     ),
                   ),
