@@ -107,7 +107,7 @@ const Map<String, List<AdmissionTargetOption>> kAdmissionTargetsByGroup = {
 ///      feature bullets, discipline quote, dynamically matching the expanded height of the right pane.
 ///    - Right Pane (55%): Warm Chalk (#F7F5F0 Light / #202733 Dark) authentication card.
 /// 3. Interactive segmented switcher ([ Sign In | Create Account ]).  
-/// 4. Full conditional academic track logic (University vs College / Admission).
+/// 4. Full conditional academic track logic (University vs College / Admission). 
 /// 5. Conditional target cards with contrast specs (#EDEAE0 text, #2A3444 surface, #C88256 rust border).
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -1095,6 +1095,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   // University Track Specific Fields
   Widget _buildUniversityFields(ChondrobinduThemeColors colors) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: Column(
@@ -1107,6 +1108,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 hintText: 'e.g. BUET',
                 colors: colors,
                 isDense: true,
+                height: 44,
               ),
             ],
           ),
@@ -1123,6 +1125,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 hintText: "e.g. EEE '25",
                 colors: colors,
                 isDense: true,
+                height: 44,
               ),
             ],
           ),
@@ -1139,6 +1142,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 hintText: 'e.g. L-1 • T-1',
                 colors: colors,
                 isDense: true,
+                height: 44,
               ),
             ],
           ),
@@ -1162,11 +1166,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           hintText: 'e.g. Notre Dame College',
           colors: colors,
           isDense: true,
+          height: 44,
         ),
         const SizedBox(height: 10),
 
         // 2. HSC Batch & 3. HSC Group / Division (Science, Humanities, Commerce)
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Column(
@@ -1179,6 +1185,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     hintText: 'e.g. 2025',
                     colors: colors,
                     isDense: true,
+                    height: 44,
                   ),
                 ],
               ),
@@ -1191,13 +1198,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   _buildFieldLabel('HSC GROUP / DIVISION', colors, isSmall: true),
                   const SizedBox(height: 4),
                   Container(
-                    height: 38,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    height: 44,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
                       color: colors.recessed,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: colors.surfaceBorder),
+                      border: Border.all(color: colors.surfaceBorder, width: 1.0),
                     ),
+                    alignment: Alignment.center,
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: _hscGroup,
@@ -1205,7 +1213,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         hint: Text(
                           'Select group...',
                           style: GoogleFonts.plusJakartaSans(
-                            color: colors.textMuted,
+                            color: colors.textMuted.withValues(alpha: 0.7),
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -1565,15 +1573,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     required ChondrobinduThemeColors colors,
     TextInputType keyboardType = TextInputType.text,
     bool isDense = false,
+    double? height,
     String? Function(String?)? validator,
   }) {
-    return TextFormField(
+    final inputWidget = TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
+      textAlignVertical: TextAlignVertical.center,
       style: GoogleFonts.plusJakartaSans(
         color: colors.textPrimary,
         fontSize: isDense ? 12 : 13,
+        fontWeight: FontWeight.w500,
       ),
       decoration: InputDecoration(
         hintText: hintText,
@@ -1583,17 +1594,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         ),
         filled: true,
         fillColor: colors.recessed,
+        isDense: true,
         contentPadding: EdgeInsets.symmetric(
           horizontal: 12,
-          vertical: isDense ? 10 : 12,
+          vertical: isDense ? 11 : 12,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: colors.surfaceBorder),
+          borderSide: BorderSide(color: colors.surfaceBorder, width: 1.0),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: colors.surfaceBorder),
+          borderSide: BorderSide(color: colors.surfaceBorder, width: 1.0),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -1601,6 +1613,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         ),
       ),
     );
+
+    if (height != null) {
+      return SizedBox(
+        height: height,
+        child: inputWidget,
+      );
+    }
+    return inputWidget;
   }
 
   Widget _buildPasswordInput(TextEditingController controller, ChondrobinduThemeColors colors) {
