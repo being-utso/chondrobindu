@@ -1108,7 +1108,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 hintText: 'e.g. BUET',
                 colors: colors,
                 isDense: true,
-                height: 46,
+                height: 48,
               ),
             ],
           ),
@@ -1125,7 +1125,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 hintText: "e.g. EEE '25",
                 colors: colors,
                 isDense: true,
-                height: 46,
+                height: 48,
               ),
             ],
           ),
@@ -1142,7 +1142,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 hintText: 'e.g. L-1 • T-1',
                 colors: colors,
                 isDense: true,
-                height: 46,
+                height: 48,
               ),
             ],
           ),
@@ -1161,12 +1161,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         // 1. Last Attended College / Institution
         _buildFieldLabel('LAST ATTENDED COLLEGE / INSTITUTION', colors, isSmall: true),
         const SizedBox(height: 4),
-        _buildTextInput(
-          controller: _collegeNameController,
-          hintText: 'e.g. Notre Dame College',
-          colors: colors,
-          isDense: true,
-          height: 46,
+        SizedBox(
+          height: 48,
+          child: _buildTextInput(
+            controller: _collegeNameController,
+            hintText: 'e.g. Notre Dame College',
+            colors: colors,
+            isDense: true,
+            height: 48,
+          ),
         ),
         const SizedBox(height: 10),
 
@@ -1180,12 +1183,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 children: [
                   _buildFieldLabel('HSC BATCH', colors, isSmall: true),
                   const SizedBox(height: 4),
-                  _buildTextInput(
-                    controller: _hscBatchController,
-                    hintText: 'e.g. 2025',
-                    colors: colors,
-                    isDense: true,
-                    height: 46,
+                  SizedBox(
+                    height: 48,
+                    child: _buildTextInput(
+                      controller: _hscBatchController,
+                      hintText: 'e.g. 2025',
+                      colors: colors,
+                      isDense: true,
+                      height: 48,
+                    ),
                   ),
                 ],
               ),
@@ -1197,43 +1203,46 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 children: [
                   _buildFieldLabel('HSC GROUP / DIVISION', colors, isSmall: true),
                   const SizedBox(height: 4),
-                  Container(
-                    height: 46,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: colors.recessed,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: colors.surfaceBorder, width: 1.0),
-                    ),
-                    alignment: Alignment.center,
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _hscGroup,
-                        isExpanded: true,
-                        isDense: true,
-                        hint: Text(
-                          'Select group...',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: colors.textMuted.withValues(alpha: 0.7),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                  SizedBox(
+                    height: 48,
+                    child: Container(
+                      height: 48,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: colors.recessed,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: colors.surfaceBorder, width: 1.0),
+                      ),
+                      alignment: Alignment.center,
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _hscGroup,
+                          isExpanded: true,
+                          isDense: true,
+                          hint: Text(
+                            'Select group...',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: colors.textMuted.withValues(alpha: 0.7),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
+                          dropdownColor: colors.surface,
+                          icon: Icon(Icons.keyboard_arrow_down_rounded, color: colors.textMuted, size: 18),
+                          style: GoogleFonts.plusJakartaSans(
+                            color: colors.textPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'Science', child: Text('Science')),
+                            DropdownMenuItem(value: 'Humanities', child: Text('Humanities')),
+                            DropdownMenuItem(value: 'Commerce', child: Text('Commerce')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) _onHscGroupChanged(val);
+                          },
                         ),
-                        dropdownColor: colors.surface,
-                        icon: Icon(Icons.keyboard_arrow_down_rounded, color: colors.textMuted, size: 18),
-                        style: GoogleFonts.plusJakartaSans(
-                          color: colors.textPrimary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'Science', child: Text('Science')),
-                          DropdownMenuItem(value: 'Humanities', child: Text('Humanities')),
-                          DropdownMenuItem(value: 'Commerce', child: Text('Commerce')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) _onHscGroupChanged(val);
-                        },
                       ),
                     ),
                   ),
@@ -1597,7 +1606,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         fillColor: colors.recessed,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
+          horizontal: 14,
           vertical: 12,
         ),
         border: OutlineInputBorder(
