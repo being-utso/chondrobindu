@@ -342,9 +342,12 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
           children: [
             const AppLogo(size: 28),
             const SizedBox(width: 10),
-            Text(
-              'Journal & Notes',
-              style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 19),
+            Flexible(
+              child: Text(
+                'Journal & Notes',
+                style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 19),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),

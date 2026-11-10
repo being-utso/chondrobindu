@@ -479,7 +479,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                streak > 0 ? 'Active momentum sustained' : 'Start your streak today',
+                streak > 0 ? 'Active momentum sustained' : 'Begin your first focus session to build momentum',
                 style: GoogleFonts.plusJakartaSans(
                   color: streak > 0 ? colors.secondary : colors.textMuted,
                   fontSize: 12.5,
@@ -499,15 +499,16 @@ class HomeScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: weeklyTrend.isNotEmpty
                 ? weeklyTrend.map((day) {
+                    final bool hasActivity = maxMins > 0 && day.totalMinutes > 0;
                     final isToday = day.date.year == now.year && day.date.month == now.month && day.date.day == now.day;
-                    final double barHeight = (maxMins > 0 && day.totalMinutes > 0)
+                    final double barHeight = hasActivity
                         ? (12.0 + (day.totalMinutes / maxMins) * 36.0).clamp(12.0, 48.0)
                         : 6.0;
-                    final Color barColor = day.totalMinutes > 0
+                    final Color barColor = hasActivity
                         ? colors.secondary
                         : colors.surfaceBorder;
                     final dayLetter = day.dayName.isNotEmpty ? day.dayName.substring(0, 1) : 'D';
-                    return _buildSparklineCol(dayLetter, barHeight, barColor, isToday: isToday);
+                    return _buildSparklineCol(dayLetter, barHeight, barColor, isToday: isToday && hasActivity);
                   }).toList()
                 : [
                     _buildSparklineCol('M', 6, colors.surfaceBorder),
@@ -516,7 +517,7 @@ class HomeScreen extends ConsumerWidget {
                     _buildSparklineCol('T', 6, colors.surfaceBorder),
                     _buildSparklineCol('F', 6, colors.surfaceBorder),
                     _buildSparklineCol('S', 6, colors.surfaceBorder),
-                    _buildSparklineCol('S', 6, colors.surfaceBorder, isToday: true),
+                    _buildSparklineCol('S', 6, colors.surfaceBorder),
                   ],
           ),
         ],
@@ -567,7 +568,8 @@ class HomeScreen extends ConsumerWidget {
     final double totalHours = effectiveTotalMinutes / 60.0;
     final String hrsString = '${totalHours.toStringAsFixed(1)} hrs';
 
-    final String sessionsSubtitle = allSessionsCount > 0
+    final bool hasSessions = (allSessionsCount > 0 && effectiveTotalMinutes > 0);
+    final String sessionsSubtitle = hasSessions
         ? 'Recorded across $allSessionsCount ${allSessionsCount == 1 ? 'deep block' : 'deep blocks'}'
         : 'No focus sessions recorded yet';
 
@@ -606,13 +608,13 @@ class HomeScreen extends ConsumerWidget {
 
     // Daily Mean over last 7 days
     final int dailyMeanMins = (thisWeekMinutes / 7).round();
-    final String dailyMeanStr = '${dailyMeanMins ~/ 60}h ${dailyMeanMins % 60}m';
+    final String dailyMeanStr = hasSessions ? '${dailyMeanMins ~/ 60}h ${dailyMeanMins % 60}m' : '0h 0m';
 
     // Session Avg
     final int sessionAvgMins = thisWeekSessionCount > 0
         ? (thisWeekMinutes / thisWeekSessionCount).round()
         : (allSessionsCount > 0 ? (effectiveTotalMinutes / allSessionsCount).round() : 0);
-    final String sessionAvgStr = '${sessionAvgMins}m';
+    final String sessionAvgStr = hasSessions ? '${sessionAvgMins}m' : '0m';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -629,37 +631,46 @@ class HomeScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.timer_outlined, color: colors.primary, size: 20),
-                  const SizedBox(width: 6),
-                  Text(
-                    'TOTAL FOCUS TIME',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: colors.textMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.timer_outlined, color: colors.primary, size: 20),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'TOTAL FOCUS TIME',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: colors.textMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: colors.success.withValues(alpha: 0.15),
+                  color: hasSessions ? colors.success.withValues(alpha: 0.15) : colors.recessed,
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: colors.success.withValues(alpha: 0.25)),
+                  border: Border.all(color: hasSessions ? colors.success.withValues(alpha: 0.25) : colors.surfaceBorder),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.trending_up_rounded, size: 13, color: colors.success),
-                    const SizedBox(width: 3),
+                    if (hasSessions) ...[
+                      Icon(Icons.trending_up_rounded, size: 13, color: colors.success),
+                      const SizedBox(width: 3),
+                    ],
                     Text(
-                      trendText,
+                      hasSessions ? trendText : '0.0h',
                       style: GoogleFonts.jetBrainsMono(
-                        color: colors.success,
+                        color: hasSessions ? colors.success : colors.textMuted,
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
@@ -766,8 +777,12 @@ class HomeScreen extends ConsumerWidget {
       }
     } catch (_) {}
 
-    if (currentGpa <= 0.0) {
-      if (courses.isNotEmpty && overallCompletionFraction > 0) {
+    final bool hasCourses = courses.isNotEmpty;
+    final bool hasLoggedGpa = currentGpa > 0.0;
+    final bool hasAcademicData = hasCourses || hasLoggedGpa;
+
+    if (currentGpa <= 0.0 && hasCourses) {
+      if (overallCompletionFraction > 0) {
         currentGpa = (targetGpa * (0.85 + (overallCompletionFraction * 0.15))).clamp(0.0, maxGpa);
       } else {
         currentGpa = targetGpa;
@@ -775,14 +790,16 @@ class HomeScreen extends ConsumerWidget {
     }
 
     final String bandSubtitle;
-    if (currentGpa >= (isCollege ? 4.75 : 3.75)) {
+    if (!hasAcademicData) {
+      bandSubtitle = 'Set up your target CGPA and courses in Settings/Planner';
+    } else if (currentGpa >= (isCollege ? 4.75 : 3.75)) {
       bandSubtitle = 'In Honor Roll Band';
     } else if (currentGpa >= (isCollege ? 4.00 : 3.25)) {
       bandSubtitle = 'On Academic Track';
     } else if (currentGpa > 0.0) {
       bandSubtitle = 'Needs Acceleration';
     } else {
-      bandSubtitle = 'No Grades Recorded Yet';
+      bandSubtitle = 'Set up your target CGPA and courses in Settings/Planner';
     }
 
     return Container(
@@ -840,7 +857,7 @@ class HomeScreen extends ConsumerWidget {
 
           const SizedBox(height: 14),
 
-          // Value and Honor Roll badge
+          // Value and Honor Roll badge / Empty Setup Prompt
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -849,7 +866,7 @@ class HomeScreen extends ConsumerWidget {
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
-                    currentGpa.toStringAsFixed(2),
+                    hasAcademicData ? currentGpa.toStringAsFixed(2) : '—',
                     style: GoogleFonts.jetBrainsMono(
                       color: colors.textPrimary,
                       fontSize: 28,
@@ -870,14 +887,19 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Icon(Icons.check_circle_rounded, size: 14, color: colors.success),
-                  const SizedBox(width: 4),
-                  Text(
-                    bandSubtitle,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: colors.success,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
+                  if (hasAcademicData) ...[
+                    Icon(Icons.check_circle_rounded, size: 14, color: colors.success),
+                    const SizedBox(width: 4),
+                  ],
+                  Expanded(
+                    child: Text(
+                      bandSubtitle,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: hasAcademicData ? colors.success : colors.textMuted,
+                        fontSize: 12.0,
+                        fontWeight: hasAcademicData ? FontWeight.w600 : FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -1038,10 +1060,12 @@ class HomeScreen extends ConsumerWidget {
       prioritySubtitle = 'Upcoming ${prioritizedAssessment.name} $countdownText$weightText • Estimated Focus: $pomodoros Pomodoros ($estMinutes mins).';
     } else if (activeCourse != null) {
       final remainingTopics = activeCourse.totalTopicsCount - activeCourse.completedTopicsCount;
-      if (remainingTopics > 0) {
-        prioritySubtitle = '$remainingTopics topics remaining in syllabus • Estimated Focus: 2 Pomodoros (50 mins).';
+      if (activeCourse.completedTopicsCount == 0 && activeCourse.totalTopicsCount == 0) {
+        prioritySubtitle = 'Select a syllabus topic or schedule your first study block';
+      } else if (remainingTopics > 0) {
+        prioritySubtitle = 'Select a syllabus topic or schedule your first study block • $remainingTopics topics remaining in syllabus.';
       } else {
-        prioritySubtitle = 'Syllabus on track • Ready for practice or revision focus block.';
+        prioritySubtitle = 'Select a syllabus topic or schedule your first study block • Ready for review.';
       }
     } else {
       prioritySubtitle = 'Enroll in active courses to receive personalized deep work recommendations.';
@@ -1349,9 +1373,10 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'No classes or tasks scheduled for today',
+                      'No classes or tasks scheduled for today — enjoy your break or start a deep work block!',
+                      textAlign: TextAlign.center,
                       style: GoogleFonts.plusJakartaSans(
-                        color: colors.textMuted.withValues(alpha: 0.7),
+                        color: colors.textMuted.withValues(alpha: 0.75),
                         fontSize: 12,
                       ),
                     ),
@@ -1751,7 +1776,10 @@ class HomeScreen extends ConsumerWidget {
             )
           else ...[
             ...courses.take(6).map((c) {
-              final double fraction = c.progressFraction.clamp(0.0, 1.0);
+              final double rawFraction = c.totalTopicsCount > 0
+                  ? (c.completedTopicsCount / c.totalTopicsCount)
+                  : 0.0;
+              final double fraction = (rawFraction.isNaN ? 0.0 : rawFraction).clamp(0.0, 1.0);
               final int pct = (fraction * 100).toInt();
 
               final String statusAlert;

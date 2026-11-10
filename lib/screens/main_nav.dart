@@ -28,7 +28,7 @@ import 'university_dashboard_screen.dart';
 
 /// Main Mobile Navigation Shell wrapping:
 /// - Top App Bar: Compact brand logo + action icons (Journal, Theme toggle, Notifications, Profile avatar).
-/// - Bottom Dock (5 tabs): [ Home | Courses | Timer | Planner | Insights ]
+/// - Bottom Dock (6 tabs): [ Home | Courses | Timer | Planner | Journal | Insights ]
 class MainNavigationScreen extends ConsumerStatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -85,22 +85,19 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     final colors = AppColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Mobile tab screens (5 tabs: Home, Courses/Syllabus, Timer, Planner, Insights)
+    // Mobile tab screens (6 tabs: Home, Courses/Syllabus, Timer, Planner, Journal, Insights)
     final List<Widget> screens = [
       const HomeDashboardScreen(),
       isUni ? const UniversityDashboardScreen() : const SyllabusScreen(),
       const TimerScreen(),
       const PlannerScreen(),
+      const JournalScreen(),
       const InsightsScreen(),
     ];
 
-    // Map desktop/external 6-tab index (where Journal was 4, Insights was 5)
-    // to mobile 5-tab dock index safely:
-    // 0: Home, 1: Courses, 2: Timer, 3: Planner, 4: Insights (or 5 -> 4)
-    int effectiveMobileIndex = selectedIndex;
-    if (effectiveMobileIndex >= screens.length) {
-      effectiveMobileIndex = screens.length - 1; // Map Insights (5) to 4
-    }
+    // Synchronized 6-tab dock index matching desktop exactly:
+    // 0: Home, 1: Courses, 2: Timer, 3: Planner, 4: Journal, 5: Insights
+    final int effectiveMobileIndex = selectedIndex.clamp(0, screens.length - 1);
 
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     final isTimerScreen = effectiveMobileIndex == 2;
@@ -140,40 +137,44 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
-      titleSpacing: 16.0,
+      titleSpacing: 12.0,
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           const AppLogo(
-            size: 28,
+            size: 26,
             showContainer: false,
           ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'চন্দ্রবিন্দু',
-                style: GoogleFonts.plusJakartaSans(
-                  color: colors.primary,
-                  fontSize: 15.0,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.2,
-                  height: 1.1,
+          const SizedBox(width: 6),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'চন্দ্রবিন্দু',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: colors.primary,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                    height: 1.1,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              Text(
-                'CHONDROBINDU',
-                style: GoogleFonts.plusJakartaSans(
-                  color: colors.secondary,
-                  fontSize: 8.5,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                  height: 1.1,
+                Text(
+                  'CHONDROBINDU',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: colors.secondary,
+                    fontSize: 8.0,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                    height: 1.1,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -188,22 +189,24 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         // 1. Journal Action Icon
         IconButton(
           tooltip: 'Academic Journal',
-          icon: Icon(Icons.edit_note_rounded, color: colors.textMuted, size: 22),
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          icon: Icon(Icons.edit_note_rounded, color: colors.textMuted, size: 21),
           onPressed: () {
             SafeHaptics.selectionClick();
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const JournalScreen()),
-            );
+            ref.read(navigationIndexProvider.notifier).state = 4;
           },
         ),
 
         // 2. Theme Toggle Action Icon
         IconButton(
           tooltip: isDark ? 'Switch to Lime Wash' : 'Switch to Indigo Slate',
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           icon: Icon(
             isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
             color: colors.textMuted,
-            size: 20,
+            size: 19,
           ),
           onPressed: () {
             SafeHaptics.selectionClick();
@@ -214,10 +217,12 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         // 3. Notifications Bell Action Icon
         IconButton(
           tooltip: 'Notifications',
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           icon: Stack(
             alignment: Alignment.center,
             children: [
-              Icon(Icons.notifications_none_rounded, color: colors.textMuted, size: 21),
+              Icon(Icons.notifications_none_rounded, color: colors.textMuted, size: 20),
               Positioned(
                 top: 2,
                 right: 2,
@@ -242,7 +247,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
 
         // 4. Profile Avatar Action
         Padding(
-          padding: const EdgeInsets.only(right: 12.0, left: 4.0),
+          padding: const EdgeInsets.only(right: 12.0, left: 2.0),
           child: GestureDetector(
             onTap: () {
               SafeHaptics.selectionClick();
@@ -251,7 +256,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
               );
             },
             child: CircleAvatar(
-              radius: 15,
+              radius: 14,
               backgroundColor: colors.surfaceBorder,
               backgroundImage: (photoUrl != null && photoUrl.isNotEmpty) ? NetworkImage(photoUrl) : null,
               child: (photoUrl == null || photoUrl.isEmpty)
@@ -260,7 +265,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.primary,
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        fontSize: 11.5,
                       ),
                     )
                   : null,
@@ -271,7 +276,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     );
   }
 
-  /// Mobile Bottom Dock with 5 tabs: [ Home | Courses | Timer | Planner | Insights ]
+  /// Mobile Bottom Dock with 6 tabs: [ Home | Courses | Timer | Planner | Journal | Insights ]
   Widget _buildMobileBottomDock(
     BuildContext context,
     int activeIndex,
@@ -296,38 +301,42 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
             data: NavigationBarThemeData(
               backgroundColor: Colors.transparent,
               elevation: 0,
-              height: 62,
+              height: 64,
               indicatorColor: colors.primary.withValues(alpha: isDark ? 0.22 : 0.15),
               indicatorShape: RoundedRectangleBorder(borderRadius: AppSpacing.borderRadiusPill),
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
               labelTextStyle: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.selected)) {
                   return GoogleFonts.plusJakartaSans(
                     color: colors.primary,
-                    fontSize: 11.5,
+                    fontSize: 11.0,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 0.1,
+                    letterSpacing: -0.1,
                   );
                 }
                 return GoogleFonts.plusJakartaSans(
-                  color: colors.textMuted,
+                  color: isDark ? colors.primary.withValues(alpha: 0.60) : colors.textMuted,
                   fontSize: 11.0,
                   fontWeight: FontWeight.w500,
+                  letterSpacing: -0.1,
                 );
               }),
               iconTheme: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.selected)) {
-                  return IconThemeData(color: colors.primary, size: 22);
+                  return IconThemeData(color: colors.primary, size: 21);
                 }
-                return IconThemeData(color: colors.textMuted, size: 22);
+                return IconThemeData(
+                  color: isDark ? colors.primary.withValues(alpha: 0.60) : colors.textMuted,
+                  size: 21,
+                );
               }),
             ),
             child: NavigationBar(
               selectedIndex: activeIndex,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
               onDestinationSelected: (index) {
                 SafeHaptics.selectionClick();
                 TourService().dismissActiveTour();
-                // Map mobile tab 4 (Insights) to index 5 on desktop if needed,
-                // or keep 4 synchronized
                 ref.read(navigationIndexProvider.notifier).state = index;
               },
               destinations: [
@@ -350,6 +359,11 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                   icon: Icon(Icons.calendar_month_outlined),
                   selectedIcon: Icon(Icons.calendar_month_rounded),
                   label: 'Planner',
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.auto_stories_outlined),
+                  selectedIcon: Icon(Icons.auto_stories_rounded),
+                  label: 'Journal',
                 ),
                 const NavigationDestination(
                   icon: Icon(Icons.insights_outlined),

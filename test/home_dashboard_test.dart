@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:chondrobindu/models/course_model.dart';
+import 'package:chondrobindu/providers/firestore_providers.dart';
 import 'package:chondrobindu/screens/home_dashboard.dart';
 import 'package:chondrobindu/providers/user_profile_provider.dart';
 
@@ -30,6 +32,16 @@ void main() {
             term: '1',
             hscBatch: '25',
           ))),
+          coursesStreamProvider.overrideWith((ref) => Stream.value([
+            const Course(
+              id: 'c1',
+              code: 'EEE 101',
+              title: 'Electric Circuits I',
+              credits: 3.0,
+              totalTopicsCount: 10,
+              completedTopicsCount: 4,
+            ),
+          ])),
         ],
         child: const MaterialApp(
           home: HomeDashboardScreen(),
@@ -91,5 +103,52 @@ void main() {
     expect(find.text('ADMISSION TARGET'), findsOneWidget);
     expect(find.text('STUDY STREAK'), findsOneWidget);
     expect(find.text('RECOMMENDED DEEP WORK TARGET'), findsOneWidget);
+  });
+
+  testWidgets('HomeDashboard renders authentic zero-states for new accounts with 0 courses', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(const UserProfile(
+            fullName: 'New Scholar',
+            displayName: 'Scholar',
+            isOnboarded: true,
+            isUniversityStudent: true,
+            universityName: 'BUET',
+            department: 'EEE',
+            level: '1',
+            term: '1',
+            targetGpa: 3.80,
+          ))),
+          coursesStreamProvider.overrideWith((ref) => Stream.value([])),
+        ],
+        child: const MaterialApp(
+          home: HomeDashboardScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // 1. Academic Standing shows NO DATA and — / 4.00
+    expect(find.text('NO DATA'), findsOneWidget);
+    expect(find.text('—'), findsOneWidget);
+    expect(find.text('0% Covered'), findsOneWidget);
+    expect(find.text('Target: 3.80'), findsOneWidget);
+
+    // 2. Recommended Deep Work Target shows clean empty state
+    expect(find.text('No Active Courses Yet'), findsOneWidget);
+    expect(find.text('Add First Course →'), findsOneWidget);
+
+    // 3. Courses Health shows clean empty state
+    expect(find.text('0 Courses • 0.0 Cr'), findsOneWidget);
+    expect(find.text('No courses enrolled yet. Head to the Courses tab to build your syllabus.'), findsOneWidget);
+
+    // 4. Focus by Course shows clean empty state
+    expect(find.text('Complete your first focus timer session to see your course breakdown here.'), findsOneWidget);
   });
 }

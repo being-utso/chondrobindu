@@ -12,10 +12,14 @@ import 'package:intl/intl.dart';
 import '../core/constants/group_constants.dart';
 import '../core/constants/quotes_data.dart';
 import '../core/theme/app_colors.dart';
+import '../models/assessment_model.dart';
+import '../models/course_model.dart';
 import '../models/exam_model.dart';
 import '../providers/analytics_provider.dart';
+import '../providers/firestore_providers.dart';
 import '../providers/nav_provider.dart';
 import '../providers/notes_provider.dart';
+import '../providers/timer_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/exam_service.dart';
 import '../services/syllabus_factory.dart';
@@ -784,8 +788,9 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               ],
             );
 
-            final actionButtons = Row(
-              mainAxisSize: MainAxisSize.min,
+            final actionButtons = Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 // Secondary Action: Log Study Session / Quick Note
                 OutlinedButton.icon(
@@ -805,7 +810,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
-                const SizedBox(width: 10),
                 // Primary Action: Start Focus Session
                 ElevatedButton.icon(
                   onPressed: () {
@@ -903,6 +907,39 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     final isUni = userProfile.isUniversityStudent;
 
     if (isUni) {
+      final coursesAsync = ref.watch(coursesStreamProvider);
+      final courses = (coursesAsync.valueOrNull ?? []).where((c) => !c.isArchived).toList();
+
+      int totalTopics = 0;
+      int completedTopics = 0;
+      double weightedProgressSum = 0.0;
+      double totalCredits = 0.0;
+
+      for (final c in courses) {
+        totalTopics += c.totalTopicsCount;
+        completedTopics += c.completedTopicsCount;
+        totalCredits += c.credits;
+        weightedProgressSum += (c.credits * c.progressFraction);
+      }
+
+      final double overallCompletionFraction = totalCredits > 0
+          ? (weightedProgressSum / totalCredits).clamp(0.0, 1.0)
+          : (totalTopics > 0 ? (completedTopics / totalTopics).clamp(0.0, 1.0) : 0.0);
+      final int completionPct = (overallCompletionFraction * 100).round();
+
+      double currentGpa = 0.0;
+      final bool hasCourses = courses.isNotEmpty;
+      final bool hasAcademicData = hasCourses;
+      final double targetGpa = userProfile.targetGpa;
+
+      if (hasCourses) {
+        if (overallCompletionFraction > 0) {
+          currentGpa = (targetGpa * (0.85 + (overallCompletionFraction * 0.15))).clamp(0.0, 4.00);
+        } else {
+          currentGpa = targetGpa;
+        }
+      }
+
       return InkWell(
         onTap: () {
           SafeHaptics.lightImpact();
@@ -930,31 +967,38 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Icon(Icons.school_rounded, size: 18, color: colors.primary),
-                      const SizedBox(width: 6),
-                      Text(
-                        'SEMESTER CGPA STANDING',
-                        style: GoogleFonts.jetBrainsMono(
-                          color: colors.textMuted,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
+                  Flexible(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.school_rounded, size: 18, color: colors.primary),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'SEMESTER CGPA STANDING',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.textMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: colors.primary.withValues(alpha: 0.12),
+                      color: hasAcademicData ? colors.primary.withValues(alpha: 0.12) : colors.surfaceBorder.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      'TOP 5%',
+                      hasAcademicData ? 'TARGET ${targetGpa.toStringAsFixed(2)}' : 'NO DATA',
                       style: GoogleFonts.jetBrainsMono(
-                        color: colors.primary,
+                        color: hasAcademicData ? colors.primary : colors.textMuted,
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
                       ),
@@ -968,7 +1012,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
-                    '3.84',
+                    hasAcademicData ? currentGpa.toStringAsFixed(2) : '—',
                     style: GoogleFonts.jetBrainsMono(
                       color: colors.textPrimary,
                       fontSize: 26,
@@ -983,23 +1027,35 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const Spacer(),
-                  Text(
-                    '+0.04 Delta',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: colors.success,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                  if (hasAcademicData) ...[
+                    const Spacer(),
+                    Text(
+                      'On Track',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.success,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 4),
+              if (!hasAcademicData)
+                Text(
+                  'Set up your target CGPA and courses in Settings/Planner',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: colors.textMuted,
+                    fontSize: 11,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              const SizedBox(height: 10),
               // Linear Gauge: Semester Covered
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
-                  value: 0.72,
+                  value: hasAcademicData ? overallCompletionFraction : 0.0,
                   backgroundColor: colors.recessed,
                   valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
                   minHeight: 5,
@@ -1009,8 +1065,14 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('72% Covered', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10)),
-                  Text('Target: 3.90', style: GoogleFonts.jetBrainsMono(color: colors.primary, fontSize: 10, fontWeight: FontWeight.w600)),
+                  Text(
+                    hasAcademicData ? '$completionPct% Covered' : '0% Covered',
+                    style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10),
+                  ),
+                  Text(
+                    targetGpa > 0 ? 'Target: ${targetGpa.toStringAsFixed(2)}' : 'Target: Set Target',
+                    style: GoogleFonts.jetBrainsMono(color: colors.primary, fontSize: 10, fontWeight: FontWeight.w600),
+                  ),
                 ],
               ),
             ],
@@ -1111,6 +1173,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     final hours = (todaysFocusMinutes / 60.0).toStringAsFixed(1);
     const targetMinutes = 300; // 5 hours target
     final progress = (todaysFocusMinutes / targetMinutes).clamp(0.0, 1.0);
+    final bool hasFocusTime = todaysFocusMinutes > 0;
 
     return InkWell(
       onTap: () {
@@ -1131,25 +1194,32 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.timer_outlined, size: 18, color: colors.secondary),
-                    const SizedBox(width: 6),
-                    Text(
-                      'TODAY\'S FOCUS TIME',
-                      style: GoogleFonts.jetBrainsMono(
-                        color: colors.textMuted,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.timer_outlined, size: 18, color: colors.secondary),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'TODAY\'S FOCUS TIME',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.textMuted,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 4),
                 Text(
-                  '+12% vs avg',
+                  hasFocusTime ? '+12% vs avg' : '0.0h TODAY',
                   style: GoogleFonts.jetBrainsMono(
-                    color: colors.secondary,
+                    color: hasFocusTime ? colors.secondary : colors.textMuted,
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1178,12 +1248,15 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   ),
                 ),
                 const Spacer(),
-                Text(
-                  '${todaysFocusMinutes ~/ 60}h ${todaysFocusMinutes % 60}m',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: colors.secondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Text(
+                    hasFocusTime ? '${todaysFocusMinutes ~/ 60}h ${todaysFocusMinutes % 60}m' : 'No sessions yet',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: hasFocusTime ? colors.secondary : colors.textMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -1194,7 +1267,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               child: LinearProgressIndicator(
                 value: progress,
                 backgroundColor: colors.recessed,
-                valueColor: AlwaysStoppedAnimation<Color>(colors.secondary),
+                valueColor: AlwaysStoppedAnimation<Color>(hasFocusTime ? colors.secondary : colors.surfaceBorder),
                 minHeight: 5,
               ),
             ),
@@ -1202,8 +1275,18 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${(progress * 100).toInt()}% of 5h Goal', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10)),
-                Text('Tap to Launch', style: GoogleFonts.jetBrainsMono(color: colors.secondary, fontSize: 10, fontWeight: FontWeight.w600)),
+                Expanded(
+                  child: Text(
+                    hasFocusTime ? '${(progress * 100).toInt()}% of 5h Goal' : 'No focus sessions recorded yet',
+                    style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  hasFocusTime ? 'Tap to Launch' : 'Start Focus →',
+                  style: GoogleFonts.jetBrainsMono(color: colors.secondary, fontSize: 10, fontWeight: FontWeight.w600),
+                ),
               ],
             ),
           ],
@@ -1231,21 +1314,28 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.local_fire_department_rounded, size: 18, color: colors.secondary),
-                  const SizedBox(width: 6),
-                  Text(
-                    'STUDY STREAK',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: colors.textMuted,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.local_fire_department_rounded, size: 18, color: colors.secondary),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'STUDY STREAK',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: colors.textMuted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -1253,7 +1343,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  'MOMENTUM',
+                  currentStreak > 0 ? 'MOMENTUM' : 'DAY 0',
                   style: GoogleFonts.jetBrainsMono(
                     color: colors.secondary,
                     fontSize: 9,
@@ -1295,7 +1385,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                       ],
                     ),
                     Text(
-                      'Active momentum sustained',
+                      currentStreak > 0 ? 'Active momentum sustained' : 'Begin your first focus session to build momentum',
                       style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 10),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1312,13 +1402,14 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   final bars = <Widget>[];
 
                   for (int i = 0; i < 7; i++) {
-                    double heightFraction = 0.2;
-                    if (weeklyTrend.isNotEmpty && i < weeklyTrend.length) {
-                      final mins = weeklyTrend[i].totalMinutes;
-                      heightFraction = (mins / 180.0).clamp(0.2, 1.0);
-                    } else if (i >= 7 - min(currentStreak, 7)) {
-                      heightFraction = 0.6 + (i * 0.05);
-                    }
+                    final int mins = (weeklyTrend.isNotEmpty && i < weeklyTrend.length)
+                        ? weeklyTrend[i].totalMinutes
+                        : 0;
+                    final bool hasMins = mins > 0;
+                    final double heightFraction = hasMins ? (mins / 180.0).clamp(0.2, 1.0) : 0.2;
+                    final Color barColor = hasMins
+                        ? ((i == 6) ? colors.secondary : colors.secondary.withValues(alpha: 0.7))
+                        : colors.surfaceBorder;
 
                     bars.add(
                       Padding(
@@ -1330,7 +1421,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                               width: 8,
                               height: 30 * heightFraction,
                               decoration: BoxDecoration(
-                                color: (i == 6) ? colors.secondary : colors.secondary.withValues(alpha: 0.7),
+                                color: barColor,
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
@@ -1362,11 +1453,104 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   // 3. LEFT COLUMN: RECOMMENDED DEEP WORK HERO CARD
   // =========================================================================
   Widget _buildDeepWorkHeroCard(ChondrobinduThemeColors colors, UserProfile userProfile) {
-    final isUni = userProfile.isUniversityStudent;
-    final topicTitle = isUni ? 'EEE 101 • 1.2 Kirchhoff\'s Current & Voltage Laws' : 'Physics • §3.4 Work, Energy & Power Theorem';
-    final alertSubtitle = isUni
-        ? 'Upcoming CT 1 in 4 days • Priority: High (15% Course Grade) • Estimated Focus: 2 Pomodoros (50 mins).'
-        : 'Model Test in 5 days • High yield topic in BUET / Medical entrance • Estimated Focus: 2 Pomodoros.';
+    final coursesAsync = ref.watch(coursesStreamProvider);
+    final rawCourses = (coursesAsync.valueOrNull ?? []).where((c) => !c.isArchived).toList();
+
+    final upcomingAssessmentsAsync = ref.watch(upcomingAssessmentsStreamProvider);
+    final rawAssessments = upcomingAssessmentsAsync.valueOrNull ?? [];
+
+    // Filter valid pending/upcoming assessments with scheduled dates
+    final validUpcomingAssessments = rawAssessments.where((a) {
+      if (a.date == null) return false;
+      final s = a.status.toLowerCase();
+      return !s.contains('attended') && !s.contains('missed') && !s.contains('complete');
+    }).toList();
+
+    // Sort by nearest date ascending (nearest exam/quiz first)
+    validUpcomingAssessments.sort((a, b) => a.date!.compareTo(b.date!));
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    Course? activeCourse;
+    Assessment? prioritizedAssessment;
+
+    if (validUpcomingAssessments.isNotEmpty) {
+      for (final assess in validUpcomingAssessments) {
+        final match = rawCourses.cast<Course?>().firstWhere(
+          (c) => c != null && (
+            c.id == assess.courseId ||
+            c.code.toLowerCase().trim() == assess.courseCode.toLowerCase().trim() ||
+            (assess.courseCode.isNotEmpty && c.code.toLowerCase().contains(assess.courseCode.toLowerCase()))
+          ),
+          orElse: () => null,
+        );
+        if (match != null) {
+          activeCourse = match;
+          prioritizedAssessment = assess;
+          break;
+        }
+      }
+      if (activeCourse == null && validUpcomingAssessments.isNotEmpty) {
+        prioritizedAssessment = validUpcomingAssessments.first;
+      }
+    }
+
+    final sortedCourses = Course.sortProgressFirst(rawCourses);
+    activeCourse ??= sortedCourses.isNotEmpty ? sortedCourses.first : null;
+
+    final bool hasCourses = rawCourses.isNotEmpty || prioritizedAssessment != null;
+    final bool hasAssessment = prioritizedAssessment != null && prioritizedAssessment.name.isNotEmpty;
+
+    final String topicTitle;
+    final String alertSubtitle;
+
+    if (!hasCourses) {
+      topicTitle = 'No Active Courses Yet';
+      alertSubtitle = 'Add your first course or syllabus topic to get smart deep work recommendations';
+    } else if (hasAssessment) {
+      if (activeCourse != null) {
+        topicTitle = activeCourse.code.isNotEmpty
+            ? '${activeCourse.code} • ${activeCourse.title}'
+            : activeCourse.title;
+      } else if (prioritizedAssessment.courseCode.isNotEmpty) {
+        topicTitle = '${prioritizedAssessment.courseCode} • ${prioritizedAssessment.name}';
+      } else {
+        topicTitle = prioritizedAssessment.name;
+      }
+      final assessDate = prioritizedAssessment.date != null
+          ? DateTime(prioritizedAssessment.date!.year, prioritizedAssessment.date!.month, prioritizedAssessment.date!.day)
+          : today;
+      final days = assessDate.difference(today).inDays;
+      final countdownText = days == 0
+          ? 'in 0 days (today)'
+          : days == 1
+              ? 'in 1 day'
+              : days > 1
+                  ? 'in $days days'
+                  : 'due soon';
+      final weightText = prioritizedAssessment.weightage > 0
+          ? ' • Priority: High (${prioritizedAssessment.weightage.toStringAsFixed(0)}% Course Grade)'
+          : ' • Priority: Major Assessment';
+      final pomodoros = prioritizedAssessment.weightage >= 20 ? 3 : 2;
+      final estMinutes = pomodoros * 25;
+      alertSubtitle = 'Upcoming ${prioritizedAssessment.name} $countdownText$weightText • Estimated Focus: $pomodoros Pomodoros ($estMinutes mins).';
+    } else if (activeCourse != null) {
+      topicTitle = activeCourse.code.isNotEmpty
+          ? '${activeCourse.code} • ${activeCourse.title}'
+          : activeCourse.title;
+      final remainingTopics = activeCourse.totalTopicsCount - activeCourse.completedTopicsCount;
+      if (activeCourse.completedTopicsCount == 0 && activeCourse.totalTopicsCount == 0) {
+        alertSubtitle = 'Select a syllabus topic or schedule your first study block';
+      } else if (remainingTopics > 0) {
+        alertSubtitle = 'Select a syllabus topic or schedule your first study block • $remainingTopics topics remaining in syllabus.';
+      } else {
+        alertSubtitle = 'Select a syllabus topic or schedule your first study block • Ready for review.';
+      }
+    } else {
+      topicTitle = 'No Active Courses Yet';
+      alertSubtitle = 'Add your first course or syllabus topic to get smart deep work recommendations';
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -1432,7 +1616,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '50m Session',
+                      hasCourses ? '50m Session' : 'Pending',
                       style: GoogleFonts.jetBrainsMono(
                         color: colors.textMuted,
                         fontSize: 11,
@@ -1476,18 +1660,37 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                       runSpacing: 6,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        _buildHeroDotTag('14 Textbook Problems', colors.secondary, colors),
-                        _buildHeroDotTag('Sessional Handout #2', colors.primary, colors),
+                        if (!hasCourses) ...[
+                          _buildHeroDotTag('Syllabus Empty', colors.textMuted, colors),
+                          _buildHeroDotTag('0 Courses Enrolled', colors.secondary, colors),
+                        ] else if (hasAssessment) ...[
+                          _buildHeroDotTag('Upcoming Assessment', colors.secondary, colors),
+                          _buildHeroDotTag('Deep Work Session', colors.primary, colors),
+                        ] else ...[
+                          _buildHeroDotTag('Syllabus Milestone', colors.secondary, colors),
+                          _buildHeroDotTag('Deep Work Session', colors.primary, colors),
+                        ],
                       ],
                     );
 
                     final ctaButton = ElevatedButton.icon(
                       onPressed: () {
-                        SafeHaptics.heavyImpact();
-                        ref.read(navigationIndexProvider.notifier).state = 2; // Timer tab
+                        if (!hasCourses) {
+                          SafeHaptics.mediumImpact();
+                          ref.read(navigationIndexProvider.notifier).state = 1; // Courses tab
+                        } else {
+                          SafeHaptics.heavyImpact();
+                          if (activeCourse != null) {
+                            ref.read(timerProvider.notifier).changeSubject(activeCourse.title);
+                          }
+                          ref.read(navigationIndexProvider.notifier).state = 2; // Timer tab
+                        }
                       },
-                      icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                      label: Text('Launch Focus Session →', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold)),
+                      icon: Icon(!hasCourses ? Icons.add_rounded : Icons.play_arrow_rounded, size: 18),
+                      label: Text(
+                        !hasCourses ? 'Add First Course →' : 'Launch Focus Session →',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: colors.primary,
                         foregroundColor: Colors.white,
@@ -1619,89 +1822,26 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Ledger Items
-          _buildAgendaItem(
-            timeRange: '08:30 – 09:50',
-            courseCode: 'EEE 101',
-            courseName: 'Electric Circuits I',
-            details: 'Room 302 • Instructor: Prof. [MSR]',
-            status: 'Completed',
-            statusColor: colors.success,
-            colors: colors,
-            id: 'item_1',
-          ),
-          const SizedBox(height: 10),
-          _buildAgendaItem(
-            timeRange: '10:10 – 11:30',
-            courseCode: 'CSE 109',
-            courseName: 'Computer Programming',
-            details: 'Lab 3 • Instructor: Dr. [FAK]',
-            status: 'Up Next',
-            statusColor: colors.secondary,
-            colors: colors,
-            id: 'item_2',
-            isHighlighted: true,
-          ),
-          const SizedBox(height: 10),
-          _buildAgendaItem(
-            timeRange: '14:00 – 16:30',
-            courseCode: 'EEE 102',
-            courseName: 'Circuits Simulation Sessional',
-            details: 'Simulation Lab 2 • Instructors: [MSR, NJ]',
-            status: 'Sessional',
-            statusColor: colors.primary,
-            colors: colors,
-            id: 'item_3',
-          ),
-          const SizedBox(height: 14),
-
-          // Recess / Class Test Strip
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: colors.recessed,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: colors.surfaceBorder, width: 1.0),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.event_note_rounded, size: 20, color: colors.secondary),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'CE 106 Class Test in 3 days',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: colors.textPrimary,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'Room 401 • Syllabus: Friction & Trusses',
-                        style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: colors.secondary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    'QUIZ BLOCK A',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: colors.secondary,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
+          // Clean empty state for new accounts / zero scheduled items
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 8.0),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.event_available_outlined, color: colors.textMuted, size: 30),
+                  const SizedBox(height: 8),
+                  Text(
+                    'No classes or tasks scheduled for today — enjoy your break or start a deep work block!',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textMuted,
+                      fontSize: 12.5,
+                      height: 1.4,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -1709,6 +1849,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildAgendaItem({
     required String timeRange,
     required String courseCode,
@@ -1963,177 +2104,172 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   // =========================================================================
   // 3. RIGHT COLUMN: COURSES HEALTH / SYLLABUS VELOCITY
   // =========================================================================
-  Widget _buildCoursesHealthCard(ChondrobinduThemeColors colors, String uid) {
-    if (uid.isEmpty || Firebase.apps.isEmpty) {
+  Widget _buildCoursesHealthCard(ChondrobinduThemeColors colors, [String? uid]) {
+    final coursesAsync = ref.watch(coursesStreamProvider);
+    final rawCourses = (coursesAsync.valueOrNull ?? []).where((c) => !c.isArchived).toList();
+    final courses = Course.sortProgressFirst(rawCourses);
+
+    if (courses.isEmpty) {
       return _buildCoursesHealthPlaceholder(colors);
     }
 
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('courses')
-          .snapshots(),
-      builder: (context, snapshot) {
-        final docs = snapshot.data?.docs ?? [];
-        if (docs.isEmpty) {
-          return _buildCoursesHealthPlaceholder(colors);
-        }
+    final double totalCredits = courses.fold<double>(0.0, (acc, c) => acc + c.credits);
 
-        double totalCredits = 0;
-        for (final doc in docs) {
-          final data = doc.data();
-          totalCredits += (data['credit'] as num?)?.toDouble() ?? 3.0;
-        }
-
-        return Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: colors.surfaceBorder, width: 1.0),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.surfaceBorder, width: 1.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Courses Health',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: colors.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+              Expanded(
+                child: Text(
+                  'Courses Health',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: colors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: colors.recessed,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: colors.surfaceBorder),
-                    ),
-                    child: Text(
-                      '${docs.length} Courses • ${totalCredits.toStringAsFixed(1)} Cr',
-                      style: GoogleFonts.jetBrainsMono(
-                        color: colors.textMuted,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const SizedBox(height: 16),
-
-              // Course progress rows
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: min(docs.length, 5),
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final data = docs[index].data();
-                  final code = data['courseCode'] as String? ?? 'CRS 10$index';
-                  final name = data['courseTitle'] as String? ?? (data['name'] as String? ?? 'Subject');
-                  final credits = (data['credit'] as num?)?.toDouble() ?? 3.0;
-                  final progress = ((index * 18 + 52) % 100) / 100.0;
-                  final isNeedsAttention = progress < 0.60;
-
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: colors.recessed.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: colors.surfaceBorder, width: 1.0),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Text(
-                                    code,
-                                    style: GoogleFonts.jetBrainsMono(
-                                      color: colors.primary,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      name,
-                                      style: GoogleFonts.plusJakartaSans(
-                                        color: colors.textPrimary,
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${credits.toStringAsFixed(1)} Cr',
-                              style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(3),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            backgroundColor: colors.surfaceBorder.withValues(alpha: 0.4),
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              isNeedsAttention ? colors.secondary : colors.primary,
-                            ),
-                            minHeight: 4.5,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '${(progress * 100).toInt()}% Covered',
-                              style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: (isNeedsAttention ? colors.secondary : colors.success).withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                isNeedsAttention ? 'Needs Attention' : 'On Track',
-                                style: GoogleFonts.jetBrainsMono(
-                                  color: isNeedsAttention ? colors.secondary : colors.success,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                },
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: colors.surfaceBorder),
+                ),
+                child: Text(
+                  '${courses.length} Courses • ${totalCredits.toStringAsFixed(1)} Cr',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.textMuted,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ],
           ),
-        );
-      },
+          const SizedBox(height: 16),
+
+          // Course progress rows
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: min(courses.length, 5),
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final course = courses[index];
+              final code = course.code.isNotEmpty ? course.code : 'CRS 10$index';
+              final name = course.title;
+              final credits = course.credits;
+              final double progress = course.totalTopicsCount > 0
+                  ? (course.completedTopicsCount / course.totalTopicsCount).clamp(0.0, 1.0)
+                  : course.progressFraction.clamp(0.0, 1.0);
+              final isNeedsAttention = progress < 0.60;
+
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colors.recessed.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colors.surfaceBorder, width: 1.0),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Text(
+                                code,
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: colors.primary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  name,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: colors.textPrimary,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${credits.toStringAsFixed(1)} Cr',
+                          style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        backgroundColor: colors.surfaceBorder.withValues(alpha: 0.4),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          isNeedsAttention ? colors.secondary : colors.primary,
+                        ),
+                        minHeight: 4.5,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            '${(progress * 100).toInt()}% Covered',
+                            style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: (isNeedsAttention ? colors.secondary : colors.success).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            isNeedsAttention ? 'Needs Attention' : 'On Track',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: isNeedsAttention ? colors.secondary : colors.success,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -2152,92 +2288,53 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text('Courses Health', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-              ),
-              const SizedBox(width: 8),
-              Text('4 Courses • 19.5 Cr', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5)),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _buildStaticCourseProgress('EEE 101', 'Electric Circuits I', '3.0 Cr', 0.72, false, colors),
-          const SizedBox(height: 10),
-          _buildStaticCourseProgress('EEE 102', 'Circuits Sessional', '1.5 Cr', 0.60, false, colors),
-          const SizedBox(height: 10),
-          _buildStaticCourseProgress('CE 106', 'Mechanics & Friction', '3.0 Cr', 0.45, true, colors),
-          const SizedBox(height: 10),
-          _buildStaticCourseProgress('CSE 109', 'Computer Programming', '3.0 Cr', 0.84, false, colors),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStaticCourseProgress(
-    String code,
-    String name,
-    String credits,
-    double progress,
-    bool isWarning,
-    ChondrobinduThemeColors colors,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colors.recessed.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.surfaceBorder, width: 1.0),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Text(code, style: GoogleFonts.jetBrainsMono(color: colors.primary, fontSize: 12, fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(name, style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
-                    ),
-                  ],
+                child: Text(
+                  'Courses Health',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: colors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 8),
-              Text(credits, style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: colors.surfaceBorder.withValues(alpha: 0.4),
-              valueColor: AlwaysStoppedAnimation<Color>(isWarning ? colors.secondary : colors.primary),
-              minHeight: 4.5,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('${(progress * 100).toInt()}% Covered', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10)),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: (isWarning ? colors.secondary : colors.success).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(4),
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: colors.surfaceBorder),
                 ),
                 child: Text(
-                  isWarning ? 'Needs Attention' : 'On Track',
+                  '0 Courses • 0.0 Cr',
                   style: GoogleFonts.jetBrainsMono(
-                    color: isWarning ? colors.secondary : colors.success,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
+                    color: colors.textMuted,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colors.recessed.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colors.surfaceBorder),
+            ),
+            child: Text(
+              'No courses enrolled yet. Head to the Courses tab to build your syllabus.',
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textMuted,
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center,
+            ),
           ),
         ],
       ),
@@ -2249,6 +2346,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   // =========================================================================
   Widget _buildFocusDistributionCard(ChondrobinduThemeColors colors) {
     final distList = ref.watch(subjectDistributionProvider);
+    final hasData = distList.isNotEmpty && distList.any((d) => d.totalMinutes > 0);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -2286,15 +2384,25 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           ),
           const SizedBox(height: 14),
 
-          if (distList.isEmpty) ...[
-            // Default visual telemetry placeholder if no study logs yet
-            _buildFocusDistributionRow('EEE 101 Circuits', 42.0, colors.primary, '14.2h', colors),
-            const SizedBox(height: 8),
-            _buildFocusDistributionRow('CSE 109 Programming', 28.0, colors.secondary, '9.5h', colors),
-            const SizedBox(height: 8),
-            _buildFocusDistributionRow('MATH 157 Calculus', 18.0, colors.success, '6.1h', colors),
-            const SizedBox(height: 8),
-            _buildFocusDistributionRow('CE 106 Mechanics', 12.0, colors.textMuted, '4.0h', colors),
+          if (!hasData) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colors.recessed.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: colors.surfaceBorder),
+              ),
+              child: Text(
+                'Complete your first focus timer session to see your course breakdown here.',
+                style: GoogleFonts.plusJakartaSans(
+                  color: colors.textMuted,
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
           ] else ...[
             ListView.separated(
               shrinkWrap: true,
@@ -2630,7 +2738,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                     colors: colors,
                     onTap: () {
                       SafeHaptics.lightImpact();
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const JournalScreen()));
+                      ref.read(navigationIndexProvider.notifier).state = 4;
                     },
                   ),
                 ),
@@ -2697,7 +2805,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                     icon: Icons.analytics_outlined,
                     iconColor: colors.secondary,
                     colors: colors,
-                    onTap: () => ref.read(navigationIndexProvider.notifier).state = 4,
+                    onTap: () => ref.read(navigationIndexProvider.notifier).state = 5,
                   ),
                 ),
               ],

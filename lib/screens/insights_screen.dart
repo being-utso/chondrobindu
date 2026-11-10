@@ -91,7 +91,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
   void _triggerTimelineTourIfNeeded(BuildContext showcaseContext) {
     final currentTab = ref.read(navigationIndexProvider);
-    if (currentTab != 4 || _hasTriggeredTimelineTour) return;
+    if (currentTab != 5 || _hasTriggeredTimelineTour) return;
     triggerTourSafely(
       context: showcaseContext,
       section: TourSection.timeline,
