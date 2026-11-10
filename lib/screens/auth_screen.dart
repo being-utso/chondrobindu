@@ -106,7 +106,7 @@ const Map<String, List<AdmissionTargetOption>> kAdmissionTargetsByGroup = {
 ///    - Left Pane (45%): Deep Natural Indigo (#2F4A6D) Brand Poster with Chondrobindu mark,
 ///      feature bullets, discipline quote, dynamically matching the expanded height of the right pane.
 ///    - Right Pane (55%): Warm Chalk (#F7F5F0 Light / #202733 Dark) authentication card.
-/// 3. Interactive segmented switcher ([ Sign In | Create Account ]).   
+/// 3. Interactive segmented switcher ([ Sign In | Create Account ]).    
 /// 4. Full conditional academic track logic (University vs College / Admission). 
 /// 5. Conditional target cards with contrast specs (#EDEAE0 text, #2A3444 surface, #C88256 rust border).
 class AuthScreen extends ConsumerStatefulWidget {

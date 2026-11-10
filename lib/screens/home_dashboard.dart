@@ -640,12 +640,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                                   _buildDeepWorkHeroCard(colors, userProfile),
                                   const SizedBox(height: 24),
                                   _buildAgendaLedger(colors, uid),
-                                  const SizedBox(height: 24),
-                                  _buildBrainDumpCard(colors, userProfile),
-                                  if (todaysFocusMinutes >= 720) ...[
-                                    const SizedBox(height: 24),
-                                    _buildBurnoutWellnessCard(colors),
-                                  ],
                                 ],
                               ),
                             ),
@@ -659,8 +653,6 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                                   _buildCoursesHealthCard(colors, uid),
                                   const SizedBox(height: 24),
                                   _buildFocusDistributionCard(colors),
-                                  const SizedBox(height: 24),
-                                  _buildQuickAccessSection(colors, userProfile),
                                 ],
                               ),
                             ),
@@ -678,19 +670,20 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                             _buildCoursesHealthCard(colors, uid),
                             const SizedBox(height: 20),
                             _buildFocusDistributionCard(colors),
-                            const SizedBox(height: 20),
-                            _buildBrainDumpCard(colors, userProfile),
-                            if (todaysFocusMinutes >= 720) ...[
-                              const SizedBox(height: 20),
-                              _buildBurnoutWellnessCard(colors),
-                            ],
-                            const SizedBox(height: 20),
-                            _buildQuickAccessSection(colors, userProfile),
                           ],
                         );
                       }
                     },
                   ),
+                  const SizedBox(height: 24),
+                  // Additional utilities & quick access
+                  _buildQuickAccessSection(colors, userProfile),
+                  const SizedBox(height: 24),
+                  _buildBrainDumpCard(colors, userProfile),
+                  if (todaysFocusMinutes >= 720) ...[
+                    const SizedBox(height: 24),
+                    _buildBurnoutWellnessCard(colors),
+                  ],
                   const SizedBox(height: 40),
                 ],
               ),
@@ -872,20 +865,23 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       builder: (context, constraints) {
         final isDesktop = constraints.maxWidth >= 768;
 
-        final card1 = _buildKpiCard1AcademicStanding(colors, userProfile);
+        // Card 1: Study Streak, Card 2: Focus Time, Card 3: Academic Standing / CGPA
+        final card1 = _buildKpiCard3StudyStreak(colors, currentStreak, weeklyTrend);
         final card2 = _buildKpiCard2FocusHours(colors, todaysFocusMinutes);
-        final card3 = _buildKpiCard3StudyStreak(colors, currentStreak, weeklyTrend);
+        final card3 = _buildKpiCard1AcademicStanding(colors, userProfile);
 
         if (isDesktop) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: card1),
-              const SizedBox(width: 16),
-              Expanded(child: card2),
-              const SizedBox(width: 16),
-              Expanded(child: card3),
-            ],
+          return IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: card1),
+                const SizedBox(width: 16),
+                Expanded(child: card2),
+                const SizedBox(width: 16),
+                Expanded(child: card3),
+              ],
+            ),
           );
         } else {
           return Column(
