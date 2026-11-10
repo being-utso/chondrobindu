@@ -156,7 +156,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
       children: [
         Text(
           label.toUpperCase(),
-          style: GoogleFonts.jetbrainsMono(
+          style: GoogleFonts.jetBrainsMono(
             color: colors.textMuted,
             fontSize: 10.5,
             fontWeight: FontWeight.w600,
@@ -212,7 +212,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
       children: [
         Text(
           label.toUpperCase(),
-          style: GoogleFonts.jetbrainsMono(
+          style: GoogleFonts.jetBrainsMono(
             color: colors.textMuted,
             fontSize: 10.5,
             fontWeight: FontWeight.w600,
@@ -556,7 +556,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
   Widget _summaryPill(String text) {
     return Text(
       text,
-      style: GoogleFonts.jetbrainsMono(
+      style: GoogleFonts.jetBrainsMono(
         color: colors.textPrimary,
         fontSize: 11.5,
         fontWeight: FontWeight.w600,
@@ -658,7 +658,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                       ),
                       child: Text(
                         course.code,
-                        style: GoogleFonts.jetbrainsMono(
+                        style: GoogleFonts.jetBrainsMono(
                           color: colors.primary,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -670,7 +670,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                       child: Text(
                         '${course.credits} cr • ${course.courseType == CourseType.sessional ? "Sessional" : (course.courseType == CourseType.practical ? "Practical" : "Theory")}',
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.jetbrainsMono(
+                        style: GoogleFonts.jetBrainsMono(
                           color: colors.textMuted,
                           fontSize: 11,
                         ),
@@ -708,7 +708,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                     const SizedBox(width: 8),
                     Text(
                       pctText,
-                      style: GoogleFonts.jetbrainsMono(
+                      style: GoogleFonts.jetBrainsMono(
                         color: colors.primary,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -718,7 +718,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                       const SizedBox(width: 6),
                       Text(
                         '[${course.teacherBadge}]',
-                        style: GoogleFonts.jetbrainsMono(
+                        style: GoogleFonts.jetBrainsMono(
                           color: colors.secondary,
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
@@ -771,7 +771,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                               ),
                               child: Text(
                                 course.code,
-                                style: GoogleFonts.jetbrainsMono(
+                                style: GoogleFonts.jetBrainsMono(
                                   color: colors.primary,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
@@ -787,7 +787,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                               ),
                               child: Text(
                                 '${course.credits} Credits • ${course.courseType.displayName}',
-                                style: GoogleFonts.jetbrainsMono(
+                                style: GoogleFonts.jetBrainsMono(
                                   color: colors.textMuted,
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w600,
@@ -1062,7 +1062,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                     ),
                     Text(
                       pctText,
-                      style: GoogleFonts.jetbrainsMono(
+                      style: GoogleFonts.jetBrainsMono(
                         color: colors.textPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -1116,7 +1116,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
       children: [
         Text(
           value,
-          style: GoogleFonts.jetbrainsMono(
+          style: GoogleFonts.jetBrainsMono(
             color: valueColor,
             fontSize: 20,
             fontWeight: FontWeight.w800,
@@ -1297,7 +1297,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
               ),
               child: Text(
                 topicsCount,
-                style: GoogleFonts.jetbrainsMono(
+                style: GoogleFonts.jetBrainsMono(
                   color: colors.textMuted,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -1355,7 +1355,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                   const SizedBox(width: 8),
                   Text(
                     topic.topicCode,
-                    style: GoogleFonts.jetbrainsMono(
+                    style: GoogleFonts.jetBrainsMono(
                       color: colors.primary,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
@@ -1388,7 +1388,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                     ),
                     child: Text(
                       '$completedSubtopics/$totalSubtopics done',
-                      style: GoogleFonts.jetbrainsMono(
+                      style: GoogleFonts.jetBrainsMono(
                         color: isAllDone ? colors.success : colors.textMuted,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -1446,7 +1446,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
           if (subtopic.subtopicIndex.isNotEmpty) ...[
             Text(
               subtopic.subtopicIndex,
-              style: GoogleFonts.jetbrainsMono(
+              style: GoogleFonts.jetBrainsMono(
                 color: colors.textMuted,
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
@@ -1476,7 +1476,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
             ),
             child: Text(
               isDone ? 'Completed' : 'Pending',
-              style: GoogleFonts.jetbrainsMono(
+              style: GoogleFonts.jetBrainsMono(
                 color: isDone ? colors.success : colors.textMuted,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
@@ -1506,7 +1506,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                   const SizedBox(width: 4),
                   Text(
                     'Focus',
-                    style: GoogleFonts.jetbrainsMono(
+                    style: GoogleFonts.jetBrainsMono(
                       color: colors.secondary,
                       fontSize: 10.5,
                       fontWeight: FontWeight.w600,
@@ -1540,7 +1540,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                     const SizedBox(width: 4),
                     Text(
                       'Resource',
-                      style: GoogleFonts.jetbrainsMono(
+                      style: GoogleFonts.jetBrainsMono(
                         color: colors.primary,
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
@@ -1610,7 +1610,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
           const SizedBox(width: 8),
           Text(
             id,
-            style: GoogleFonts.jetbrainsMono(
+            style: GoogleFonts.jetBrainsMono(
               color: colors.textMuted,
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -1647,7 +1647,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
             ),
             child: Text(
               isDone ? 'Completed' : (isInProgress ? 'In Progress' : 'Pending'),
-              style: GoogleFonts.jetbrainsMono(
+              style: GoogleFonts.jetBrainsMono(
                 color: isDone ? colors.success : (isInProgress ? colors.secondary : colors.textMuted),
                 fontSize: 10.5,
                 fontWeight: FontWeight.w600,
@@ -1677,7 +1677,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                   const SizedBox(width: 4),
                   Text(
                     'Focus',
-                    style: GoogleFonts.jetbrainsMono(
+                    style: GoogleFonts.jetBrainsMono(
                       color: colors.secondary,
                       fontSize: 10.5,
                       fontWeight: FontWeight.w600,
@@ -1711,7 +1711,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                     const SizedBox(width: 4),
                     Text(
                       'Resource',
-                      style: GoogleFonts.jetbrainsMono(
+                      style: GoogleFonts.jetBrainsMono(
                         color: colors.primary,
                         fontSize: 10.5,
                         fontWeight: FontWeight.w600,
