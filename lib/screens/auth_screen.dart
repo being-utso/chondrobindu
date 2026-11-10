@@ -1108,7 +1108,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 hintText: 'e.g. BUET',
                 colors: colors,
                 isDense: true,
-                height: 44,
+                height: 46,
               ),
             ],
           ),
@@ -1125,7 +1125,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 hintText: "e.g. EEE '25",
                 colors: colors,
                 isDense: true,
-                height: 44,
+                height: 46,
               ),
             ],
           ),
@@ -1142,7 +1142,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 hintText: 'e.g. L-1 • T-1',
                 colors: colors,
                 isDense: true,
-                height: 44,
+                height: 46,
               ),
             ],
           ),
@@ -1166,7 +1166,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           hintText: 'e.g. Notre Dame College',
           colors: colors,
           isDense: true,
-          height: 44,
+          height: 46,
         ),
         const SizedBox(height: 10),
 
@@ -1185,7 +1185,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     hintText: 'e.g. 2025',
                     colors: colors,
                     isDense: true,
-                    height: 44,
+                    height: 46,
                   ),
                 ],
               ),
@@ -1198,7 +1198,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   _buildFieldLabel('HSC GROUP / DIVISION', colors, isSmall: true),
                   const SizedBox(height: 4),
                   Container(
-                    height: 44,
+                    height: 46,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
                       color: colors.recessed,
@@ -1210,6 +1210,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       child: DropdownButton<String>(
                         value: _hscGroup,
                         isExpanded: true,
+                        isDense: true,
                         hint: Text(
                           'Select group...',
                           style: GoogleFonts.plusJakartaSans(
@@ -1595,9 +1596,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         filled: true,
         fillColor: colors.recessed,
         isDense: true,
-        contentPadding: EdgeInsets.symmetric(
+        contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
-          vertical: isDense ? 11 : 12,
+          vertical: 12,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
