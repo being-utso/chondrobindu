@@ -1716,8 +1716,7 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
       ),
       child: Column(
         children: [
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+          InkWell(
             onTap: () {
               setState(() {
                 if (isExpanded) {
@@ -1727,111 +1726,119 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                 }
               });
             },
-            leading: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isSelectionMode) ...[
-                  InkWell(
-                    onTap: () {
-                      SafeHaptics.lightImpact();
-                      setState(() {
-                        if (isAllSubjSelected) {
-                          selectedSectionKeys.removeAll(allSubjSectionKeys);
-                        } else {
-                          selectedSectionKeys.addAll(allSubjSectionKeys);
-                        }
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(6),
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: Icon(
-                        isAllSubjSelected
-                            ? Icons.check_box_rounded
-                            : (isPartialSubjSelected
-                                ? Icons.indeterminate_check_box_rounded
-                                : Icons.check_box_outline_blank_rounded),
-                        color: (isAllSubjSelected || isPartialSubjSelected)
-                            ? const Color(0xFFEF4444)
-                            : colors.textMuted,
-                        size: 22,
-                      ),
-                    ),
-                  ),
-                ],
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(iconData, color: accentColor, size: 22),
-                ),
-              ],
-            ),
-            title: Text(
-              subject.title,
-              style: GoogleFonts.plusJakartaSans(
-                color: colors.textPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text(
-                      '$doneSecs / $totalSecs Done (${percent.round()}%)',
-                      style: GoogleFonts.jetBrainsMono(
-                        color: colors.textMuted,
-                        fontSize: 12,
+            borderRadius: BorderRadius.circular(16.0),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+              child: Row(
+                children: [
+                  if (isSelectionMode) ...[
+                    InkWell(
+                      onTap: () {
+                        SafeHaptics.lightImpact();
+                        setState(() {
+                          if (isAllSubjSelected) {
+                            selectedSectionKeys.removeAll(allSubjSectionKeys);
+                          } else {
+                            selectedSectionKeys.addAll(allSubjSectionKeys);
+                          }
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: Icon(
+                          isAllSubjSelected
+                              ? Icons.check_box_rounded
+                              : (isPartialSubjSelected
+                                  ? Icons.indeterminate_check_box_rounded
+                                  : Icons.check_box_outline_blank_rounded),
+                          color: (isAllSubjSelected || isPartialSubjSelected)
+                              ? const Color(0xFFEF4444)
+                              : colors.textMuted,
+                          size: 22,
+                        ),
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: LinearProgressIndicator(
-                    value: totalSecs > 0 ? (doneSecs / totalSecs) : 0,
-                    backgroundColor: colors.recessed,
-                    color: accentColor,
-                    minHeight: 4,
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(iconData, color: accentColor, size: 22),
                   ),
-                ),
-              ],
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isEditMode) ...[
-                  IconButton(
-                    icon: const Icon(Icons.layers_rounded, color: Color(0xFF10B981), size: 20),
-                    onPressed: () => _showManageGlobalSectionsModal(initialSubjectId: subject.id),
-                    tooltip: 'Manage Global Sections for Subject',
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          subject.title,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: colors.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Text(
+                              '$doneSecs / $totalSecs Done (${percent.round()}%)',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: colors.textMuted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            value: totalSecs > 0 ? (doneSecs / totalSecs) : 0,
+                            backgroundColor: colors.recessed,
+                            color: accentColor,
+                            minHeight: 4,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  IconButton(
-                    icon: Icon(Icons.edit_outlined, color: colors.textMuted, size: 18),
-                    onPressed: () => _showSubjectBottomSheet(existingSubject: subject),
-                    tooltip: 'Edit Subject',
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.add_rounded, color: accentColor, size: 20),
-                    onPressed: () => _showChapterBottomSheet(subject),
-                    tooltip: 'Add Chapter',
+                  const SizedBox(width: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isEditMode) ...[
+                        IconButton(
+                          icon: Icon(Icons.edit_outlined, color: colors.textMuted, size: 18),
+                          onPressed: () => _showSubjectBottomSheet(existingSubject: subject),
+                          tooltip: 'Edit Subject',
+                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(6),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: Icon(Icons.add_rounded, color: accentColor, size: 20),
+                          onPressed: () => _showChapterBottomSheet(subject),
+                          tooltip: 'Add Chapter',
+                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(6),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Icon(
+                        isExpanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        color: colors.textMuted,
+                        size: 22,
+                      ),
+                    ],
                   ),
                 ],
-                Icon(
-                  isExpanded
-                      ? Icons.keyboard_arrow_up_rounded
-                      : Icons.keyboard_arrow_down_rounded,
-                  color: colors.textMuted,
-                  size: 26,
-                ),
-              ],
+              ),
             ),
           ),
 
@@ -1861,13 +1868,6 @@ class _SyllabusScreenState extends ConsumerState<SyllabusScreen> {
                           icon: const Icon(Icons.add_rounded, size: 16),
                           label: Text('Add Chapter', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
                           style: TextButton.styleFrom(foregroundColor: accentColor),
-                        ),
-                        const SizedBox(width: 8),
-                        TextButton.icon(
-                          onPressed: () => _showManageGlobalSectionsModal(initialSubjectId: subject.id),
-                          icon: const Icon(Icons.layers_rounded, size: 16),
-                          label: Text('Global Section', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
-                          style: TextButton.styleFrom(foregroundColor: const Color(0xFF10B981)),
                         ),
                       ],
                     ),

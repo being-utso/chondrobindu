@@ -158,6 +158,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
   final Map<String, bool> _expandedChapters = {};
   final Map<String, bool> _expandedTopics = {};
   final Map<String, bool> _topicCheckState = {};
+  final Set<String> _collapsedProgressChapters = {};
 
   ChondrobinduThemeColors get colors => AppColors.of(context);
   bool get isDark => Theme.of(context).brightness == Brightness.dark;
@@ -3678,303 +3679,344 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
       chapterMap.putIfAbsent(ch, () => []).add(t);
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Overall Course Progress Banner
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colors.surfaceBorder, width: 1),
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 64,
-                height: 64,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CircularProgressIndicator(
-                      value: progress,
-                      strokeWidth: 4.5,
-                      backgroundColor: isDark ? const Color(0xFF2E3846) : const Color(0xFFDCD7C8),
-                      valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(6.0),
-                      child: Center(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            pctText,
-                            style: GoogleFonts.jetBrainsMono(
-                              color: colors.primary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          '${course.code} Coverage',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: colors.textPrimary,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: colors.recessed,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: colors.surfaceBorder, width: 0.8),
-                          ),
-                          child: Text(
-                            '${course.credits} Credits • ${course.isTheory ? "Theory" : "Sessional"}',
-                            style: GoogleFonts.jetBrainsMono(
-                              color: colors.primary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '$completed completed of $total total curriculum topics ($remaining remaining)',
-                      style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
-                    ),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 6,
-                        backgroundColor: colors.recessed,
-                        valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        Text(
-          'CHAPTER-BY-CHAPTER PROGRESS',
-          style: GoogleFonts.jetBrainsMono(
-            color: colors.primary,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.1,
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        if (chapterMap.isEmpty)
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Overall Course Progress Banner
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: colors.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: colors.surfaceBorder),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.surfaceBorder, width: 1),
             ),
-            child: Center(
-              child: Text(
-                'No chapters mapped for this course yet. Use the Syllabus tab to add chapters.',
-                style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
-              ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        value: progress,
+                        strokeWidth: 4.5,
+                        backgroundColor: isDark ? const Color(0xFF2E3846) : const Color(0xFFDCD7C8),
+                        valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(6.0),
+                        child: Center(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              pctText,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: colors.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            '${course.code} Coverage',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: colors.textPrimary,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: colors.recessed,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: colors.surfaceBorder, width: 0.8),
+                            ),
+                            child: Text(
+                              '${course.credits} Credits • ${course.isTheory ? "Theory" : "Sessional"}',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: colors.primary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '$completed completed of $total total curriculum topics ($remaining remaining)',
+                        style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+                      ),
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 6,
+                          backgroundColor: colors.recessed,
+                          valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          )
-        else
-          ...chapterMap.entries.map((entry) {
-            final chTitle = entry.key;
-            final chTopics = entry.value;
-            int chTotal = 0;
-            int chCompleted = 0;
-            for (final t in chTopics) {
-              if (t.hasSubtopics) {
-                chTotal += t.subtopics.length;
-                for (final s in t.subtopics) {
-                  if (_topicCheckState[s.id] ?? s.isCompleted) chCompleted++;
-                }
-              } else {
-                chTotal += 1;
-                if (_topicCheckState[t.id] ?? t.isCompleted) chCompleted++;
-              }
-            }
-            final double chRatio = chTotal > 0 ? (chCompleted / chTotal) : 0.0;
-            final chPct = '${(chRatio * 100).toInt()}%';
+          ),
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
+          const SizedBox(height: 20),
+
+          Text(
+            'CHAPTER-BY-CHAPTER PROGRESS',
+            style: GoogleFonts.jetBrainsMono(
+              color: colors.primary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.1,
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          if (chapterMap.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: colors.surface,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: colors.surfaceBorder),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          chTitle,
-                          style: GoogleFonts.plusJakartaSans(
-                            color: colors.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '$chCompleted / $chTotal topics ($chPct)',
-                        style: GoogleFonts.jetBrainsMono(
-                          color: chRatio >= 1.0 ? colors.success : colors.primary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: LinearProgressIndicator(
-                      value: chRatio,
-                      minHeight: 5,
-                      backgroundColor: colors.recessed,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        chRatio >= 1.0 ? colors.success : colors.primary,
-                      ),
-                    ),
-                  ),
+              child: Center(
+                child: Text(
+                  'No chapters mapped for this course yet. Use the Syllabus tab to add chapters.',
+                  style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+                ),
+              ),
+            )
+          else
+            ...chapterMap.entries.map((entry) {
+              final chTitle = entry.key;
+              final chTopics = entry.value;
+              final chapterKey = '${course.id}_$chTitle';
+              final bool isExpanded = !_collapsedProgressChapters.contains(chapterKey);
+              final bool hasSubChapters = chTopics.length > 1 ||
+                  (chTopics.isNotEmpty && (chTopics.first.hasSubtopics || chTopics.first.topicCode.isNotEmpty));
 
-                  // Sub-chapters breakdown grouped under parent section
-                  if (chTopics.length > 1 || (chTopics.isNotEmpty && (chTopics.first.hasSubtopics || chTopics.first.topicCode.isNotEmpty))) ...[
-                    const SizedBox(height: 12),
-                    Divider(height: 1, color: colors.surfaceBorder),
-                    const SizedBox(height: 4),
-                    ...chTopics.map((subCh) {
-                      int subTotal = 0;
-                      int subDone = 0;
-                      if (subCh.hasSubtopics) {
-                        subTotal = subCh.subtopics.length;
-                        for (final s in subCh.subtopics) {
-                          if (_topicCheckState[s.id] ?? s.isCompleted) subDone++;
-                        }
-                      } else {
-                        subTotal = 1;
-                        if (_topicCheckState[subCh.id] ?? subCh.isCompleted) subDone++;
-                      }
-                      final double subRatio = subTotal > 0 ? (subDone / subTotal) : 0.0;
-                      final subPct = '${(subRatio * 100).toInt()}%';
+              int chTotal = 0;
+              int chCompleted = 0;
+              for (final t in chTopics) {
+                if (t.hasSubtopics) {
+                  chTotal += t.subtopics.length;
+                  for (final s in t.subtopics) {
+                    if (_topicCheckState[s.id] ?? s.isCompleted) chCompleted++;
+                  }
+                } else {
+                  chTotal += 1;
+                  if (_topicCheckState[t.id] ?? t.isCompleted) chCompleted++;
+                }
+              }
+              final double chRatio = chTotal > 0 ? (chCompleted / chTotal) : 0.0;
+              final chPct = '${(chRatio * 100).toInt()}%';
 
-                      return Container(
-                        margin: const EdgeInsets.only(top: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: colors.recessed,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: colors.surfaceBorder),
-                        ),
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: colors.surfaceBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    InkWell(
+                      onTap: hasSubChapters
+                          ? () {
+                              SafeHaptics.selectionClick();
+                              setState(() {
+                                if (isExpanded) {
+                                  _collapsedProgressChapters.add(chapterKey);
+                                } else {
+                                  _collapsedProgressChapters.remove(chapterKey);
+                                }
+                              });
+                            }
+                          : null,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
+                                if (hasSubChapters) ...[
+                                  Icon(
+                                    isExpanded
+                                        ? Icons.keyboard_arrow_down_rounded
+                                        : Icons.keyboard_arrow_right_rounded,
+                                    color: colors.primary,
+                                    size: 22,
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
                                 Expanded(
-                                  child: Row(
-                                    children: [
-                                      if (subCh.topicCode.isNotEmpty) ...[
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          margin: const EdgeInsets.only(right: 8),
-                                          decoration: BoxDecoration(
-                                            color: colors.primary.withValues(alpha: 0.12),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            subCh.topicCode,
-                                            style: GoogleFonts.jetBrainsMono(
-                                              color: colors.primary,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                      Expanded(
-                                        child: Text(
-                                          subCh.title,
-                                          style: GoogleFonts.plusJakartaSans(
-                                            color: colors.textPrimary,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                  child: Text(
+                                    chTitle,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: colors.textPrimary,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  '$subDone / $subTotal topics ($subPct)',
+                                  '$chCompleted / $chTotal topics ($chPct)',
                                   style: GoogleFonts.jetBrainsMono(
-                                    color: subRatio >= 1.0 ? colors.success : colors.primary,
-                                    fontSize: 11.5,
+                                    color: chRatio >= 1.0 ? colors.success : colors.primary,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 10),
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(2),
+                              borderRadius: BorderRadius.circular(3),
                               child: LinearProgressIndicator(
-                                value: subRatio,
-                                minHeight: 4,
-                                backgroundColor: isDark ? const Color(0xFF1E2633) : const Color(0xFFDCD7C8),
+                                value: chRatio,
+                                minHeight: 5,
+                                backgroundColor: colors.recessed,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                  subRatio >= 1.0 ? colors.success : colors.primary,
+                                  chRatio >= 1.0 ? colors.success : colors.primary,
                                 ),
                               ),
                             ),
                           ],
                         ),
-                      );
-                    }),
+                      ),
+                    ),
+
+                    // Sub-chapters breakdown grouped under parent section (collapsible)
+                    if (hasSubChapters && isExpanded) ...[
+                      const SizedBox(height: 12),
+                      Divider(height: 1, color: colors.surfaceBorder),
+                      const SizedBox(height: 4),
+                      ...chTopics.map((subCh) {
+                        int subTotal = 0;
+                        int subDone = 0;
+                        if (subCh.hasSubtopics) {
+                          subTotal = subCh.subtopics.length;
+                          for (final s in subCh.subtopics) {
+                            if (_topicCheckState[s.id] ?? s.isCompleted) subDone++;
+                          }
+                        } else {
+                          subTotal = 1;
+                          if (_topicCheckState[subCh.id] ?? subCh.isCompleted) subDone++;
+                        }
+                        final double subRatio = subTotal > 0 ? (subDone / subTotal) : 0.0;
+                        final subPct = '${(subRatio * 100).toInt()}%';
+
+                        return Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: colors.recessed,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: colors.surfaceBorder),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        if (subCh.topicCode.isNotEmpty) ...[
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            margin: const EdgeInsets.only(right: 8),
+                                            decoration: BoxDecoration(
+                                              color: colors.primary.withValues(alpha: 0.12),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              subCh.topicCode,
+                                              style: GoogleFonts.jetBrainsMono(
+                                                color: colors.primary,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                        Expanded(
+                                          child: Text(
+                                            subCh.title,
+                                            style: GoogleFonts.plusJakartaSans(
+                                              color: colors.textPrimary,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '$subDone / $subTotal topics ($subPct)',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: subRatio >= 1.0 ? colors.success : colors.primary,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(2),
+                                child: LinearProgressIndicator(
+                                  value: subRatio,
+                                  minHeight: 4,
+                                  backgroundColor: isDark ? const Color(0xFF1E2633) : const Color(0xFFDCD7C8),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    subRatio >= 1.0 ? colors.success : colors.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
                   ],
-                ],
-              ),
-            );
-          }),
-      ],
+                ),
+              );
+            }),
+        ],
+      ),
     );
   }
 }
