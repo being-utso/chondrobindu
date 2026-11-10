@@ -74,6 +74,34 @@ class Course {
   bool get isTheory => courseType == CourseType.theory;
   bool get isSessional => courseType == CourseType.sessional || courseType == CourseType.practical;
 
+  /// Sorts courses dynamically based on user progress:
+  /// Rule 1: Courses with active progress (>= 1 topic completed) sorted to the top.
+  /// Rule 2: If multiple have progress, sorted by highest completion percentage descending.
+  /// Rule 3: If no progress (all 0%) or tied, falls back to course code sequence.
+  static List<Course> sortProgressFirst(List<Course> courses) {
+    final sorted = List<Course>.from(courses);
+    sorted.sort((a, b) {
+      final aHasProgress = a.completedTopicsCount > 0;
+      final bHasProgress = b.completedTopicsCount > 0;
+
+      // Rule 1: Courses with active progress go to the top
+      if (aHasProgress && !bHasProgress) return -1;
+      if (!aHasProgress && bHasProgress) return 1;
+
+      // Rule 2: If both have progress, sort by highest completion percentage descending
+      if (aHasProgress && bHasProgress) {
+        final compPct = b.progressPercentage.compareTo(a.progressPercentage);
+        if (compPct != 0) return compPct;
+        final compCount = b.completedTopicsCount.compareTo(a.completedTopicsCount);
+        if (compCount != 0) return compCount;
+      }
+
+      // Rule 3: If neither has progress or tied, default predefined ordering (course code sequence)
+      return a.code.toLowerCase().compareTo(b.code.toLowerCase());
+    });
+    return sorted;
+  }
+
   factory Course.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
     return Course.fromMap(data, doc.id);

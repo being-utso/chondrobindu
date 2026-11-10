@@ -948,7 +948,7 @@ class HomeScreen extends ConsumerWidget {
   // TIER 2: LEFT COLUMN (FLEX 7)
   // =========================================================================
 
-  // --- Left Card 1: RECOMMENDED DEEP WORK TARGET ---
+  // --- Left Card 1: RECOMMENDED DEEP WORK TARGET (Smart Priority Engine) ---
   Widget _buildRecommendedDeepWorkCard(
     BuildContext context,
     WidgetRef ref,
@@ -956,44 +956,86 @@ class HomeScreen extends ConsumerWidget {
     bool isDark,
   ) {
     final coursesAsync = ref.watch(coursesStreamProvider);
-    final courses = (coursesAsync.valueOrNull ?? []).where((c) => !c.isArchived).toList();
-    final Course? activeCourse = courses.isNotEmpty ? courses.first : null;
+    final rawCourses = (coursesAsync.valueOrNull ?? []).where((c) => !c.isArchived).toList();
 
     final upcomingAssessmentsAsync = ref.watch(upcomingAssessmentsStreamProvider);
-    final upcomingAssessments = upcomingAssessmentsAsync.valueOrNull ?? [];
+    final rawAssessments = upcomingAssessmentsAsync.valueOrNull ?? [];
 
-    // Find assessment for the active course or earliest upcoming assessment
-    Assessment? courseAssessment;
-    if (activeCourse != null && upcomingAssessments.isNotEmpty) {
-      courseAssessment = upcomingAssessments.cast<Assessment?>().firstWhere(
-        (a) => a?.courseCode == activeCourse.code || a?.courseId == activeCourse.id,
-        orElse: () => upcomingAssessments.first,
-      );
-    } else if (upcomingAssessments.isNotEmpty) {
-      courseAssessment = upcomingAssessments.first;
+    // Filter valid pending/upcoming assessments with valid scheduled dates
+    final validUpcomingAssessments = rawAssessments.where((a) {
+      if (a.date == null) return false;
+      final s = a.status.toLowerCase();
+      return !s.contains('attended') && !s.contains('missed') && !s.contains('complete');
+    }).toList();
+
+    // Sort by nearest date ascending (nearest exam/quiz first)
+    validUpcomingAssessments.sort((a, b) => a.date!.compareTo(b.date!));
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // Smart Priority Selection:
+    // 1. Select course with the nearest upcoming exam/quiz/assessment
+    Course? activeCourse;
+    Assessment? prioritizedAssessment;
+
+    if (validUpcomingAssessments.isNotEmpty) {
+      for (final assess in validUpcomingAssessments) {
+        final match = rawCourses.cast<Course?>().firstWhere(
+          (c) => c != null && (
+            c.id == assess.courseId ||
+            c.code.toLowerCase().trim() == assess.courseCode.toLowerCase().trim() ||
+            (assess.courseCode.isNotEmpty && c.code.toLowerCase().contains(assess.courseCode.toLowerCase()))
+          ),
+          orElse: () => null,
+        );
+        if (match != null) {
+          activeCourse = match;
+          prioritizedAssessment = assess;
+          break;
+        }
+      }
+      if (activeCourse == null && validUpcomingAssessments.isNotEmpty) {
+        prioritizedAssessment = validUpcomingAssessments.first;
+      }
     }
 
-    final bool hasAssessment = courseAssessment != null && courseAssessment.name.isNotEmpty;
+    // 2. If no course has an upcoming assessment, fall back to progress-first sorted courses
+    final sortedCourses = Course.sortProgressFirst(rawCourses);
+    activeCourse ??= sortedCourses.isNotEmpty ? sortedCourses.first : null;
+
+    final bool hasAssessment = prioritizedAssessment != null && prioritizedAssessment.name.isNotEmpty;
 
     final String targetText;
     if (activeCourse != null) {
       targetText = activeCourse.code.isNotEmpty
           ? '${activeCourse.code} • ${activeCourse.title}'
           : activeCourse.title;
+    } else if (prioritizedAssessment != null && prioritizedAssessment.courseCode.isNotEmpty) {
+      targetText = '${prioritizedAssessment.courseCode} • ${prioritizedAssessment.name}';
     } else {
       targetText = 'Select or create a course to begin';
     }
 
     String prioritySubtitle;
     if (hasAssessment) {
-      final days = courseAssessment.date != null
-          ? courseAssessment.date!.difference(DateTime.now()).inDays
-          : 0;
-      final daysText = days > 0 ? 'in $days days' : 'due soon';
-      final weightText = courseAssessment.weightage > 0
-          ? ' • Priority: High (${courseAssessment.weightage.toStringAsFixed(0)}% Course Grade)'
-          : '';
-      prioritySubtitle = 'Upcoming ${courseAssessment.name} $daysText$weightText • Estimated Focus: 2 Pomodoros (50 mins).';
+      final assessDate = prioritizedAssessment.date != null
+          ? DateTime(prioritizedAssessment.date!.year, prioritizedAssessment.date!.month, prioritizedAssessment.date!.day)
+          : today;
+      final days = assessDate.difference(today).inDays;
+      final String countdownText = days == 0
+          ? 'in 0 days (today)'
+          : days == 1
+              ? 'in 1 day'
+              : days > 1
+                  ? 'in $days days'
+                  : 'due soon';
+      final weightText = prioritizedAssessment.weightage > 0
+          ? ' • Priority: High (${prioritizedAssessment.weightage.toStringAsFixed(0)}% Course Grade)'
+          : ' • Priority: Major Assessment';
+      final pomodoros = prioritizedAssessment.weightage >= 20 ? 3 : 2;
+      final estMinutes = pomodoros * 25;
+      prioritySubtitle = 'Upcoming ${prioritizedAssessment.name} $countdownText$weightText • Estimated Focus: $pomodoros Pomodoros ($estMinutes mins).';
     } else if (activeCourse != null) {
       final remainingTopics = activeCourse.totalTopicsCount - activeCourse.completedTopicsCount;
       if (remainingTopics > 0) {
@@ -1012,7 +1054,9 @@ class HomeScreen extends ConsumerWidget {
         topicChips.add('${activeCourse.completedTopicsCount}/${activeCourse.totalTopicsCount} Syllabus Topics Done');
       }
       topicChips.add('${activeCourse.credits.toStringAsFixed(1)} Credit Hours');
-      if (activeCourse.teacherBadge != null && activeCourse.teacherBadge!.isNotEmpty) {
+      if (prioritizedAssessment != null && prioritizedAssessment.syllabusSummary != null && prioritizedAssessment.syllabusSummary!.isNotEmpty) {
+        topicChips.add('Scope: ${prioritizedAssessment.syllabusSummary}');
+      } else if (activeCourse.teacherBadge != null && activeCourse.teacherBadge!.isNotEmpty) {
         topicChips.add('Instructor: [${activeCourse.teacherBadge}]');
       }
     }
@@ -1047,29 +1091,56 @@ class HomeScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Top tag row
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: colors.secondary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: colors.secondary.withValues(alpha: 0.25)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.bolt_rounded, size: 14, color: colors.secondary),
-                    const SizedBox(width: 4),
-                    Text(
-                      'RECOMMENDED DEEP WORK TARGET',
-                      style: GoogleFonts.jetBrainsMono(
-                        color: colors.secondary,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.8,
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: colors.secondary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: colors.secondary.withValues(alpha: 0.25)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.bolt_rounded, size: 14, color: colors.secondary),
+                        const SizedBox(width: 4),
+                        Text(
+                          'RECOMMENDED DEEP WORK TARGET',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.secondary,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (hasAssessment)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: colors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: colors.primary.withValues(alpha: 0.25)),
+                      ),
+                      child: Text(
+                        prioritizedAssessment.weightage > 0
+                            ? 'WEIGHT: ${prioritizedAssessment.weightage.toStringAsFixed(0)}%'
+                            : 'NEAREST UPCOMING EXAM',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: colors.primary,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                     ),
-                  ],
-                ),
+                ],
               ),
 
               const SizedBox(height: 12),
@@ -1178,7 +1249,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  // --- Left Card 2: Today's Agenda ---
+  // --- Left Card 2: Today's Agenda (Combined Schedule & Upcoming Deadlines) ---
   Widget _buildTodaysAgenda(
     BuildContext context,
     WidgetRef ref,
@@ -1191,8 +1262,15 @@ class HomeScreen extends ConsumerWidget {
     final slots = agendaAsync.valueOrNull ?? [];
 
     final upcomingAssessmentsAsync = ref.watch(upcomingAssessmentsStreamProvider);
-    final upcomingAssessments = upcomingAssessmentsAsync.valueOrNull ?? [];
-    final Assessment? nearestAssessment = upcomingAssessments.isNotEmpty ? upcomingAssessments.first : null;
+    final rawAssessments = upcomingAssessmentsAsync.valueOrNull ?? [];
+    final validAssessments = rawAssessments.where((a) {
+      if (a.date == null) return false;
+      final s = a.status.toLowerCase();
+      return !s.contains('attended') && !s.contains('missed') && !s.contains('complete');
+    }).toList()..sort((a, b) => a.date!.compareTo(b.date!));
+
+    final Assessment? nextAssessment = validAssessments.isNotEmpty ? validAssessments.first : null;
+    final bool isCompletelyEmpty = slots.isEmpty && nextAssessment == null;
 
     final weekdayName = DateFormat('EEEE').format(now);
 
@@ -1251,8 +1329,8 @@ class HomeScreen extends ConsumerWidget {
 
           const SizedBox(height: 20),
 
-          // Timeline items
-          if (slots.isEmpty)
+          // Timeline items / Empty State
+          if (isCompletelyEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 28.0),
               child: Center(
@@ -1266,6 +1344,7 @@ class HomeScreen extends ConsumerWidget {
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textMuted,
                         fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1281,6 +1360,35 @@ class HomeScreen extends ConsumerWidget {
               ),
             )
           else ...[
+            if (slots.isEmpty && nextAssessment != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: colors.recessed.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: colors.surfaceBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.event_available_outlined, color: colors.textMuted, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'No routine classes scheduled for today',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: colors.textMuted,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
             ...slots.take(4).map((slot) {
               bool isCompleted = false;
               try {
@@ -1320,69 +1428,118 @@ class HomeScreen extends ConsumerWidget {
                 ),
               );
             }),
+
+            // Explicitly Surface the Next Upcoming Assessment / Exam
+            if (nextAssessment != null) ...[
+              const SizedBox(height: 8),
+              _buildUpcomingAssessmentBanner(nextAssessment, colors, today),
+            ],
           ],
+        ],
+      ),
+    );
+  }
 
-          const SizedBox(height: 16),
+  Widget _buildUpcomingAssessmentBanner(
+    Assessment assessment,
+    ChondrobinduThemeColors colors,
+    DateTime today,
+  ) {
+    final assessDate = assessment.date != null
+        ? DateTime(assessment.date!.year, assessment.date!.month, assessment.date!.day)
+        : today;
+    final daysAway = assessDate.difference(today).inDays;
+    final String countdownBadge = daysAway == 0
+        ? 'TODAY'
+        : daysAway == 1
+            ? 'TOMORROW'
+            : 'IN $daysAway DAYS';
 
-          // Recess / Class Test Strip
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.secondary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: colors.secondary.withValues(alpha: 0.35),
+          width: 1.2,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: colors.recessed,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: colors.surfaceBorder, width: 1.0),
+              color: colors.secondary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
             ),
-            child: Row(
+            child: Icon(Icons.alarm_rounded, color: colors.secondary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.event_note_rounded, color: colors.secondary, size: 22),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        nearestAssessment != null
-                            ? '${nearestAssessment.courseCode} ${nearestAssessment.name} in ${nearestAssessment.date != null ? nearestAssessment.date!.difference(DateTime.now()).inDays : 0} days'
-                            : 'All caught up on assessments',
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: colors.secondary,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        countdownBadge,
+                        style: GoogleFonts.jetBrainsMono(
+                          color: Colors.white,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${assessment.courseCode.isNotEmpty ? "${assessment.courseCode} • " : ""}${assessment.name}',
                         style: GoogleFonts.plusJakartaSans(
                           color: colors.textPrimary,
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                         ),
-                      ),
-                      Text(
-                        nearestAssessment != null && nearestAssessment.syllabusSummary != null && nearestAssessment.syllabusSummary!.isNotEmpty
-                            ? 'Syllabus: ${nearestAssessment.syllabusSummary}'
-                            : 'Maintain momentum with scheduled daily routine blocks',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: colors.textMuted,
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: colors.secondary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    nearestAssessment != null
-                        ? (nearestAssessment.type.isNotEmpty ? nearestAssessment.type.toUpperCase() : 'ASSESSMENT')
-                        : 'ROUTINE',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: colors.secondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8,
                     ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${DateFormat('EEEE, MMM d, yyyy').format(assessDate)}${assessment.weightage > 0 ? " • ${assessment.weightage.toStringAsFixed(0)}% Weight" : ""}${assessment.syllabusSummary != null && assessment.syllabusSummary!.isNotEmpty ? " • Scope: ${assessment.syllabusSummary}" : ""}',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: colors.textMuted,
+                    fontSize: 12,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: colors.secondary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              assessment.type.isNotEmpty ? assessment.type.toUpperCase() : 'EXAM',
+              style: GoogleFonts.jetBrainsMono(
+                color: colors.secondary,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.8,
+              ),
             ),
           ),
         ],
@@ -1517,14 +1674,16 @@ class HomeScreen extends ConsumerWidget {
   // TIER 2: RIGHT COLUMN (FLEX 5)
   // =========================================================================
 
-  // --- Right Card 1: Active Courses Health ---
+  // --- Right Card 1: Active Courses Health (Progress-First Sorting) ---
   Widget _buildActiveCoursesHealth(
     WidgetRef ref,
     ChondrobinduThemeColors colors,
     bool isDark,
   ) {
     final coursesAsync = ref.watch(coursesStreamProvider);
-    final courses = (coursesAsync.valueOrNull ?? []).where((c) => !c.isArchived).toList();
+    final rawCourses = (coursesAsync.valueOrNull ?? []).where((c) => !c.isArchived).toList();
+    // Dynamically sorted: active progress (completed > 0) -> highest % -> code sequence
+    final courses = Course.sortProgressFirst(rawCourses);
     final double totalCr = courses.fold<double>(0.0, (sum, c) => sum + c.credits);
 
     return Container(
@@ -1591,7 +1750,7 @@ class HomeScreen extends ConsumerWidget {
               ),
             )
           else ...[
-            ...courses.take(4).map((c) {
+            ...courses.take(6).map((c) {
               final double fraction = c.progressFraction.clamp(0.0, 1.0);
               final int pct = (fraction * 100).toInt();
 
