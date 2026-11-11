@@ -43,6 +43,9 @@ class Course {
   final bool isArchived;
   final String semester;
   final DateTime createdAt;
+  final bool useManualAttendanceOverride;
+  final int? manualAttendedClasses;
+  final int? manualTotalClasses;
 
   const Course({
     required this.id,
@@ -57,6 +60,9 @@ class Course {
     this.isArchived = false,
     this.semester = 'Active',
     DateTime? createdAt,
+    this.useManualAttendanceOverride = false,
+    this.manualAttendedClasses,
+    this.manualTotalClasses,
   }) : createdAt = createdAt ?? const _DefaultDateTime();
 
   double get progressPercentage => totalTopicsCount > 0
@@ -183,6 +189,9 @@ class Course {
       isArchived: isArchived,
       semester: semester,
       createdAt: created ?? DateTime.now(),
+      useManualAttendanceOverride: map['useManualAttendanceOverride'] as bool? ?? false,
+      manualAttendedClasses: (map['manualAttendedClasses'] as num?)?.toInt(),
+      manualTotalClasses: (map['manualTotalClasses'] as num?)?.toInt(),
     );
   }
 
@@ -220,6 +229,9 @@ class Course {
     bool? isArchived,
     String? semester,
     DateTime? createdAt,
+    bool? useManualAttendanceOverride,
+    int? manualAttendedClasses,
+    int? manualTotalClasses,
   }) {
     return Course(
       id: id ?? this.id,
@@ -234,6 +246,9 @@ class Course {
       isArchived: isArchived ?? this.isArchived,
       semester: semester ?? this.semester,
       createdAt: createdAt ?? this.createdAt,
+      useManualAttendanceOverride: useManualAttendanceOverride ?? this.useManualAttendanceOverride,
+      manualAttendedClasses: manualAttendedClasses ?? this.manualAttendedClasses,
+      manualTotalClasses: manualTotalClasses ?? this.manualTotalClasses,
     );
   }
 }

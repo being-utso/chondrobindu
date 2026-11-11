@@ -1,4 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -71,6 +73,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     final holidaySettingsAsync = ref.watch(holidaySettingsStreamProvider);
     final holidaySettings = holidaySettingsAsync.valueOrNull ?? HolidaySettings.defaultSettings;
 
+    final attendanceRecordsAsync = ref.watch(attendanceRecordsStreamProvider);
+    final allAttendanceRecords = attendanceRecordsAsync.valueOrNull ?? [];
+
     final Map<String, String> courseCodeMap = {for (final c in courses) c.id: c.code};
     final Map<String, String> courseTitleMap = {for (final c in courses) c.id: c.title};
 
@@ -104,7 +109,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     }).toList()
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final uid = Firebase.apps.isNotEmpty ? (FirebaseAuth.instance.currentUser?.uid ?? '') : '';
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -128,6 +133,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 courses: courses,
                 allExams: allExams,
                 holidaySettings: holidaySettings,
+                allAttendanceRecords: allAttendanceRecords,
                 activeCourseIds: activeCourseIds,
                 selectedDayAssessments: selectedDayAssessments,
                 selectedDaySlots: selectedDaySlots,
@@ -147,6 +153,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 courses: courses,
                 allExams: allExams,
                 holidaySettings: holidaySettings,
+                allAttendanceRecords: allAttendanceRecords,
                 activeCourseIds: activeCourseIds,
                 selectedDayAssessments: selectedDayAssessments,
                 selectedDaySlots: selectedDaySlots,
@@ -173,6 +180,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     required List<Course> courses,
     required List<ExamModel> allExams,
     required HolidaySettings holidaySettings,
+    required List<AttendanceRecord> allAttendanceRecords,
     required Set<String>? activeCourseIds,
     required List<Assessment> selectedDayAssessments,
     required List<RoutineSlot> selectedDaySlots,
@@ -274,7 +282,14 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       _buildScholarFootnote(colors),
                     ] else ...[
                       // ATTENDANCE LEDGER VIEW
-                      _buildAttendanceLedgerView(courses: courses, colors: colors),
+                      _buildAttendanceLedgerView(
+                        courses: courses,
+                        allAttendanceRecords: allAttendanceRecords,
+                        allSlots: allSlots,
+                        holidaySettings: holidaySettings,
+                        colors: colors,
+                        uid: uid,
+                      ),
                     ],
                   ],
                 ),
@@ -298,6 +313,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     required List<Course> courses,
     required List<ExamModel> allExams,
     required HolidaySettings holidaySettings,
+    required List<AttendanceRecord> allAttendanceRecords,
     required Set<String>? activeCourseIds,
     required List<Assessment> selectedDayAssessments,
     required List<RoutineSlot> selectedDaySlots,
@@ -373,7 +389,14 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             _buildScholarFootnote(colors, isMobile: true),
           ] else ...[
             // Attendance Ledger
-            _buildAttendanceLedgerView(courses: courses, colors: colors),
+            _buildAttendanceLedgerView(
+              courses: courses,
+              allAttendanceRecords: allAttendanceRecords,
+              allSlots: allSlots,
+              holidaySettings: holidaySettings,
+              colors: colors,
+              uid: uid,
+            ),
           ],
         ],
       ),
@@ -1631,12 +1654,115 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   }
 
   // ===========================================================================
-  // SECTION: Attendance Ledger View (Matching design reference)
+  // SECTION: Attendance Ledger View (Live Data + Interactive Session Log)
   // ===========================================================================
+  static String _attendanceDateKey(DateTime d) =>
+      '${d.year}_${d.month.toString().padLeft(2, '0')}_${d.day.toString().padLeft(2, '0')}';
+
+  static ({int allowedMisses, int neededClasses, String label}) _computeAttendanceBuffer(
+    int attended,
+    int validTotal,
+  ) {
+    if (validTotal <= 0) {
+      return (
+        allowedMisses: 0,
+        neededClasses: 0,
+        label: 'No recorded sessions yet — tap a course to log attendance.',
+      );
+    }
+    final pct = (attended / validTotal) * 100.0;
+    if (pct >= 75.0) {
+      final allowed = ((4 * attended - 3 * validTotal) / 3).floor().clamp(0, 999);
+      return (
+        allowedMisses: allowed,
+        neededClasses: 0,
+        label: allowed > 0
+            ? 'Buffer headroom: +$allowed ${allowed == 1 ? 'class' : 'classes'} allowed before dropping below 75.0%.'
+            : 'On threshold: missing the next class drops below 75.0%.',
+      );
+    }
+    final needed = (3 * validTotal - 4 * attended).clamp(1, 999);
+    return (
+      allowedMisses: 0,
+      neededClasses: needed,
+      label: 'Deficit alert: attend next $needed ${needed == 1 ? 'class' : 'classes'} consecutively to recover 75.0%.',
+    );
+  }
+
   Widget _buildAttendanceLedgerView({
     required List<Course> courses,
+    required List<AttendanceRecord> allAttendanceRecords,
+    required List<RoutineSlot> allSlots,
+    required HolidaySettings holidaySettings,
     required ChondrobinduThemeColors colors,
+    required String uid,
   }) {
+    final activeCourses = courses.where((c) => !c.isArchived).toList();
+    final displayCourses = activeCourses.isNotEmpty ? activeCourses : courses;
+
+    int cumulativeAttended = 0;
+    int cumulativeValid = 0;
+
+    final courseEntries = displayCourses.map((course) {
+      final records = allAttendanceRecords
+          .where((rec) => RoutineCourseSyncService.recordMatchesCourse(
+                record: rec,
+                courseId: course.id,
+                courseCode: course.code,
+                courseName: course.title,
+              ))
+          .toList();
+
+      final stats = RoutineCourseSyncService.computeCourseAttendance(
+        courseRecords: records,
+        useManualAttendanceOverride: course.useManualAttendanceOverride,
+        manualAttendedClasses: course.manualAttendedClasses,
+        manualTotalClasses: course.manualTotalClasses,
+      );
+
+      final attendedCount = stats.attended + stats.extra;
+      final validCount = stats.validClassesCount;
+      cumulativeAttended += attendedCount;
+      cumulativeValid += validCount;
+
+      return (
+        course: course,
+        records: records,
+        stats: stats,
+        attended: attendedCount,
+        valid: validCount,
+      );
+    }).toList();
+
+    final hasCumulativeLogs = cumulativeValid > 0;
+    final cumulativePct = hasCumulativeLogs ? (cumulativeAttended / cumulativeValid) * 100.0 : 0.0;
+    final cumulativeBuffer = _computeAttendanceBuffer(cumulativeAttended, cumulativeValid);
+
+    final Color dangerColor = colors.background == AppColors.darkBackground
+        ? const Color(0xFFFF8075)
+        : const Color(0xFFC62828);
+
+    final Color bannerAccent;
+    final Color bannerBg;
+    final Color bannerText;
+    final String statusTag;
+    if (!hasCumulativeLogs) {
+      bannerAccent = colors.primary;
+      bannerBg = colors.recessed;
+      bannerText = colors.textMuted;
+      statusTag = 'UNRECORDED';
+    } else if (cumulativePct >= 75.0) {
+      bannerAccent = const Color(0xFF4E9F72);
+      bannerBg = const Color(0xFF1D3B2A);
+      bannerText = const Color(0xFF85D8A6);
+      statusTag = 'SAFE STATUS';
+    } else {
+      bannerAccent = dangerColor;
+      bannerBg = dangerColor.withValues(alpha: 0.14);
+      bannerText = dangerColor;
+      statusTag = 'AT RISK';
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1651,20 +1777,20 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           child: Row(
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: 54,
+                height: 54,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1D3B2A),
+                  color: bannerBg,
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF4E9F72).withValues(alpha: 0.4)),
+                  border: Border.all(color: bannerAccent.withValues(alpha: 0.45)),
                 ),
                 child: Center(
                   child: Text(
-                    '92%',
+                    hasCumulativeLogs ? '${cumulativePct.toStringAsFixed(0)}%' : '--',
                     style: GoogleFonts.plusJakartaSans(
-                      color: const Color(0xFF85D8A6),
+                      color: hasCumulativeLogs ? bannerText : colors.textMuted,
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 15.5,
                     ),
                   ),
                 ),
@@ -1674,29 +1800,31 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           'CUMULATIVE ATTENDANCE',
                           style: GoogleFonts.plusJakartaSans(
-                            color: const Color(0xFF4E9F72),
+                            color: bannerAccent,
                             fontSize: 10.5,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.6,
                           ),
                         ),
-                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1D3B2A),
+                            color: bannerBg,
                             borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: const Color(0xFF4E9F72).withValues(alpha: 0.4)),
+                            border: Border.all(color: bannerAccent.withValues(alpha: 0.4)),
                           ),
                           child: Text(
-                            'SAFE STATUS',
+                            statusTag,
                             style: GoogleFonts.jetBrainsMono(
-                              color: const Color(0xFF85D8A6),
+                              color: hasCumulativeLogs ? bannerText : colors.textMuted,
                               fontSize: 9.5,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1704,17 +1832,20 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
-                      '89 of 97 Academic Sessions Attended',
+                      hasCumulativeLogs
+                          ? '$cumulativeAttended of $cumulativeValid Academic Sessions Attended'
+                          : '0 of 0 Academic Sessions Logged',
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
-                      'Buffer headroom: +4 classes allowed before hitting 80.0% threshold.',
+                      cumulativeBuffer.label,
                       style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11.5),
                     ),
                   ],
@@ -1726,91 +1857,628 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 
         const SizedBox(height: 14),
 
-        // Course Cards Grid
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: courses.map((course) {
-            return SizedBox(
-              width: 380,
+        if (courseEntries.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colors.surfaceBorder),
+            ),
+            child: Center(
+              child: Text(
+                'No active courses found. Add a course to begin tracking attendance.',
+                style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          )
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final double cardWidth = constraints.maxWidth >= 780
+                  ? (constraints.maxWidth - 12) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: courseEntries.map((entry) {
+                  final course = entry.course;
+                  final hasLogs = entry.valid > 0;
+                  final double pct = hasLogs ? entry.stats.percentage : 0.0;
+                  final bool isCourseSafe = !hasLogs || pct >= 75.0;
+                  final Color statusColor = !hasLogs
+                      ? colors.textMuted
+                      : (isCourseSafe ? const Color(0xFF4E9F72) : dangerColor);
+                  final buffer = _computeAttendanceBuffer(entry.attended, entry.valid);
+                  final String bufferShort = !hasLogs
+                      ? 'Tap to log'
+                      : (pct >= 75.0
+                          ? '+${buffer.allowedMisses} buffer'
+                          : 'Need +${buffer.neededClasses}');
+
+                  return SizedBox(
+                    width: cardWidth,
+                    child: Material(
+                      color: colors.surface,
+                      borderRadius: BorderRadius.circular(8),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => _showCourseAttendanceSheet(
+                          course: course,
+                          initialRecords: entry.records,
+                          allSlots: allSlots,
+                          holidaySettings: holidaySettings,
+                          uid: uid,
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: colors.surfaceBorder),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: colors.recessed,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: colors.surfaceBorder),
+                                    ),
+                                    child: Text(
+                                      course.code,
+                                      style: GoogleFonts.jetBrainsMono(
+                                        color: colors.primary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      course.title,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: colors.textPrimary,
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    hasLogs ? '${pct.toStringAsFixed(0)}%' : '--',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: statusColor,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(3),
+                                child: LinearProgressIndicator(
+                                  value: hasLogs ? (pct / 100.0).clamp(0.0, 1.0) : 0.0,
+                                  minHeight: 5,
+                                  backgroundColor: colors.recessed,
+                                  valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    hasLogs
+                                        ? 'Attended: ${entry.attended} / ${entry.valid}'
+                                        : 'Attended: 0 / 0',
+                                    style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5),
+                                  ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Min Req: 75% • $bufferShort',
+                                        style: GoogleFonts.jetBrainsMono(
+                                          color: hasLogs && !isCourseSafe ? dangerColor : colors.textMuted,
+                                          fontSize: 10.5,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(Icons.chevron_right_rounded, size: 15, color: colors.textMuted),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  Future<void> _persistCourseAttendanceRecord({
+    required String uid,
+    required Course course,
+    required DateTime date,
+    required AttendanceStatus newStatus,
+    RoutineSlot? slot,
+  }) async {
+    final dateKey = _attendanceDateKey(date);
+    final routineKey = slot?.id ?? 'extra';
+    final docId = '${course.id}_${routineKey}_$dateKey';
+
+    if (Firebase.apps.isEmpty || uid.isEmpty) return;
+
+    final docRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('attendance_records')
+        .doc(docId);
+
+    try {
+      if (newStatus == AttendanceStatus.unmarked) {
+        await docRef.delete();
+        return;
+      }
+      final record = AttendanceRecord(
+        id: docId,
+        courseId: course.id,
+        courseCode: course.code,
+        courseName: course.title,
+        date: DateTime(date.year, date.month, date.day),
+        status: newStatus,
+        routineId: slot?.id,
+        time: slot?.startTime,
+      );
+      await docRef.set(record.toMap(), SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Error saving attendance record: $e');
+    }
+  }
+
+  void _showCourseAttendanceSheet({
+    required Course course,
+    required List<AttendanceRecord> initialRecords,
+    required List<RoutineSlot> allSlots,
+    required HolidaySettings holidaySettings,
+    required String uid,
+  }) {
+    SafeHaptics.selectionClick();
+    final colors = AppColors.of(context);
+    final Color dangerColor = colors.background == AppColors.darkBackground
+        ? const Color(0xFFFF8075)
+        : const Color(0xFFC62828);
+    final courseSlots = allSlots.where((s) {
+      if (s.courseId.isNotEmpty && s.courseId == course.id) return true;
+      return s.courseCode.trim().toLowerCase() == course.code.trim().toLowerCase() &&
+          course.code.trim().isNotEmpty;
+    }).toList();
+
+    final List<AttendanceRecord> workingRecords = List<AttendanceRecord>.from(initialRecords);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheetState) {
+          final stats = RoutineCourseSyncService.computeCourseAttendance(
+            courseRecords: workingRecords,
+            useManualAttendanceOverride: course.useManualAttendanceOverride,
+            manualAttendedClasses: course.manualAttendedClasses,
+            manualTotalClasses: course.manualTotalClasses,
+          );
+          final attendedCount = stats.attended + stats.extra;
+          final validCount = stats.validClassesCount;
+          final hasLogs = validCount > 0;
+          final pct = hasLogs ? stats.percentage : 0.0;
+          final isSafe = !hasLogs || pct >= 75.0;
+          final buffer = _computeAttendanceBuffer(attendedCount, validCount);
+
+          // Build session list: scheduled routine dates up to today + existing recorded dates
+          final today = DateTime.now();
+          final todayDate = DateTime(today.year, today.month, today.day);
+          final rawStart = holidaySettings.semesterStart ?? todayDate.subtract(const Duration(days: 90));
+          final minAllowedStart = todayDate.subtract(const Duration(days: 180));
+          final effectiveStart = rawStart.isBefore(minAllowedStart) ? minAllowedStart : rawStart;
+
+          final Map<String, ({DateTime date, RoutineSlot? slot, AttendanceRecord? record})> sessionMap = {};
+
+          // 1. Scheduled routine occurrences up to today
+          DateTime cursor = DateTime(effectiveStart.year, effectiveStart.month, effectiveStart.day);
+          while (!cursor.isAfter(todayDate)) {
+            final dKey = _attendanceDateKey(cursor);
+            for (final s in courseSlots) {
+              if (s.isActiveOnDate(cursor)) {
+                final sessionKey = '${dKey}_${s.id}';
+                sessionMap[sessionKey] = (date: cursor, slot: s, record: null);
+              }
+            }
+            cursor = cursor.add(const Duration(days: 1));
+          }
+
+          // 2. Merge existing attendance records into scheduled sessions or extra entries
+          for (final rec in workingRecords) {
+            final dKey = _attendanceDateKey(rec.date);
+            final rKey = rec.routineId ?? 'extra';
+            final exactKey = '${dKey}_$rKey';
+            if (sessionMap.containsKey(exactKey)) {
+              final existing = sessionMap[exactKey]!;
+              sessionMap[exactKey] = (date: existing.date, slot: existing.slot, record: rec);
+            } else {
+              // Match any slot on that date if routineId was empty
+              String? matchedKey;
+              for (final entry in sessionMap.entries) {
+                if (entry.key.startsWith('${dKey}_') && entry.value.record == null) {
+                  matchedKey = entry.key;
+                  break;
+                }
+              }
+              if (matchedKey != null) {
+                final existing = sessionMap[matchedKey]!;
+                sessionMap[matchedKey] = (date: existing.date, slot: existing.slot, record: rec);
+              } else {
+                sessionMap['${dKey}_${rec.id}'] = (
+                  date: DateTime(rec.date.year, rec.date.month, rec.date.day),
+                  slot: null,
+                  record: rec,
+                );
+              }
+            }
+          }
+
+          final sessions = sessionMap.values.toList()
+            ..sort((a, b) => b.date.compareTo(a.date));
+
+          Future<void> setStatus(DateTime date, RoutineSlot? slot, AttendanceRecord? existingRec, AttendanceStatus newStatus) async {
+            SafeHaptics.selectionClick();
+            final dateKey = _attendanceDateKey(date);
+            final routineKey = slot?.id ?? existingRec?.routineId ?? 'extra';
+            final docId = existingRec?.id ?? '${course.id}_${routineKey}_$dateKey';
+
+            setSheetState(() {
+              workingRecords.removeWhere((r) => r.id == docId ||
+                  (_attendanceDateKey(r.date) == dateKey && (r.routineId ?? 'extra') == routineKey));
+              if (newStatus != AttendanceStatus.unmarked) {
+                workingRecords.add(
+                  AttendanceRecord(
+                    id: docId,
+                    courseId: course.id,
+                    courseCode: course.code,
+                    courseName: course.title,
+                    date: date,
+                    status: newStatus,
+                    routineId: slot?.id ?? existingRec?.routineId,
+                    time: slot?.startTime ?? existingRec?.time,
+                  ),
+                );
+              }
+            });
+
+            await _persistCourseAttendanceRecord(
+              uid: uid,
+              course: course,
+              date: date,
+              newStatus: newStatus,
+              slot: slot,
+            );
+          }
+
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 620,
+                maxHeight: MediaQuery.of(sheetCtx).size.height * 0.86,
+              ),
               child: Container(
-                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: colors.surface,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
                   border: Border.all(color: colors.surfaceBorder),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: colors.recessed,
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: colors.surfaceBorder),
-                              ),
-                              child: Text(
-                                course.code,
-                                style: GoogleFonts.jetBrainsMono(
-                                  color: colors.primary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                    // Header bar
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 16, 12, 12),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: colors.recessed,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: colors.surfaceBorder),
+                            ),
+                            child: Text(
+                              course.code,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: colors.primary,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              course.title,
-                              style: GoogleFonts.plusJakartaSans(
-                                color: colors.textMuted,
-                                fontSize: 12,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                        Text(
-                          '92%',
-                          style: GoogleFonts.jetBrainsMono(
-                            color: const Color(0xFF4E9F72),
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: 0.92,
-                        minHeight: 5,
-                        backgroundColor: colors.recessed,
-                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF4E9F72)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Attendance History & Session Log',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: colors.textPrimary,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  course.title,
+                                  style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(sheetCtx),
+                            icon: Icon(Icons.close_rounded, color: colors.textMuted, size: 20),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Attended: 23 / 25', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5)),
-                        Text('Min Req: 75%', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5)),
-                      ],
+
+                    // Live Summary Banner
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 18),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colors.recessed,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: colors.surfaceBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      hasLogs ? '${pct.toStringAsFixed(1)}%' : '--',
+                                      style: GoogleFonts.jetBrainsMono(
+                                        color: !hasLogs
+                                            ? colors.textPrimary
+                                            : (isSafe ? const Color(0xFF4E9F72) : dangerColor),
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      '$attendedCount / $validCount Attended • ${stats.canceled} Canceled',
+                                      style: GoogleFonts.jetBrainsMono(
+                                        color: colors.textMuted,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  buffer.label,
+                                  style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11.5),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colors.primary,
+                              side: BorderSide(color: colors.surfaceBorder),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: todayDate,
+                                firstDate: DateTime(2024),
+                                lastDate: todayDate,
+                              );
+                              if (picked != null) {
+                                await setStatus(
+                                  DateTime(picked.year, picked.month, picked.day),
+                                  null,
+                                  null,
+                                  AttendanceStatus.attended,
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.add_rounded, size: 16),
+                            label: Text('Log Date', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+                    Divider(height: 1, color: colors.surfaceBorder),
+
+                    // Session Date Rows
+                    Expanded(
+                      child: sessions.isEmpty
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Text(
+                                  'No scheduled class sessions found up to today.\nUse "Log Date" above to record an attendance session.',
+                                  style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12.5),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: sessions.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              itemBuilder: (_, idx) {
+                                final item = sessions[idx];
+                                final status = item.record?.status ?? AttendanceStatus.unmarked;
+                                final isBreak = holidaySettings.isHolidayOrBreak(item.date);
+                                final timeStr = item.slot?.startTime ?? item.record?.time ?? 'Session';
+
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: colors.recessed,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: colors.surfaceBorder),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                DateFormat('EEE, dd MMM yyyy').format(item.date),
+                                                style: GoogleFonts.jetBrainsMono(
+                                                  color: colors.textPrimary,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                '• $timeStr',
+                                                style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11),
+                                              ),
+                                              if (isBreak) ...[
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  '(Off-day)',
+                                                  style: GoogleFonts.plusJakartaSans(color: colors.secondary, fontSize: 10.5),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                          Text(
+                                            status.displayName,
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: status == AttendanceStatus.attended || status == AttendanceStatus.extra
+                                                  ? const Color(0xFF4E9F72)
+                                                  : status == AttendanceStatus.missed
+                                                      ? dangerColor
+                                                      : colors.textMuted,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: [
+                                          _buildAttendanceStatusChip(
+                                            label: 'Present',
+                                            isSelected: status == AttendanceStatus.attended || status == AttendanceStatus.extra,
+                                            activeColor: const Color(0xFF4E9F72),
+                                            colors: colors,
+                                            onTap: () => setStatus(item.date, item.slot, item.record, AttendanceStatus.attended),
+                                          ),
+                                          _buildAttendanceStatusChip(
+                                            label: 'Absent',
+                                            isSelected: status == AttendanceStatus.missed,
+                                            activeColor: dangerColor,
+                                            colors: colors,
+                                            onTap: () => setStatus(item.date, item.slot, item.record, AttendanceStatus.missed),
+                                          ),
+                                          _buildAttendanceStatusChip(
+                                            label: 'Canceled',
+                                            isSelected: status == AttendanceStatus.canceled,
+                                            activeColor: colors.textMuted,
+                                            colors: colors,
+                                            onTap: () => setStatus(item.date, item.slot, item.record, AttendanceStatus.canceled),
+                                          ),
+                                          if (status != AttendanceStatus.unmarked)
+                                            _buildAttendanceStatusChip(
+                                              label: 'Clear',
+                                              isSelected: false,
+                                              activeColor: colors.textMuted,
+                                              colors: colors,
+                                              onTap: () => setStatus(item.date, item.slot, item.record, AttendanceStatus.unmarked),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                     ),
                   ],
                 ),
               ),
-            );
-          }).toList(),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAttendanceStatusChip({
+    required String label,
+    required bool isSelected,
+    required Color activeColor,
+    required ChondrobinduThemeColors colors,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor.withValues(alpha: 0.16) : colors.surface,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected ? activeColor : colors.surfaceBorder,
+          ),
         ),
-      ],
+        child: Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            color: isSelected ? activeColor : colors.textMuted,
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          ),
+        ),
+      ),
     );
   }
 
@@ -2359,6 +3027,63 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         }).toList(),
                         onChanged: (val) => setDialogState(() => selectedCourse = val),
                       ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  Text('Assessment Type', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12)),
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    height: 48,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: selectedType,
+                      isExpanded: true,
+                      dropdownColor: colors.surface,
+                      style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: colors.recessed,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: colors.surfaceBorder),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: colors.primary),
+                        ),
+                      ),
+                      items: [
+                        DropdownMenuItem(
+                          value: 'CT',
+                          child: Text('Class Test (CT)', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
+                        ),
+                        DropdownMenuItem(
+                          value: 'quiz',
+                          child: Text('Quiz', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
+                        ),
+                        DropdownMenuItem(
+                          value: 'midterm',
+                          child: Text('Mid-Term Exam', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
+                        ),
+                        DropdownMenuItem(
+                          value: 'final',
+                          child: Text('Term Final Exam', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
+                        ),
+                        DropdownMenuItem(
+                          value: 'lab_final',
+                          child: Text('Lab Assessment / Viva', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
+                        ),
+                        DropdownMenuItem(
+                          value: 'assignment',
+                          child: Text('Assignment / Project', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setDialogState(() => selectedType = val);
+                      },
                     ),
                   ),
 
