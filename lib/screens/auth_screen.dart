@@ -102,7 +102,7 @@ const Map<String, List<AdmissionTargetOption>> kAdmissionTargetsByGroup = {
 /// Refactored Authentication & Academic Onboarding Portal
 /// Features:
 /// 1. Unified smooth scrollable page wrapper (`min-h-screen overflow-y-auto`).
-/// 2. Desktop 960px centered dual-pane card: 
+/// 2. Desktop 960px centered dual-pane card:  
 ///    - Left Pane (45%): Deep Natural Indigo (#2F4A6D) Brand Poster with Chondrobindu mark,
 ///      feature bullets, discipline quote, dynamically matching the expanded height of the right pane.
 ///    - Right Pane (55%): Warm Chalk (#F7F5F0 Light / #202733 Dark) authentication card.
