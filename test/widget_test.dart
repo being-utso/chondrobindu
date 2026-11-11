@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_quill/flutter_quill.dart';
@@ -7272,6 +7273,13 @@ void main() {
         await tester.tap(find.text('Insights'));
         await tester.pumpAndSettle();
         expect(find.byType(InsightsScreen), findsOneWidget);
+      });
+
+      testWidgets('Soundscapes asset paths are valid and loadable', (tester) async {
+        for (final file in ['rain.mp3', 'rain2.mp3', 'wind.mp3', 'cafe.mp3', 'birds.mp3']) {
+          final data = await rootBundle.load('assets/noises/$file');
+          expect(data.lengthInBytes, greaterThan(0), reason: '$file should be non-empty');
+        }
       });
     });
   });

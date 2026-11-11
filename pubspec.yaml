@@ -60,7 +60,6 @@ flutter:
     - assets/icons/
     - assets/fonts/
     - assets/noises/
-    - assets/noise/
 
 
 flutter_launcher_icons:

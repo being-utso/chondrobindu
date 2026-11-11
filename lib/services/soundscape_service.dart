@@ -109,13 +109,16 @@ class SoundscapeService {
 
       // 3. Play new asset source (noises/filename.mp3 - audioplayers prepends assets/)
       await _player.play(AssetSource(_assetPath(track)));
-    } catch (e) {
-      debugPrint('SoundscapeService play error for $track: $e');
+    } catch (e, stack) {
+      debugPrint("Soundscape error: $e");
+      debugPrint(stack.toString());
       if (seq == _operationSequence) {
         // Fallback directly to play call
         try {
           await _player.play(AssetSource(_assetPath(track)), volume: _volume);
-        } catch (_) {
+        } catch (e2, stack2) {
+          debugPrint("Soundscape error: $e2");
+          debugPrint(stack2.toString());
           _current = SoundscapeTrack.none;
         }
       }
