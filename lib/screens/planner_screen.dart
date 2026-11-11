@@ -25,6 +25,12 @@ import 'routine_screen.dart';
 
 enum _PlannerViewTab { agenda, attendanceLedger }
 
+enum _MobilePlannerView { agenda, weekGrid, calendar, attendanceLedger }
+
+enum _AcademicTrack { university, collegeHsc, admission }
+
+typedef _AssessmentTypeOption = ({String label, String value});
+
 /// Screen 04: Academic Planner & Routine Workspace (Stitch Design System)
 /// 1:1 Strict Reference Implementation of academic_planner_routine_desktop_web_dark_mode
 /// and academic_planner_routine_mobile_dark_mode from _design_reference.
@@ -39,6 +45,133 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedMonth = DateTime.now();
   _PlannerViewTab _currentTab = _PlannerViewTab.agenda;
+  _MobilePlannerView _mobileView = _MobilePlannerView.agenda;
+
+  static _AcademicTrack _resolveAcademicTrack(UserProfile profile) {
+    if (profile.isUniversityStudent) {
+      return _AcademicTrack.university;
+    }
+    final target = profile.primaryTarget.toLowerCase().trim();
+    if (target.contains('hsc') ||
+        target.contains('board') ||
+        target == 'undergraduate' ||
+        target.isEmpty ||
+        (profile.collegeClass?.trim().isNotEmpty ?? false)) {
+      return _AcademicTrack.collegeHsc;
+    }
+    if (profile.isAdmissionCandidate ||
+        target.contains('engineering') ||
+        target.contains('medical') ||
+        target.contains('varsity') ||
+        target.contains('admission') ||
+        target.contains('buet') ||
+        target.contains('ckruet')) {
+      return _AcademicTrack.admission;
+    }
+    return _AcademicTrack.collegeHsc;
+  }
+
+  static String _buildProfilePeriodLabel(UserProfile profile) {
+    final track = _resolveAcademicTrack(profile);
+    switch (track) {
+      case _AcademicTrack.university:
+        final lvl = profile.level?.trim() ?? '';
+        final trm = profile.term?.trim() ?? '';
+        final hasLvl = lvl.isNotEmpty;
+        final hasTrm = trm.isNotEmpty;
+        final lvlLabel = hasLvl
+            ? (lvl.toLowerCase().contains('level') ? lvl : 'Level $lvl')
+            : '';
+        final trmLabel = hasTrm
+            ? (trm.toLowerCase().contains('term') ||
+                    trm.toLowerCase().contains('semester') ||
+                    trm.toLowerCase().contains('fall') ||
+                    trm.toLowerCase().contains('spring') ||
+                    trm.toLowerCase().contains('summer')
+                ? trm
+                : 'Term $trm')
+            : '';
+        if (hasLvl && hasTrm) return '$lvlLabel • $trmLabel';
+        if (hasTrm) return trmLabel;
+        if (hasLvl) return lvlLabel;
+        return 'Current Semester';
+      case _AcademicTrack.collegeHsc:
+        final cls = profile.collegeClass?.trim() ?? '';
+        final b = profile.hscBatch.trim().isNotEmpty
+            ? profile.hscBatch.trim()
+            : profile.batch.trim();
+        final hscLabel = b.isEmpty
+            ? ''
+            : (b.toUpperCase().contains('HSC') ? b : 'HSC $b');
+        if (cls.isNotEmpty && hscLabel.isNotEmpty) return '$cls • $hscLabel';
+        if (hscLabel.isNotEmpty) return hscLabel;
+        if (cls.isNotEmpty) return cls;
+        return 'HSC Academic Year';
+      case _AcademicTrack.admission:
+        final rawTarget = profile.primaryTarget.trim();
+        if (rawTarget.isEmpty) return 'Admission Track';
+        final lower = rawTarget.toLowerCase();
+        if (lower.contains('track')) return rawTarget;
+        if (lower.startsWith('engineering')) return 'Engineering Track';
+        if (lower.startsWith('medical')) return 'Medical Track';
+        if (lower.startsWith('varsity')) return 'Varsity Track';
+        return '$rawTarget Track';
+    }
+  }
+
+  static String? _computeWeekLabel(HolidaySettings holidaySettings, DateTime referenceDate) {
+    final start = holidaySettings.semesterStart;
+    if (start == null) return null;
+    final startDay = DateTime(start.year, start.month, start.day);
+    final refDay = DateTime(referenceDate.year, referenceDate.month, referenceDate.day);
+    final diffDays = refDay.difference(startDay).inDays;
+    if (diffDays < 0) return null;
+    final weekNum = (diffDays ~/ 7) + 1;
+    return 'WEEK ${weekNum.toString().padLeft(2, '0')}';
+  }
+
+  static List<_AssessmentTypeOption> _getAssessmentTypeOptions(
+    _AcademicTrack track,
+    Course? course,
+  ) {
+    switch (track) {
+      case _AcademicTrack.university:
+        if (course != null && course.isSessional) {
+          return const [
+            (label: 'Lab Quiz', value: 'lab_quiz'),
+            (label: 'Lab Report / Assignment', value: 'lab_report'),
+            (label: 'Project / Model Defense', value: 'project'),
+            (label: 'Lab Final / Viva Voce', value: 'lab_final'),
+            (label: 'Continuous Assessment', value: 'performance'),
+          ];
+        }
+        return const [
+          (label: 'Class Test (CT)', value: 'CT'),
+          (label: 'Quiz', value: 'quiz'),
+          (label: 'Mid-Term Exam', value: 'midterm'),
+          (label: 'Term Final Exam', value: 'final'),
+          (label: 'Assignment / Presentation', value: 'assignment'),
+        ];
+      case _AcademicTrack.collegeHsc:
+        return const [
+          (label: 'Class Test', value: 'CT'),
+          (label: 'Monthly Exam', value: 'monthly_exam'),
+          (label: 'Half Yearly', value: 'half_yearly'),
+          (label: 'Year End', value: 'year_end'),
+          (label: 'Pretest', value: 'pretest'),
+          (label: 'Test Exam', value: 'test_exam'),
+          (label: 'Practical Exam', value: 'practical_exam'),
+        ];
+      case _AcademicTrack.admission:
+        return const [
+          (label: 'Weekly Exam', value: 'weekly_exam'),
+          (label: 'Monthly Exam', value: 'monthly_exam'),
+          (label: 'Paper Final', value: 'paper_final'),
+          (label: 'Subject Final', value: 'subject_final'),
+          (label: 'Model Test', value: 'model_test'),
+        ];
+    }
+  }
 
   static String getWeekdayShort(int day) => switch (day) {
         DateTime.saturday => 'Sat',
@@ -174,7 +307,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   Widget _buildDesktopStudio({
     required ChondrobinduThemeColors colors,
     required bool isDark,
-    required dynamic userProfile,
+    required UserProfile userProfile,
     required List<Assessment> allAssessments,
     required List<RoutineSlot> allSlots,
     required List<Course> courses,
@@ -191,15 +324,6 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     required bool isExamPeriod,
     required String uid,
   }) {
-    if (allSlots.isEmpty && allAssessments.isEmpty) {
-      return Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: _buildZeroState(colors, uid),
-        ),
-      );
-    }
-
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
       child: Center(
@@ -218,6 +342,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   children: [
                     // Main Academic Timetable Monthly Card
                     _buildCalendarCard(
+                      userProfile: userProfile,
                       allAssessments: allAssessments,
                       allSlots: allSlots,
                       holidaySettings: holidaySettings,
@@ -307,7 +432,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   Widget _buildMobilePlanner({
     required ChondrobinduThemeColors colors,
     required bool isDark,
-    required dynamic userProfile,
+    required UserProfile userProfile,
     required List<Assessment> allAssessments,
     required List<RoutineSlot> allSlots,
     required List<Course> courses,
@@ -324,33 +449,18 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     required bool isExamPeriod,
     required String uid,
   }) {
-    if (allSlots.isEmpty && allAssessments.isEmpty) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 24, 16, 80),
-        child: _buildZeroState(colors, uid),
-      );
-    }
-
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Top Monthly Calendar Card
-          _buildCalendarCard(
+          // Top Mobile Header + Weekly Day Strip + Segmented Switcher (Always visible!)
+          _buildMobileHeader(
+            userProfile: userProfile,
             allAssessments: allAssessments,
             allSlots: allSlots,
             holidaySettings: holidaySettings,
             activeCourseIds: activeCourseIds,
-            colors: colors,
-            isDark: isDark,
-            isMobile: true,
-          ),
-
-          const SizedBox(height: 18),
-
-          // Mobile Day Agenda Header & Switcher
-          _buildMobileHeader(
             selectedDayAssessments: selectedDayAssessments,
             selectedDaySlots: selectedDaySlots,
             colors: colors,
@@ -359,7 +469,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 
           const SizedBox(height: 16),
 
-          if (_currentTab == _PlannerViewTab.agenda) ...[
+          if (_mobileView == _MobilePlannerView.agenda) ...[
             // Section A: Assessments & Quizzes
             if (selectedDayAssessments.isNotEmpty) ...[
               _buildAssessmentsSection(
@@ -372,7 +482,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               const SizedBox(height: 20),
             ],
 
-            // Section B: Class Schedule
+            // Section B: Class Schedule (or clean empty state inside lower feed)
             _buildClassRoutineSection(
               slots: selectedDaySlots,
               courseCodeMap: courseCodeMap,
@@ -387,6 +497,49 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 
             // Scholar's Notebook Quote
             _buildScholarFootnote(colors, isMobile: true),
+          ] else if (_mobileView == _MobilePlannerView.weekGrid) ...[
+            _buildMobileWeekGridSection(
+              allSlots: allSlots,
+              activeCourseIds: activeCourseIds,
+              courseCodeMap: courseCodeMap,
+              courseTitleMap: courseTitleMap,
+              colors: colors,
+            ),
+          ] else if (_mobileView == _MobilePlannerView.calendar) ...[
+            // Full Month Calendar View (with exam/holiday dots regardless of routine count)
+            _buildCalendarCard(
+              userProfile: userProfile,
+              allAssessments: allAssessments,
+              allSlots: allSlots,
+              holidaySettings: holidaySettings,
+              activeCourseIds: activeCourseIds,
+              colors: colors,
+              isDark: isDark,
+              isMobile: true,
+            ),
+
+            const SizedBox(height: 16),
+
+            if (selectedDayAssessments.isNotEmpty) ...[
+              _buildAssessmentsSection(
+                assessments: selectedDayAssessments,
+                courseCodeMap: courseCodeMap,
+                courseTitleMap: courseTitleMap,
+                colors: colors,
+                isMobile: true,
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            _buildClassRoutineSection(
+              slots: selectedDaySlots,
+              courseCodeMap: courseCodeMap,
+              courseTitleMap: courseTitleMap,
+              isClassSuppressed: isClassSuppressed,
+              isHoliday: isHoliday,
+              colors: colors,
+              isMobile: true,
+            ),
           ] else ...[
             // Attendance Ledger
             _buildAttendanceLedgerView(
@@ -407,6 +560,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   // SECTION: Calendar Card (Stitch Surface #202733, 1px Border #2E3846, 8px Radius)
   // ===========================================================================
   Widget _buildCalendarCard({
+    required UserProfile userProfile,
     required List<Assessment> allAssessments,
     required List<RoutineSlot> allSlots,
     required HolidaySettings holidaySettings,
@@ -429,29 +583,36 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ACADEMIC TIMETABLE',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: colors.secondary,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ACADEMIC TIMETABLE',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.secondary,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.8,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    DateFormat('MMMM yyyy').format(_focusedMonth),
-                    style: GoogleFonts.plusJakartaSans(
-                      color: colors.textPrimary,
-                      fontSize: isMobile ? 18 : 20,
-                      fontWeight: FontWeight.w700,
+                    const SizedBox(height: 2),
+                    Text(
+                      DateFormat('MMMM yyyy').format(_focusedMonth),
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: isMobile ? 18 : 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -529,43 +690,56 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 
           const SizedBox(height: 12),
 
-          // Term & Semester Monospace Capsule Pill
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: colors.recessed,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: colors.surfaceBorder.withValues(alpha: 0.6)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Semester 24.2 • Fall 2026',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: colors.primary,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                  ),
+          // Dynamic Profile Term & Week Monospace Capsule Pill
+          Builder(
+            builder: (_) {
+              final periodLabel = _buildProfilePeriodLabel(userProfile);
+              final weekLabel = _computeWeekLabel(holidaySettings, _selectedDate);
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: colors.surfaceBorder.withValues(alpha: 0.6)),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: colors.surfaceBorder),
-                  ),
-                  child: Text(
-                    'WEEK 04',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: colors.textPrimary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        periodLabel,
+                        style: GoogleFonts.jetBrainsMono(
+                          color: colors.primary,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
+                    if (weekLabel != null) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: colors.surfaceBorder),
+                        ),
+                        child: Text(
+                          weekLabel,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.textPrimary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
 
           const SizedBox(height: 10),
@@ -684,8 +858,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           const SizedBox(height: 10),
 
           // Academic Stats Footer
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            alignment: WrapAlignment.spaceBetween,
             children: [
               Text(
                 'Teaching Days: 22',
@@ -956,9 +1132,11 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     required ChondrobinduThemeColors colors,
     required bool isDark,
   }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -986,15 +1164,17 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               'Agenda: ${DateFormat('dd MMM (EEEE)').format(_selectedDate)}',
               style: GoogleFonts.plusJakartaSans(
                 color: colors.textPrimary,
-                fontSize: 24,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ],
         ),
 
-        Row(
-          mainAxisSize: MainAxisSize.min,
+        Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             // Switcher: [ Agenda ] / [ Attendance Ledger ]
             Container(
@@ -1005,14 +1185,13 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 border: Border.all(color: colors.surfaceBorder),
               ),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildTabPill('Agenda', _PlannerViewTab.agenda, colors),
                   _buildTabPill('Attendance Ledger', _PlannerViewTab.attendanceLedger, colors),
                 ],
               ),
             ),
-
-            const SizedBox(width: 12),
 
             // + Schedule Button
             ElevatedButton.icon(
@@ -1036,42 +1215,57 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   }
 
   // ===========================================================================
-  // SECTION: Mobile Header & Switcher
+  // SECTION: Mobile Header, Weekly Day Strip & Segmented Switcher
   // ===========================================================================
   Widget _buildMobileHeader({
+    required UserProfile userProfile,
+    required List<Assessment> allAssessments,
+    required List<RoutineSlot> allSlots,
+    required HolidaySettings holidaySettings,
+    required Set<String>? activeCourseIds,
     required List<Assessment> selectedDayAssessments,
     required List<RoutineSlot> selectedDaySlots,
     required ChondrobinduThemeColors colors,
     required bool isDark,
   }) {
+    final periodLabel = _buildProfilePeriodLabel(userProfile);
+    final weekLabel = _computeWeekLabel(holidaySettings, _selectedDate);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Top Title + Schedule CTA
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Agenda: ${DateFormat('dd MMM (EEE)').format(_selectedDate)}',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: colors.textPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Agenda: ${DateFormat('dd MMM (EEE)').format(_selectedDate)}',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textPrimary,
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                Text(
-                  '${selectedDayAssessments.length} ASSESSMENTS • ${selectedDaySlots.length} LECTURES',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: colors.secondary,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.6,
+                  const SizedBox(height: 2),
+                  Text(
+                    '${selectedDayAssessments.length} ASSESSMENTS • ${selectedDaySlots.length} LECTURES',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.secondary,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.6,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: colors.primary,
@@ -1088,7 +1282,21 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 
         const SizedBox(height: 12),
 
-        // 2-Tab Switcher
+        // Persistent Weekly Day Picker Strip (SAT -> FRI + Today button)
+        _buildMobileWeeklyStrip(
+          periodLabel: periodLabel,
+          weekLabel: weekLabel,
+          allAssessments: allAssessments,
+          allSlots: allSlots,
+          holidaySettings: holidaySettings,
+          activeCourseIds: activeCourseIds,
+          colors: colors,
+          isDark: isDark,
+        ),
+
+        const SizedBox(height: 12),
+
+        // Segmented Switcher (Agenda, Week Grid, Calendar, Attendance)
         Container(
           padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
@@ -1098,12 +1306,392 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           ),
           child: Row(
             children: [
-              Expanded(child: _buildTabPill('AGENDA', _PlannerViewTab.agenda, colors, isMobile: true)),
-              Expanded(child: _buildTabPill('ATTENDANCE LEDGER', _PlannerViewTab.attendanceLedger, colors, isMobile: true)),
+              Expanded(child: _buildMobileTabPill('Agenda', _MobilePlannerView.agenda, colors)),
+              Expanded(child: _buildMobileTabPill('Week Grid', _MobilePlannerView.weekGrid, colors)),
+              Expanded(child: _buildMobileTabPill('Calendar', _MobilePlannerView.calendar, colors)),
+              Expanded(child: _buildMobileTabPill('Attendance', _MobilePlannerView.attendanceLedger, colors)),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildMobileWeeklyStrip({
+    required String periodLabel,
+    required String? weekLabel,
+    required List<Assessment> allAssessments,
+    required List<RoutineSlot> allSlots,
+    required HolidaySettings holidaySettings,
+    required Set<String>? activeCourseIds,
+    required ChondrobinduThemeColors colors,
+    required bool isDark,
+  }) {
+    final daysFromSat = switch (_selectedDate.weekday) {
+      DateTime.saturday => 0,
+      DateTime.sunday => 1,
+      _ => _selectedDate.weekday + 1,
+    };
+    final weekStart = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+    ).subtract(Duration(days: daysFromSat));
+
+    final now = DateTime.now();
+    const dayNames = ['SAT', 'SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI'];
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.surfaceBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      DateFormat('MMMM yyyy').format(_selectedDate),
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            periodLabel,
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.primary,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (weekLabel != null) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            '• $weekLabel',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.textMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    onTap: () {
+                      SafeHaptics.selectionClick();
+                      final today = DateTime.now();
+                      setState(() {
+                        _selectedDate = today;
+                        _focusedMonth = today;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: colors.recessed,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: colors.surfaceBorder),
+                      ),
+                      child: Text(
+                        'TODAY',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: colors.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  InkWell(
+                    onTap: () {
+                      SafeHaptics.selectionClick();
+                      setState(() {
+                        _selectedDate = _selectedDate.subtract(const Duration(days: 7));
+                        _focusedMonth = _selectedDate;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(Icons.chevron_left_rounded, size: 18, color: colors.textMuted),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      SafeHaptics.selectionClick();
+                      setState(() {
+                        _selectedDate = _selectedDate.add(const Duration(days: 7));
+                        _focusedMonth = _selectedDate;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(Icons.chevron_right_rounded, size: 18, color: colors.textMuted),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: List.generate(7, (idx) {
+              final day = weekStart.add(Duration(days: idx));
+              final isSelected = isSameDay(day, _selectedDate);
+              final isToday = isSameDay(day, now);
+              final isHol = holidaySettings.isHolidayOrBreak(day);
+
+              final hasAssessment = allAssessments.any((a) {
+                final d = a.dueDate ?? a.date;
+                return d != null && isSameDay(d, day);
+              });
+              final hasClass = !isHol &&
+                  allSlots.any((s) =>
+                      (activeCourseIds == null || s.courseId.isEmpty || activeCourseIds.contains(s.courseId)) &&
+                      s.isActiveOnDate(day));
+
+              return Expanded(
+                child: InkWell(
+                  onTap: () {
+                    SafeHaptics.selectionClick();
+                    setState(() {
+                      _selectedDate = day;
+                      _focusedMonth = day;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: const EdgeInsets.symmetric(vertical: 7),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? colors.primary
+                          : (isToday ? colors.recessed : Colors.transparent),
+                      borderRadius: BorderRadius.circular(8),
+                      border: isToday && !isSelected
+                          ? Border.all(color: colors.primary.withValues(alpha: 0.5))
+                          : null,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          dayNames[idx],
+                          style: GoogleFonts.jetBrainsMono(
+                            color: isSelected
+                                ? (isDark ? const Color(0xFF171C24) : Colors.white)
+                                : (day.weekday == DateTime.friday ? colors.secondary : colors.textMuted),
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${day.day}',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: isSelected
+                                ? (isDark ? const Color(0xFF171C24) : Colors.white)
+                                : colors.textPrimary,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        SizedBox(
+                          height: 5,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (hasAssessment)
+                                Container(
+                                  width: 4,
+                                  height: 4,
+                                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? (isDark ? const Color(0xFF171C24) : Colors.white)
+                                        : colors.secondary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              if (hasClass)
+                                Container(
+                                  width: 4,
+                                  height: 4,
+                                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? (isDark ? const Color(0xFF171C24) : Colors.white)
+                                        : const Color(0xFF4E9F72),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              if (isHol)
+                                Container(
+                                  width: 4,
+                                  height: 4,
+                                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFFF8075),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileTabPill(String label, _MobilePlannerView tab, ChondrobinduThemeColors colors) {
+    final isSelected = _mobileView == tab;
+    return InkWell(
+      onTap: () {
+        SafeHaptics.selectionClick();
+        setState(() => _mobileView = tab);
+      },
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? colors.surface : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: isSelected ? Border.all(color: colors.surfaceBorder) : null,
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              color: isSelected ? colors.textPrimary : colors.textMuted,
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileWeekGridSection({
+    required List<RoutineSlot> allSlots,
+    required Set<String>? activeCourseIds,
+    required Map<String, String> courseCodeMap,
+    required Map<String, String> courseTitleMap,
+    required ChondrobinduThemeColors colors,
+  }) {
+    const weekdayOrder = [
+      DateTime.saturday,
+      DateTime.sunday,
+      DateTime.monday,
+      DateTime.tuesday,
+      DateTime.wednesday,
+      DateTime.thursday,
+      DateTime.friday,
+    ];
+    const weekdayNames = {
+      DateTime.saturday: 'Saturday',
+      DateTime.sunday: 'Sunday',
+      DateTime.monday: 'Monday',
+      DateTime.tuesday: 'Tuesday',
+      DateTime.wednesday: 'Wednesday',
+      DateTime.thursday: 'Thursday',
+      DateTime.friday: 'Friday',
+    };
+
+    final filteredSlots = allSlots.where((s) {
+      if (activeCourseIds != null && s.courseId.isNotEmpty && !activeCourseIds.contains(s.courseId)) {
+        return false;
+      }
+      return true;
+    }).toList();
+
+    if (filteredSlots.isEmpty) {
+      return _buildEmptyRoutineFeedCard(
+        message: 'No weekly routine uploaded yet — add a class slot or import your routine.',
+        colors: colors,
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: weekdayOrder.map((weekday) {
+        final daySlots = filteredSlots.where((s) => s.dayOfWeek == weekday).toList()
+          ..sort((a, b) => a.startTime.compareTo(b.startTime));
+        if (daySlots.isEmpty) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    weekdayNames[weekday]!.toUpperCase(),
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.7,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Divider(color: colors.surfaceBorder, height: 1)),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${daySlots.length} ${daySlots.length == 1 ? 'class' : 'classes'}',
+                    style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ...daySlots.map((slot) => _buildRoutineSlotCard(
+                    slot,
+                    courseCodeMap,
+                    courseTitleMap,
+                    colors,
+                  )),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -1266,27 +1854,34 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Class Routine',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: colors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Class Routine',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                Text(
-                  'Regular Scheduled Lectures & Sessionals',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: colors.textMuted,
-                    fontSize: 12,
+                  Text(
+                    'Regular Scheduled Lectures & Sessionals',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textMuted,
+                      fontSize: 12,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            if (isClassSuppressed)
+            if (isClassSuppressed) ...[
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -1303,6 +1898,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   ),
                 ),
               ),
+            ],
           ],
         ),
 
@@ -1346,19 +1942,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 
         // Routine Slot Cards Stack
         if (slots.isEmpty && !isClassSuppressed)
-          Container(
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              color: colors.surface,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: colors.surfaceBorder),
-            ),
-            child: Center(
-              child: Text(
-                'No routine classes scheduled for ${DateFormat('EEEE').format(_selectedDate)}.',
-                style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
-              ),
-            ),
+          _buildEmptyRoutineFeedCard(
+            message: 'No classes scheduled for ${DateFormat('EEEE').format(_selectedDate)} — add a class slot or import your routine.',
+            colors: colors,
           )
         else
           ...slots.map((slot) => _buildRoutineSlotCard(
@@ -1369,6 +1955,69 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 isSuspended: isClassSuppressed,
               )),
       ],
+    );
+  }
+
+  Widget _buildEmptyRoutineFeedCard({
+    required String message,
+    required ChondrobinduThemeColors colors,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.surfaceBorder),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.event_busy_rounded, size: 28, color: colors.textMuted),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colors.primary,
+                  foregroundColor: colors.background == AppColors.darkBackground
+                      ? const Color(0xFF171C24)
+                      : Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => _showAddRoutineSlotDialog(context),
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: Text('Add Class Slot', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 12.5)),
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colors.secondary,
+                  side: BorderSide(color: colors.secondary.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const RoutineScreen()),
+                  );
+                },
+                icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+                label: Text('Import Routine', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, fontSize: 12.5)),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -2483,91 +3132,6 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   }
 
   // ===========================================================================
-  // SECTION: Zero-State Card (Stitch Proportions)
-  // ===========================================================================
-  Widget _buildZeroState(ChondrobinduThemeColors colors, String uid) {
-    return Center(
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 480),
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: colors.surfaceBorder),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: colors.secondary.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.calendar_today_rounded, size: 26, color: colors.secondary),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No Schedule Configured Yet',
-              style: GoogleFonts.plusJakartaSans(
-                color: colors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Add your routine slots or schedule an upcoming assessment to activate your academic planner.',
-              style: GoogleFonts.plusJakartaSans(
-                color: colors.textMuted,
-                fontSize: 13,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: () => _showAddRoutineSlotDialog(context),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: Text('Add Class Slot', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 13)),
-                ),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: colors.secondary,
-                    side: BorderSide(color: colors.secondary.withValues(alpha: 0.5)),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const RoutineScreen()),
-                    );
-                  },
-                  icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                  label: Text('Smart Import Routine', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, fontSize: 13)),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ===========================================================================
   // SECTION: Dialogs & Configuration Modals (Stitch Dark/Light Tokens)
   // ===========================================================================
   void _showAddPlannerItemDialog(BuildContext context) {
@@ -2974,6 +3538,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     final colors = AppColors.of(context);
     final coursesAsync = ref.read(coursesStreamProvider);
     final courses = coursesAsync.value ?? [];
+    final userProfile = ref.read(userProfileProvider);
+    final track = _resolveAcademicTrack(userProfile);
 
     Course? selectedCourse = courses.isNotEmpty ? courses.first : null;
     final titleCtrl = TextEditingController();
@@ -2981,289 +3547,301 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     final weightCtrl = TextEditingController(text: '10.0');
     DateTime selectedDate = _selectedDate;
     TimeOfDay selectedTime = const TimeOfDay(hour: 10, minute: 0);
-    String selectedType = 'quiz';
+    final initialTypeOptions = _getAssessmentTypeOptions(track, selectedCourse);
+    String selectedType = initialTypeOptions.first.value;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: colors.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: colors.surfaceBorder),
-          ),
-          title: Text(
-            'Schedule Assessment / Exam',
-            style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold),
-          ),
-          content: SingleChildScrollView(
-            child: SizedBox(
-              width: 440,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Course', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12)),
-                  const SizedBox(height: 6),
-                  Container(
-                    height: 48,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: colors.recessed,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: colors.surfaceBorder),
+        builder: (ctx, setDialogState) {
+          final currentTypeOptions = _getAssessmentTypeOptions(track, selectedCourse);
+          final effectiveType = currentTypeOptions.any((opt) => opt.value == selectedType)
+              ? selectedType
+              : currentTypeOptions.first.value;
+
+          return AlertDialog(
+            backgroundColor: colors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: colors.surfaceBorder),
+            ),
+            title: Text(
+              'Schedule Assessment / Exam',
+              style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold),
+            ),
+            content: SingleChildScrollView(
+              child: SizedBox(
+                width: 440,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Course', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12)),
+                    const SizedBox(height: 6),
+                    Container(
+                      height: 48,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: colors.recessed,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: colors.surfaceBorder),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<Course>(
+                          value: selectedCourse,
+                          isExpanded: true,
+                          dropdownColor: colors.surface,
+                          hint: Text('Select course', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
+                          items: courses.map((c) {
+                            return DropdownMenuItem<Course>(
+                              value: c,
+                              child: Text('${c.code} • ${c.title}', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
+                            );
+                          }).toList(),
+                          onChanged: (val) => setDialogState(() {
+                            selectedCourse = val;
+                            final nextOptions = _getAssessmentTypeOptions(track, selectedCourse);
+                            if (!nextOptions.any((opt) => opt.value == selectedType)) {
+                              selectedType = nextOptions.first.value;
+                            }
+                          }),
+                        ),
+                      ),
                     ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<Course>(
-                        value: selectedCourse,
+
+                    const SizedBox(height: 14),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Assessment Type', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12)),
+                        if (track == _AcademicTrack.university && selectedCourse != null)
+                          Text(
+                            selectedCourse!.isSessional ? 'Lab / Sessional' : 'Theory Course',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: selectedCourse!.isSessional ? const Color(0xFF4E9F72) : colors.primary,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      height: 48,
+                      child: DropdownButtonFormField<String>(
+                        key: ValueKey('ass_type_${track.name}_${selectedCourse?.id ?? 'none'}_${selectedCourse?.isSessional ?? false}_$effectiveType'),
+                        initialValue: effectiveType,
                         isExpanded: true,
                         dropdownColor: colors.surface,
-                        hint: Text('Select course', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
-                        items: courses.map((c) {
-                          return DropdownMenuItem<Course>(
-                            value: c,
-                            child: Text('${c.code} • ${c.title}', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
+                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: colors.recessed,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: colors.surfaceBorder),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: colors.primary),
+                          ),
+                        ),
+                        items: currentTypeOptions.map((opt) {
+                          return DropdownMenuItem<String>(
+                            value: opt.value,
+                            child: Text(
+                              opt.label,
+                              style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
+                            ),
                           );
                         }).toList(),
-                        onChanged: (val) => setDialogState(() => selectedCourse = val),
+                        onChanged: (val) {
+                          if (val != null) setDialogState(() => selectedType = val);
+                        },
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 14),
+                    const SizedBox(height: 14),
 
-                  Text('Assessment Type', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12)),
-                  const SizedBox(height: 6),
-                  SizedBox(
-                    height: 48,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: selectedType,
-                      isExpanded: true,
-                      dropdownColor: colors.surface,
-                      style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: colors.recessed,
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: colors.surfaceBorder),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: colors.primary),
+                    Text('Assessment Title / Topic', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12)),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      height: 48,
+                      child: TextField(
+                        controller: titleCtrl,
+                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: colors.recessed,
+                          isDense: true,
+                          hintText: 'e.g. CT 4: System Data Structures',
+                          hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: colors.surfaceBorder)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: colors.primary)),
                         ),
                       ),
-                      items: [
-                        DropdownMenuItem(
-                          value: 'CT',
-                          child: Text('Class Test (CT)', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Total Marks', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12)),
+                              const SizedBox(height: 6),
+                              SizedBox(
+                                height: 48,
+                                child: TextField(
+                                  controller: marksCtrl,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 13),
+                                  decoration: InputDecoration(
+                                    filled: true,
+                                    fillColor: colors.recessed,
+                                    isDense: true,
+                                    hintText: '20',
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: colors.surfaceBorder)),
+                                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: colors.primary)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        DropdownMenuItem(
-                          value: 'quiz',
-                          child: Text('Quiz', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
-                        ),
-                        DropdownMenuItem(
-                          value: 'midterm',
-                          child: Text('Mid-Term Exam', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
-                        ),
-                        DropdownMenuItem(
-                          value: 'final',
-                          child: Text('Term Final Exam', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
-                        ),
-                        DropdownMenuItem(
-                          value: 'lab_final',
-                          child: Text('Lab Assessment / Viva', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
-                        ),
-                        DropdownMenuItem(
-                          value: 'assignment',
-                          child: Text('Assignment / Project', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Weightage (%)', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12)),
+                              const SizedBox(height: 6),
+                              SizedBox(
+                                height: 48,
+                                child: TextField(
+                                  controller: weightCtrl,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 13),
+                                  decoration: InputDecoration(
+                                    filled: true,
+                                    fillColor: colors.recessed,
+                                    isDense: true,
+                                    hintText: '10.0',
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: colors.surfaceBorder)),
+                                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: colors.primary)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
-                      onChanged: (val) {
-                        if (val != null) setDialogState(() => selectedType = val);
-                      },
                     ),
-                  ),
 
-                  const SizedBox(height: 14),
+                    const SizedBox(height: 14),
 
-                  Text('Assessment Title / Topic', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12)),
-                  const SizedBox(height: 6),
-                  SizedBox(
-                    height: 48,
-                    child: TextField(
-                      controller: titleCtrl,
-                      style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: colors.recessed,
-                        isDense: true,
-                        hintText: 'e.g. CT 4: System Data Structures',
-                        hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: colors.surfaceBorder)),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: colors.primary)),
-                      ),
+                    // Date and Time picker
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colors.textPrimary,
+                              side: BorderSide(color: colors.surfaceBorder),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: selectedDate,
+                                firstDate: DateTime(2024),
+                                lastDate: DateTime(2030),
+                              );
+                              if (picked != null) setDialogState(() => selectedDate = picked);
+                            },
+                            icon: const Icon(Icons.calendar_today_rounded, size: 16),
+                            label: Text(DateFormat('dd MMM yyyy').format(selectedDate), style: GoogleFonts.jetBrainsMono(fontSize: 12)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colors.textPrimary,
+                              side: BorderSide(color: colors.surfaceBorder),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: selectedTime,
+                              );
+                              if (picked != null) setDialogState(() => selectedTime = picked);
+                            },
+                            icon: const Icon(Icons.access_time_rounded, size: 16),
+                            label: Text(selectedTime.format(context), style: GoogleFonts.jetBrainsMono(fontSize: 12)),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Total Marks', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12)),
-                            const SizedBox(height: 6),
-                            SizedBox(
-                              height: 48,
-                              child: TextField(
-                                controller: marksCtrl,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 13),
-                                decoration: InputDecoration(
-                                  filled: true,
-                                  fillColor: colors.recessed,
-                                  isDense: true,
-                                  hintText: '20',
-                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: colors.surfaceBorder)),
-                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: colors.primary)),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Weightage (%)', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12)),
-                            const SizedBox(height: 6),
-                            SizedBox(
-                              height: 48,
-                              child: TextField(
-                                controller: weightCtrl,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 13),
-                                decoration: InputDecoration(
-                                  filled: true,
-                                  fillColor: colors.recessed,
-                                  isDense: true,
-                                  hintText: '10.0',
-                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: colors.surfaceBorder)),
-                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: colors.primary)),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // Date and Time picker
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: colors.textPrimary,
-                            side: BorderSide(color: colors.surfaceBorder),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onPressed: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: selectedDate,
-                              firstDate: DateTime(2024),
-                              lastDate: DateTime(2030),
-                            );
-                            if (picked != null) setDialogState(() => selectedDate = picked);
-                          },
-                          icon: const Icon(Icons.calendar_today_rounded, size: 16),
-                          label: Text(DateFormat('dd MMM yyyy').format(selectedDate), style: GoogleFonts.jetBrainsMono(fontSize: 12)),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: colors.textPrimary,
-                            side: BorderSide(color: colors.surfaceBorder),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          onPressed: () async {
-                            final picked = await showTimePicker(
-                              context: context,
-                              initialTime: selectedTime,
-                            );
-                            if (picked != null) setDialogState(() => selectedTime = picked);
-                          },
-                          icon: const Icon(Icons.access_time_rounded, size: 16),
-                          label: Text(selectedTime.format(context), style: GoogleFonts.jetBrainsMono(fontSize: 12)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colors.secondary,
-                foregroundColor: Colors.white,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
               ),
-              onPressed: () async {
-                if (selectedCourse == null || titleCtrl.text.trim().isEmpty) return;
-                final marks = double.tryParse(marksCtrl.text.trim()) ?? 20.0;
-                final weight = double.tryParse(weightCtrl.text.trim()) ?? 10.0;
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colors.secondary,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () async {
+                  if (selectedCourse == null || titleCtrl.text.trim().isEmpty) return;
+                  final marks = double.tryParse(marksCtrl.text.trim()) ?? 20.0;
+                  final weight = double.tryParse(weightCtrl.text.trim()) ?? 10.0;
 
-                final scheduledDateTime = DateTime(
-                  selectedDate.year,
-                  selectedDate.month,
-                  selectedDate.day,
-                  selectedTime.hour,
-                  selectedTime.minute,
-                );
+                  final scheduledDateTime = DateTime(
+                    selectedDate.year,
+                    selectedDate.month,
+                    selectedDate.day,
+                    selectedTime.hour,
+                    selectedTime.minute,
+                  );
 
-                final newAss = Assessment(
-                  id: 'ass_${DateTime.now().millisecondsSinceEpoch}',
-                  courseId: selectedCourse!.id,
-                  courseCode: selectedCourse!.code,
-                  name: titleCtrl.text.trim(),
-                  type: selectedType,
-                  date: scheduledDateTime,
-                  dueDate: scheduledDateTime,
-                  totalMarks: marks,
-                  weightage: weight,
-                  status: 'Pending',
-                );
+                  final newAss = Assessment(
+                    id: 'ass_${DateTime.now().millisecondsSinceEpoch}',
+                    courseId: selectedCourse!.id,
+                    courseCode: selectedCourse!.code,
+                    name: titleCtrl.text.trim(),
+                    type: effectiveType,
+                    date: scheduledDateTime,
+                    dueDate: scheduledDateTime,
+                    totalMarks: marks,
+                    weightage: weight,
+                    status: 'Pending',
+                  );
 
-                final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-                if (uid.isNotEmpty) {
-                  await ref.read(assessmentRepositoryProvider).createAssessment(uid, newAss);
-                }
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: Text('Schedule Assessment', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
+                  final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                  if (uid.isNotEmpty) {
+                    await ref.read(assessmentRepositoryProvider).createAssessment(uid, newAss);
+                  }
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                child: Text('Schedule Assessment', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

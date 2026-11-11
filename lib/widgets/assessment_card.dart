@@ -82,6 +82,36 @@ class AssessmentCard extends StatelessWidget {
         nameUpper.contains('REPORT')) {
       return 'ASSIGNMENT';
     }
+    if (typeLower.contains('monthly') || nameUpper.contains('MONTHLY')) {
+      return 'MONTHLY';
+    }
+    if (typeLower.contains('half_yearly') || typeLower.contains('half yearly') || nameUpper.contains('HALF YEARLY')) {
+      return 'HALF YEARLY';
+    }
+    if (typeLower.contains('year_end') || typeLower.contains('year end') || nameUpper.contains('YEAR END')) {
+      return 'YEAR END';
+    }
+    if (typeLower.contains('pretest') || typeLower.contains('pre-test') || nameUpper.contains('PRETEST')) {
+      return 'PRETEST';
+    }
+    if (typeLower.contains('test_exam') || typeLower.contains('test exam') || nameUpper.contains('TEST EXAM')) {
+      return 'TEST EXAM';
+    }
+    if (typeLower.contains('practical') || nameUpper.contains('PRACTICAL')) {
+      return 'PRACTICAL';
+    }
+    if (typeLower.contains('weekly') || nameUpper.contains('WEEKLY')) {
+      return 'WEEKLY';
+    }
+    if (typeLower.contains('paper_final') || typeLower.contains('paper final') || nameUpper.contains('PAPER FINAL')) {
+      return 'PAPER FINAL';
+    }
+    if (typeLower.contains('subject_final') || typeLower.contains('subject final') || nameUpper.contains('SUBJECT FINAL')) {
+      return 'SUBJECT FINAL';
+    }
+    if (typeLower.contains('model_test') || typeLower.contains('model test') || nameUpper.contains('MODEL TEST')) {
+      return 'MODEL TEST';
+    }
     if (typeLower == 'ct' || typeLower == 'class test' || nameUpper.contains('CT') || nameUpper.contains('CLASS TEST')) {
       return 'CT';
     }
@@ -100,10 +130,14 @@ class AssessmentCard extends StatelessWidget {
   IconData _getBadgeIcon(String label) {
     switch (label) {
       case 'LAB FINAL':
+      case 'PRACTICAL':
         return Icons.science_outlined;
       case 'VIVA':
       case 'LAB QUIZ':
       case 'QUIZ':
+      case 'WEEKLY':
+      case 'MONTHLY':
+      case 'MODEL TEST':
         return Icons.quiz_outlined;
       case 'LAB REPORT':
       case 'ASSIGNMENT':

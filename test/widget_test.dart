@@ -7326,6 +7326,155 @@ void main() {
         expect(find.byType(ShaderMask), findsOneWidget);
         expect(find.byType(SingleChildScrollView), findsOneWidget);
       });
+
+      testWidgets('Planner mobile preserves weekly strip, switcher, and empty feed when no routine exists', (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        const uniProfile = UserProfile(
+          uid: 'u1',
+          institutionType: InstitutionType.university,
+          isUniversityStudent: true,
+          level: '2',
+          term: '1',
+          isLoaded: true,
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(uniProfile)),
+              weeklyRoutineStreamProvider.overrideWith((ref) => Stream.value([])),
+              allAssessmentsStreamProvider.overrideWith((ref) => Stream.value([])),
+              coursesStreamProvider.overrideWith((ref) => Stream.value([])),
+              examsStreamProvider.overrideWith((ref) => Stream.value([])),
+              attendanceRecordsStreamProvider.overrideWith((ref) => Stream.value([])),
+              holidaySettingsStreamProvider.overrideWith((ref) => Stream.value(HolidaySettings.defaultSettings)),
+            ],
+            child: const MaterialApp(
+              home: PlannerScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Weekly strip and segmented switcher remain visible
+        for (final day in ['SAT', 'SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI']) {
+          expect(find.text(day), findsOneWidget);
+        }
+        expect(find.text('TODAY'), findsOneWidget);
+        expect(find.text('Agenda'), findsOneWidget);
+        expect(find.text('Week Grid'), findsOneWidget);
+        expect(find.text('Calendar'), findsOneWidget);
+        expect(find.text('Level 2 • Term 1'), findsOneWidget);
+        expect(find.text('WEEK 04'), findsNothing);
+        expect(find.text('Semester 24.2 • Fall 2026'), findsNothing);
+        expect(find.textContaining('No classes scheduled for'), findsOneWidget);
+
+        // Switch to Calendar tab on mobile -> renders full TableCalendar even with 0 routine
+        await tester.tap(find.text('Calendar'));
+        await tester.pumpAndSettle();
+        expect(find.text('ACADEMIC TIMETABLE'), findsOneWidget);
+        expect(find.text('Class Routine'), findsWidgets);
+      });
+
+      testWidgets('Planner desktop binds profile header dynamically and computes Week XX from semesterStart', (tester) async {
+        tester.view.physicalSize = const Size(1280, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final now = DateTime.now();
+        final twoWeeksAgo = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 14));
+        const admissionProfile = UserProfile(
+          uid: 'u2',
+          institutionType: InstitutionType.college,
+          isUniversityStudent: false,
+          primaryTarget: 'Engineering (BUET, CKRUET)',
+          isLoaded: true,
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(admissionProfile)),
+              weeklyRoutineStreamProvider.overrideWith((ref) => Stream.value([])),
+              allAssessmentsStreamProvider.overrideWith((ref) => Stream.value([])),
+              coursesStreamProvider.overrideWith((ref) => Stream.value([])),
+              examsStreamProvider.overrideWith((ref) => Stream.value([])),
+              attendanceRecordsStreamProvider.overrideWith((ref) => Stream.value([])),
+              holidaySettingsStreamProvider.overrideWith(
+                (ref) => Stream.value(HolidaySettings(semesterStart: twoWeeksAgo)),
+              ),
+            ],
+            child: const MaterialApp(
+              home: PlannerScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Engineering Track'), findsOneWidget);
+        expect(find.text('WEEK 03'), findsOneWidget);
+        expect(find.text('Semester 24.2 • Fall 2026'), findsNothing);
+        expect(find.text('WEEK 04'), findsNothing);
+      });
+
+      testWidgets('Planner Schedule Assessment dialog dynamically swaps types by track and Theory vs Sessional course', (tester) async {
+        tester.view.physicalSize = const Size(1280, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        const uniProfile = UserProfile(
+          uid: 'u3',
+          institutionType: InstitutionType.university,
+          isUniversityStudent: true,
+          level: '3',
+          term: '2',
+          isLoaded: true,
+        );
+        final courses = [
+          const Course(id: 'c_theory', code: 'CSE 301', title: 'Database Systems', courseType: CourseType.theory),
+          const Course(id: 'c_lab', code: 'CSE 302', title: 'Database Sessional', courseType: CourseType.sessional),
+        ];
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(uniProfile)),
+              weeklyRoutineStreamProvider.overrideWith((ref) => Stream.value([])),
+              allAssessmentsStreamProvider.overrideWith((ref) => Stream.value([])),
+              coursesStreamProvider.overrideWith((ref) => Stream.value(courses)),
+              examsStreamProvider.overrideWith((ref) => Stream.value([])),
+              attendanceRecordsStreamProvider.overrideWith((ref) => Stream.value([])),
+              holidaySettingsStreamProvider.overrideWith((ref) => Stream.value(HolidaySettings.defaultSettings)),
+            ],
+            child: const MaterialApp(
+              home: PlannerScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Open + Schedule modal -> choose Assessment / Exam
+        await tester.tap(find.text('+ Schedule'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Assessment / Exam / CT'));
+        await tester.pumpAndSettle();
+
+        // Default first course is Theory -> shows Theory Course tag & Class Test (CT)
+        expect(find.text('Theory Course'), findsOneWidget);
+        expect(find.text('Class Test (CT)'), findsOneWidget);
+
+        // Switch course to Sessional -> Assessment Type updates to Lab / Sessional options
+        await tester.tap(find.text('CSE 301 • Database Systems'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('CSE 302 • Database Sessional').last);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Lab / Sessional'), findsOneWidget);
+        expect(find.text('Lab Quiz'), findsOneWidget);
+      });
     });
   });
 }
