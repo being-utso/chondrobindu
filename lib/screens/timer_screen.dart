@@ -73,6 +73,12 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     // Request Android 13+ notification permissions when timer screen opens
     NotificationService().requestPermissions();
 
+    // Synchronize UI with persistent audio service
+    _soundEnabled = _soundscapeService.isPlaying;
+    if (_soundscapeService.isPlaying) {
+      _selectedSoundscape = SoundscapeService.toLabel(_soundscapeService.currentTrack);
+    }
+
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -92,7 +98,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     WidgetsBinding.instance.removeObserver(this);
     _pulseController.dispose();
     _desktopScratchpadController.dispose();
-    _soundscapeService.dispose();
     super.dispose();
   }
 
@@ -449,13 +454,16 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           Row(
             children: [
               InkWell(
-                onTap: () async {
+                onTap: () {
                   SafeHaptics.selectionClick();
                   final track = SoundscapeService.fromLabel(_selectedSoundscape);
-                  await _soundscapeService.toggle(track);
-                  final isPlaying = _soundscapeService.isPlaying;
-                  setState(() => _soundEnabled = isPlaying);
-                  if (!mounted) return;
+                  final willPlay = !_soundEnabled;
+                  setState(() => _soundEnabled = willPlay);
+                  if (willPlay) {
+                    _soundscapeService.play(track);
+                  } else {
+                    _soundscapeService.stop();
+                  }
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -471,7 +479,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                           Icon(Icons.water_drop_rounded, size: 16, color: colors.secondary),
                           const SizedBox(width: 8),
                           Text(
-                            isPlaying
+                            willPlay
                                 ? 'Soundscape: $_selectedSoundscape enabled'
                                 : 'Soundscape muted',
                             style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
@@ -1505,11 +1513,16 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                     color: _soundEnabled ? colors.secondary : colors.textMuted,
                     size: 22,
                   ),
-                  onPressed: () async {
+                  onPressed: () {
                     SafeHaptics.selectionClick();
                     final track = SoundscapeService.fromLabel(_selectedSoundscape);
-                    await _soundscapeService.toggle(track);
-                    setState(() => _soundEnabled = _soundscapeService.isPlaying);
+                    final willPlay = !_soundEnabled;
+                    setState(() => _soundEnabled = willPlay);
+                    if (willPlay) {
+                      _soundscapeService.play(track);
+                    } else {
+                      _soundscapeService.stop();
+                    }
                   },
                 ),
                 const SizedBox(width: 16),
@@ -1671,17 +1684,20 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                       return Padding(
                         padding: const EdgeInsets.only(left: 6.0),
                         child: InkWell(
-                          onTap: () async {
+                          onTap: () {
                             SafeHaptics.selectionClick();
                             if (isCurrentPlaying) {
-                              await _soundscapeService.stop();
+                              setState(() {
+                                _soundEnabled = false;
+                              });
+                              _soundscapeService.stop();
                             } else {
-                              await _soundscapeService.play(track);
+                              setState(() {
+                                _selectedSoundscape = p;
+                                _soundEnabled = true;
+                              });
+                              _soundscapeService.play(track);
                             }
-                            setState(() {
-                              _selectedSoundscape = p;
-                              _soundEnabled = _soundscapeService.isPlaying;
-                            });
                           },
                           borderRadius: BorderRadius.circular(6),
                           child: Container(
@@ -3434,24 +3450,26 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 6.0),
                       child: InkWell(
-                        onTap: () async {
+                        onTap: () {
                           SafeHaptics.selectionClick();
                           if (item.track == SoundscapeTrack.none) {
-                            await _soundscapeService.stop();
                             setState(() => _soundEnabled = false);
+                            setSheetState(() {});
+                            _soundscapeService.stop();
                           } else {
                             if (isSelected) {
-                              await _soundscapeService.stop();
                               setState(() => _soundEnabled = false);
+                              setSheetState(() {});
+                              _soundscapeService.stop();
                             } else {
-                              await _soundscapeService.play(item.track);
                               setState(() {
                                 _selectedSoundscape = item.label;
                                 _soundEnabled = true;
                               });
+                              setSheetState(() {});
+                              _soundscapeService.play(item.track);
                             }
                           }
-                          setSheetState(() {});
                         },
                         borderRadius: BorderRadius.circular(10),
                         child: Container(
