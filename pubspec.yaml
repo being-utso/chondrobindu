@@ -39,6 +39,7 @@ dependencies:
   google_generative_ai: ^0.4.7
   shared_preferences: ^2.2.3
   showcaseview: ^3.0.0
+  audioplayers: ^6.1.0
 
   intl: any
   collection: any
@@ -58,6 +59,8 @@ flutter:
     - assets/images/
     - assets/icons/
     - assets/fonts/
+    - assets/noises/
+    - assets/noise/
 
 
 flutter_launcher_icons:

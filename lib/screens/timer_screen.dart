@@ -14,6 +14,7 @@ import '../providers/timer_subjects_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../providers/nav_provider.dart';
 import '../services/notification_service.dart';
+import '../services/soundscape_service.dart';
 import '../widgets/study_session_log_dialog.dart';
 import 'package:showcaseview/showcaseview.dart';
 import '../services/tour_service.dart';
@@ -34,7 +35,8 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
   // Desktop Suite & Ambient Soundscape State
   final TextEditingController _desktopScratchpadController = TextEditingController();
   final Set<String> _selectedDesktopTopics = {};
-  bool _soundEnabled = true;
+  final SoundscapeService _soundscapeService = SoundscapeService();
+  bool _soundEnabled = false;
   String _selectedSoundscape = 'Rainfall';
 
   // Onboarding Tour Keys
@@ -88,6 +90,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     WidgetsBinding.instance.removeObserver(this);
     _pulseController.dispose();
     _desktopScratchpadController.dispose();
+    _soundscapeService.dispose();
     super.dispose();
   }
 
@@ -439,9 +442,13 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           Row(
             children: [
               InkWell(
-                onTap: () {
+                onTap: () async {
                   SafeHaptics.selectionClick();
-                  setState(() => _soundEnabled = !_soundEnabled);
+                  final track = SoundscapeService.fromLabel(_selectedSoundscape);
+                  await _soundscapeService.toggle(track);
+                  final isPlaying = _soundscapeService.isPlaying;
+                  setState(() => _soundEnabled = isPlaying);
+                  if (!mounted) return;
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -457,7 +464,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                           Icon(Icons.water_drop_rounded, size: 16, color: colors.secondary),
                           const SizedBox(width: 8),
                           Text(
-                            _soundEnabled
+                            isPlaying
                                 ? 'Soundscape: $_selectedSoundscape enabled'
                                 : 'Soundscape muted',
                             style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
@@ -1065,42 +1072,45 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                     const SizedBox(height: 8),
 
                     // Structured Subtitle Pill
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: colors.recessed,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: colors.surfaceBorder),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: isBreak ? colors.success : colors.secondary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              isBreak
-                                  ? 'Break • 5:1 Focus Ratio'
-                                  : (timerState.isOvertime
-                                      ? 'Overtime • Recording study time'
-                                      : '${selectedCourse?.code ?? currentSubject} • ${selectedTopicTitle ?? 'Focus Session'}'),
-                              style: GoogleFonts.plusJakartaSans(
-                                color: colors.textPrimary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 320),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: colors.recessed,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: colors.surfaceBorder),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: isBreak ? colors.success : colors.secondary,
+                                shape: BoxShape.circle,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                isBreak
+                                    ? 'Break'
+                                    : (timerState.isOvertime
+                                        ? 'Overtime • Recording study time'
+                                        : '${selectedCourse?.code ?? currentSubject} • ${selectedTopicTitle ?? 'Focus Session'}'),
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: colors.textPrimary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -1167,9 +1177,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                     color: _soundEnabled ? colors.secondary : colors.textMuted,
                     size: 22,
                   ),
-                  onPressed: () {
+                  onPressed: () async {
                     SafeHaptics.selectionClick();
-                    setState(() => _soundEnabled = !_soundEnabled);
+                    final track = SoundscapeService.fromLabel(_selectedSoundscape);
+                    await _soundscapeService.toggle(track);
+                    setState(() => _soundEnabled = _soundscapeService.isPlaying);
                   },
                 ),
                 const SizedBox(width: 16),
@@ -1281,7 +1293,9 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                   ],
                 ),
                 Text(
-                  'CURRENT INTERVAL: $targetFocusMins MIN FOCUS + $shortBreakMins MIN RESET',
+                  isStopwatch
+                      ? 'CONTINUOUS COUNT-UP • NO TARGET INTERVAL'
+                      : 'CURRENT INTERVAL: $targetFocusMins MIN FOCUS + $shortBreakMins MIN RESET',
                   style: GoogleFonts.jetBrainsMono(
                     color: colors.textMuted,
                     fontSize: 10,
@@ -1314,33 +1328,39 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
               ),
               Row(
                 children: ['Rainfall', 'Library Hall', 'Brown Noise'].map((p) {
-                  final isSel = _selectedSoundscape == p;
+                  final track = SoundscapeService.fromLabel(p);
+                  final isCurrentPlaying = _soundEnabled && _soundscapeService.isPlaying && _selectedSoundscape == p;
                   return Padding(
                     padding: const EdgeInsets.only(left: 6.0),
                     child: InkWell(
-                      onTap: () {
+                      onTap: () async {
                         SafeHaptics.selectionClick();
+                        if (isCurrentPlaying) {
+                          await _soundscapeService.stop();
+                        } else {
+                          await _soundscapeService.play(track);
+                        }
                         setState(() {
                           _selectedSoundscape = p;
-                          _soundEnabled = true;
+                          _soundEnabled = _soundscapeService.isPlaying;
                         });
                       },
                       borderRadius: BorderRadius.circular(6),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: isSel ? colors.secondary.withValues(alpha: 0.15) : colors.recessed,
+                          color: isCurrentPlaying ? colors.secondary.withValues(alpha: 0.15) : colors.recessed,
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                            color: isSel ? colors.secondary : colors.surfaceBorder,
+                            color: isCurrentPlaying ? colors.secondary : colors.surfaceBorder,
                           ),
                         ),
                         child: Text(
                           p,
                           style: GoogleFonts.jetBrainsMono(
-                            color: isSel ? colors.secondary : colors.textMuted,
+                            color: isCurrentPlaying ? colors.secondary : colors.textMuted,
                             fontSize: 10.5,
-                            fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -1363,7 +1383,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     final mins = totalMinutes % 60;
     final timeStr = totalMinutes == 0 ? '0.0 hrs' : (hours > 0 ? '${hours}h ${mins}m' : '${mins}m');
     const targetCycles = 5;
-    final crEquivalent = ((totalMinutes / 60.0) * 0.5).toStringAsFixed(1);
 
     final targetFocusMins = timerState.targetMinutes;
     final shortBreakMins = (targetFocusMins / 5).round().clamp(1, 15);
@@ -1422,13 +1441,19 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
             ),
             child: Column(
               children: [
-                _summaryRow('Target Focus', '$targetFocusMins min'),
-                const SizedBox(height: 6),
-                _summaryRow('Short Break', '$shortBreakMins min'),
-                const SizedBox(height: 6),
-                _summaryRow('Long Break', '15 min (post 4th)'),
-                const SizedBox(height: 6),
-                _summaryRow('Cycle Ratio', '5:1 Focus/Rest'),
+                if (timerState.timerType == TimerType.stopwatch) ...[
+                  _summaryRow('Mode', 'Continuous Count-up'),
+                  const SizedBox(height: 6),
+                  _summaryRow('Elapsed Time', timerState.formattedTime),
+                  const SizedBox(height: 6),
+                  _summaryRow('Status', timerState.status == TimerStatus.running ? 'Focusing' : 'Paused'),
+                ] else ...[
+                  _summaryRow('Target Focus', '$targetFocusMins min'),
+                  const SizedBox(height: 6),
+                  _summaryRow('Short Break', '$shortBreakMins min'),
+                  const SizedBox(height: 6),
+                  _summaryRow('Long Break', '15 min (post 4th)'),
+                ],
               ],
             ),
           ),
@@ -1475,34 +1500,20 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: colors.surfaceBorder),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.end,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      timeStr,
-                      style: GoogleFonts.jetBrainsMono(
-                        color: colors.textPrimary,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      'Total focused time today',
-                      style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11),
-                    ),
-                  ],
+                Text(
+                  timeStr,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.textPrimary,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 Text(
-                  '$crEquivalent CR Equivalent',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: colors.secondary,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  'Total focused time today',
+                  style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11),
                 ),
               ],
             ),
@@ -2252,28 +2263,32 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                                             ),
                                           ),
                                           const SizedBox(height: 6),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                                            decoration: BoxDecoration(
-                                              color: colors.recessed,
-                                              borderRadius: BorderRadius.circular(16),
-                                              border: Border.all(color: colors.surfaceBorder),
-                                            ),
-                                            child: Text(
-                                              '${selectedCourse?.code ?? currentSubject} • ${selectedTopicTitle ?? 'Focus Session'}',
-                                              style: GoogleFonts.plusJakartaSans(
-                                                color: colors.textPrimary,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
+                                          ConstrainedBox(
+                                            constraints: const BoxConstraints(maxWidth: 220),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: colors.recessed,
+                                                borderRadius: BorderRadius.circular(16),
+                                                border: Border.all(color: colors.surfaceBorder),
                                               ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                              child: Text(
+                                                '${selectedCourse?.code ?? currentSubject} • ${selectedTopicTitle ?? 'Focus Session'}',
+                                                style: GoogleFonts.plusJakartaSans(
+                                                  color: colors.textPrimary,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                textAlign: TextAlign.center,
+                                              ),
                                             ),
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
                                             isBreak
-                                                ? 'Earned Rest • 5:1 Focus Ratio'
+                                                ? 'Earned Rest'
                                                 : (timerState.isOvertime
                                                     ? 'Overtime • Deep Focus'
                                                     : (isStopwatch
@@ -2323,18 +2338,18 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
 
                   const SizedBox(height: 16),
 
-                  // Smart Earned Break banner
-                  if (!isBreak) ...[
+                  // Minimal Break indicator banner - only shown when on break
+                  if (isBreak) ...[
                     Center(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 5.0),
                         decoration: BoxDecoration(
                           color: colors.surface,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: colors.success.withValues(alpha: 0.3)),
                         ),
                         child: Text(
-                          '☕ Earned Break: ${timerState.formattedEarnedBreak} • 5:1 ratio',
+                          'Break: ${timerState.formattedTime}',
                           style: GoogleFonts.jetBrainsMono(
                             color: colors.success,
                             fontSize: 11.5,
@@ -2352,16 +2367,36 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         // Sound ambient button
-                        IconButton(
-                          icon: Icon(
-                            _soundEnabled ? Icons.water_drop_rounded : Icons.water_drop_outlined,
-                            color: _soundEnabled ? colors.secondary : colors.textMuted,
-                            size: 24,
-                          ),
-                          onPressed: () {
+                        GestureDetector(
+                          onTap: () async {
                             SafeHaptics.selectionClick();
-                            setState(() => _soundEnabled = !_soundEnabled);
+                            final track = SoundscapeService.fromLabel(_selectedSoundscape);
+                            await _soundscapeService.toggle(track);
+                            setState(() => _soundEnabled = _soundscapeService.isPlaying);
                           },
+                          onLongPress: () {
+                            SafeHaptics.selectionClick();
+                            _showSoundscapePickerSheet();
+                          },
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: _soundEnabled
+                                  ? colors.secondary.withValues(alpha: 0.15)
+                                  : colors.surface,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _soundEnabled ? colors.secondary : colors.surfaceBorder,
+                                width: _soundEnabled ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Icon(
+                              _soundEnabled ? Icons.water_drop_rounded : Icons.water_drop_outlined,
+                              color: _soundEnabled ? colors.secondary : colors.textMuted,
+                              size: 22,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 20),
 
@@ -2752,7 +2787,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
 
                     Text(
                       isBreak
-                          ? 'Earned Rest • 5:1 Focus Ratio'
+                          ? 'Earned Rest'
                           : (timerState.isOvertime
                               ? 'Overtime • Deep Focus'
                               : '${timerState.targetMinutes} min target • ${timerState.formattedEarnedBreak} earned break'),
@@ -2797,6 +2832,94 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
   // =========================================================================
   // 4. DIALOGS & MODALS
   // =========================================================================
+  void _showSoundscapePickerSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setSheetState) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Ambient Soundscape',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (_soundscapeService.isPlaying)
+                      TextButton.icon(
+                        onPressed: () async {
+                          SafeHaptics.selectionClick();
+                          await _soundscapeService.stop();
+                          setState(() => _soundEnabled = false);
+                          setSheetState(() {});
+                        },
+                        icon: const Icon(Icons.volume_off_rounded, size: 16),
+                        label: const Text('Mute'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Looped ambient audio for deep focus sessions',
+                  style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
+                ),
+                const SizedBox(height: 16),
+                ...['Rainfall', 'Library Hall', 'Brown Noise'].map((label) {
+                  final track = SoundscapeService.fromLabel(label);
+                  final isActive = _soundscapeService.currentTrack == track && _soundscapeService.isPlaying;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      isActive ? Icons.graphic_eq_rounded : Icons.water_drop_outlined,
+                      color: isActive ? colors.secondary : colors.textMuted,
+                    ),
+                    title: Text(
+                      label,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: isActive ? colors.secondary : colors.textPrimary,
+                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+                    trailing: isActive
+                        ? Icon(Icons.check_circle_rounded, color: colors.secondary, size: 20)
+                        : null,
+                    onTap: () async {
+                      SafeHaptics.selectionClick();
+                      if (isActive) {
+                        await _soundscapeService.stop();
+                      } else {
+                        await _soundscapeService.play(track);
+                      }
+                      setState(() {
+                        _selectedSoundscape = label;
+                        _soundEnabled = _soundscapeService.isPlaying;
+                      });
+                      setSheetState(() {});
+                    },
+                  );
+                }),
+              ],
+            ),
+          );
+        });
+      },
+    );
+  }
+
   void _showCustomDurationDialog(BuildContext context, TimerNotifier timerNotifier) {
     SafeHaptics.selectionClick();
     final customCtrl = TextEditingController(text: '30');
