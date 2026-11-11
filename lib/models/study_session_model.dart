@@ -17,6 +17,7 @@ class StudySession {
   final List<String> topicTitles;
   final int durationSeconds;
   final int overtimeSeconds;
+  final bool isCompletedCycle;
   final DateTime startedAt;
   final DateTime endedAt;
   final String? focusNotes;
@@ -33,12 +34,15 @@ class StudySession {
     this.topicTitles = const [],
     required this.durationSeconds,
     this.overtimeSeconds = 0,
+    this.isCompletedCycle = false,
     required this.startedAt,
     required this.endedAt,
     this.focusNotes,
     this.focusRating = 5,
   })  : _sessionId = sessionId,
         _topicName = topicName;
+
+  bool get isCompletedInterval => isCompletedCycle || durationSeconds >= 1440;
 
   String get cleanTitle => formatCleanSessionTitle(
         courseCode: courseCode,
@@ -114,6 +118,7 @@ class StudySession {
 
     final courseTitle = map['courseTitle'] as String? ?? map['subjectTitle'] as String? ?? map['title'] as String?;
     final topicName = map['topicName'] as String? ?? (tTitles.isNotEmpty ? tTitles.first : null);
+    final isCompletedCycle = map['isCompletedCycle'] as bool? ?? (dur >= 1440);
 
     return StudySession(
       id: id,
@@ -126,6 +131,7 @@ class StudySession {
       topicTitles: tTitles,
       durationSeconds: dur,
       overtimeSeconds: over,
+      isCompletedCycle: isCompletedCycle,
       startedAt: start,
       endedAt: end,
       focusNotes: notes,
@@ -146,6 +152,7 @@ class StudySession {
       'topicTitles': topicTitles,
       'durationSeconds': durationSeconds,
       'overtimeSeconds': overtimeSeconds,
+      'isCompletedCycle': isCompletedCycle,
       'startedAt': Timestamp.fromDate(startedAt),
       'endedAt': Timestamp.fromDate(endedAt),
       'timestamp': Timestamp.fromDate(startedAt),

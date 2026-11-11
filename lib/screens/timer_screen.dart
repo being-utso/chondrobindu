@@ -35,9 +35,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
   // Desktop Suite & Ambient Soundscape State
   final TextEditingController _desktopScratchpadController = TextEditingController();
   final Set<String> _selectedDesktopTopics = {};
+  final Map<String, bool> _expandedChapters = {};
   final SoundscapeService _soundscapeService = SoundscapeService();
   bool _soundEnabled = false;
   String _selectedSoundscape = 'Rainfall';
+  int _targetCycles = 5;
 
   // Onboarding Tour Keys
   final GlobalKey _keyTimerDial = GlobalKey();
@@ -168,22 +170,26 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     }
 
     String? selectedTopicTitle;
-    if (timerState.selectedTopicId != null && timerState.selectedTopicId!.isNotEmpty) {
-      for (final t in liveTopics) {
-        if (t.id == timerState.selectedTopicId || t.topicIndex == timerState.selectedTopicId) {
-          selectedTopicTitle = t.title;
-          break;
+    final activeTopicId = timerState.selectedTopicId ?? (_selectedDesktopTopics.isNotEmpty ? _selectedDesktopTopics.first : null);
+    if (activeTopicId != null && activeTopicId.isNotEmpty) {
+      if (activeTopicId.startsWith('chapter:')) {
+        selectedTopicTitle = activeTopicId.replaceFirst('chapter:', '');
+      } else {
+        for (final t in liveTopics) {
+          if (t.id == activeTopicId || t.topicIndex == activeTopicId) {
+            selectedTopicTitle = t.title;
+            break;
+          }
+          for (final sub in t.subtopics) {
+            if (sub.id == activeTopicId || '${t.id}:${sub.id}' == activeTopicId || sub.subtopicIndex == activeTopicId) {
+              selectedTopicTitle = '${t.topicIndex} > ${sub.title}';
+              break;
+            }
+          }
+          if (selectedTopicTitle != null) break;
         }
       }
-    }
-    if (selectedTopicTitle == null && _selectedDesktopTopics.isNotEmpty) {
-      for (final t in liveTopics) {
-        if (_selectedDesktopTopics.contains(t.id) || _selectedDesktopTopics.contains(t.topicIndex)) {
-          selectedTopicTitle = t.title;
-          break;
-        }
-      }
-      selectedTopicTitle ??= _selectedDesktopTopics.first;
+      selectedTopicTitle ??= activeTopicId;
     }
 
     final isDesktopWide = MediaQuery.of(context).size.width >= 800;
@@ -313,6 +319,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                         liveTopics,
                         currentSubject,
                         todaySessions.length,
+                        selectedTopicTitle: selectedTopicTitle,
                       ),
                     ),
 
@@ -522,8 +529,9 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     Course? selectedCourse,
     List<SyllabusTopic> liveTopics,
     String currentSubject,
-    int todaySessionsCount,
-  ) {
+    int todaySessionsCount, {
+    String? selectedTopicTitle,
+  }) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -701,21 +709,27 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                   letterSpacing: 0.8,
                 ),
               ),
-              if (liveTopics.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: colors.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    liveTopics.first.chapterTitle.isNotEmpty
-                        ? liveTopics.first.chapterTitle.split(':').first
-                        : 'Syllabus',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: colors.primary,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w600,
+              const SizedBox(width: 8),
+              if (selectedTopicTitle != null || liveTopics.isNotEmpty)
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: colors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      selectedTopicTitle ??
+                          (liveTopics.first.chapterTitle.isNotEmpty
+                              ? liveTopics.first.chapterTitle.split(':').first
+                              : 'Syllabus'),
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.primary,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ),
@@ -723,9 +737,23 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           ),
           const SizedBox(height: 8),
 
-          // Topic list or clean zero state
+          // Collapsible Syllabus Tree (Chapter -> Topic -> Subtopic) with 220px max height cap
           if (liveTopics.isNotEmpty)
-            ...liveTopics.take(4).map((t) => _buildDesktopTopicTile(t, selectedCourse))
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Scrollbar(
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: _buildDesktopSyllabusTree(liveTopics, selectedCourse),
+                    ),
+                  ),
+                ),
+              ),
+            )
           else
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -799,54 +827,353 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              TextButton(
-                onPressed: () {
-                  SafeHaptics.selectionClick();
-                  _desktopScratchpadController.clear();
-                },
-                style: TextButton.styleFrom(
-                  foregroundColor: colors.textMuted,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text('Clear', style: GoogleFonts.jetBrainsMono(fontSize: 11)),
-              ),
-              ElevatedButton.icon(
-                onPressed: () {
-                  SafeHaptics.lightImpact();
-                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: colors.surface,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: BorderSide(color: colors.surfaceBorder),
-                      ),
-                      content: Text(
-                        'Scratchpad saved to session notes.',
-                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 12.5),
-                      ),
+              SizedBox(
+                height: 36,
+                child: TextButton(
+                  onPressed: () {
+                    SafeHaptics.selectionClick();
+                    _desktopScratchpadController.clear();
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: colors.textMuted,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: Text(
+                    'Clear',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
-                  );
-                },
-                icon: const Icon(Icons.bookmark_added_rounded, size: 13),
-                label: Text('Save', style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                ),
+              ),
+              SizedBox(
+                height: 36,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    SafeHaptics.lightImpact();
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: colors.surface,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(color: colors.surfaceBorder),
+                        ),
+                        content: Text(
+                          'Scratchpad saved to session notes.',
+                          style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 12.5),
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.bookmark_added_rounded, size: 14),
+                  label: Text('Save', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
                 ),
               ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  List<Widget> _buildDesktopSyllabusTree(List<SyllabusTopic> topics, Course? course) {
+    // Group topics by chapterTitle
+    final Map<String, List<SyllabusTopic>> chapters = {};
+    for (final t in topics) {
+      final ch = t.chapterTitle.isNotEmpty ? t.chapterTitle : 'General';
+      chapters.putIfAbsent(ch, () => []).add(t);
+    }
+
+    final activeTopicId = ref.watch(timerProvider).selectedTopicId;
+
+    return chapters.entries.map((entry) {
+      final chapterKey = entry.key;
+      final chapterTopics = entry.value;
+      final isExpanded = _expandedChapters[chapterKey] ?? true;
+      final chapterId = 'chapter:$chapterKey';
+      final isChapterSelected = _selectedDesktopTopics.contains(chapterId) || activeTopicId == chapterId;
+
+      return Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        decoration: BoxDecoration(
+          color: colors.recessed,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isChapterSelected ? colors.secondary : colors.surfaceBorder,
+            width: isChapterSelected ? 1.2 : 0.8,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Level 1: Chapter Header (Expand/Collapse + Deep Selection)
+            InkWell(
+              onTap: () {
+                SafeHaptics.selectionClick();
+                setState(() {
+                  _expandedChapters[chapterKey] = !isExpanded;
+                });
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(
+                      isExpanded ? Icons.expand_more_rounded : Icons.chevron_right_rounded,
+                      size: 16,
+                      color: colors.textMuted,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        chapterKey,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: isChapterSelected ? colors.secondary : colors.textPrimary,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: () {
+                        SafeHaptics.selectionClick();
+                        setState(() {
+                          _selectedDesktopTopics.clear();
+                          if (!isChapterSelected) {
+                            _selectedDesktopTopics.add(chapterId);
+                          }
+                        });
+                        ref.read(timerProvider.notifier).setSelectedCourseAndTopic(
+                          courseId: course?.id,
+                          courseCode: course?.code,
+                          topicId: !isChapterSelected ? chapterId : null,
+                          clearTopic: isChapterSelected,
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isChapterSelected
+                              ? colors.secondary.withValues(alpha: 0.15)
+                              : colors.surface,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isChapterSelected ? colors.secondary : colors.surfaceBorder,
+                          ),
+                        ),
+                        child: Text(
+                          isChapterSelected ? 'Selected' : 'Select',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: isChapterSelected ? colors.secondary : colors.textMuted,
+                            fontSize: 9,
+                            fontWeight: isChapterSelected ? FontWeight.bold : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Level 2 & 3: Topics & Leaf Subtopics
+            if (isExpanded) ...[
+              Divider(height: 1, thickness: 0.8, color: colors.surfaceBorder),
+              ...chapterTopics.map((t) => _buildTreeNodeTopic(t, course, activeTopicId)),
+            ],
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+  Widget _buildTreeNodeTopic(SyllabusTopic topic, Course? course, String? activeTopicId) {
+    final isSelected = _selectedDesktopTopics.contains(topic.id) ||
+        _selectedDesktopTopics.contains(topic.topicIndex) ||
+        activeTopicId == topic.id ||
+        activeTopicId == topic.topicIndex;
+    final hasSubtopics = topic.hasSubtopics;
+    final isSubExpanded = _expandedChapters['topic_${topic.id}'] ?? false;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () {
+            SafeHaptics.selectionClick();
+            setState(() {
+              _selectedDesktopTopics.clear();
+              if (!isSelected) {
+                _selectedDesktopTopics.add(topic.id);
+              }
+            });
+            ref.read(timerProvider.notifier).setSelectedCourseAndTopic(
+              courseId: course?.id,
+              courseCode: course?.code,
+              topicId: !isSelected ? topic.id : null,
+              clearTopic: isSelected,
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 5, 8, 5),
+            child: Row(
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isSelected ? colors.secondary : Colors.transparent,
+                    border: Border.all(
+                      color: isSelected ? colors.secondary : colors.textMuted,
+                      width: 1.2,
+                    ),
+                  ),
+                  child: isSelected
+                      ? Center(
+                          child: Container(
+                            width: 4,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: colors.surface,
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${topic.topicIndex} ${topic.title}',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: isSelected ? colors.textPrimary : colors.textMuted,
+                      fontSize: 11.5,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (topic.isCompleted)
+                  Container(
+                    margin: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: colors.success.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      'Done',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.success,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                if (hasSubtopics)
+                  InkWell(
+                    onTap: () {
+                      SafeHaptics.selectionClick();
+                      setState(() {
+                        _expandedChapters['topic_${topic.id}'] = !isSubExpanded;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(
+                        isSubExpanded ? Icons.arrow_drop_down_rounded : Icons.arrow_right_rounded,
+                        size: 18,
+                        color: colors.textMuted,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        // Level 3: Leaf Subtopics
+        if (hasSubtopics && isSubExpanded)
+          ...topic.subtopics.map((sub) {
+            final subId = '${topic.id}:${sub.id}';
+            final isSubSelected = _selectedDesktopTopics.contains(subId) ||
+                _selectedDesktopTopics.contains(sub.id) ||
+                activeTopicId == subId ||
+                activeTopicId == sub.id;
+
+            return InkWell(
+              onTap: () {
+                SafeHaptics.selectionClick();
+                setState(() {
+                  _selectedDesktopTopics.clear();
+                  if (!isSubSelected) {
+                    _selectedDesktopTopics.add(subId);
+                  }
+                });
+                ref.read(timerProvider.notifier).setSelectedCourseAndTopic(
+                  courseId: course?.id,
+                  courseCode: course?.code,
+                  topicId: !isSubSelected ? subId : null,
+                  clearTopic: isSubSelected,
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(32, 3, 8, 3),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isSubSelected ? colors.secondary : colors.surfaceBorder,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${sub.subtopicIndex} ${sub.title}',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: isSubSelected ? colors.secondary : colors.textMuted,
+                          fontSize: 11,
+                          fontWeight: isSubSelected ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (sub.isCompleted)
+                      Text(
+                        '✓',
+                        style: TextStyle(color: colors.success, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }),
+      ],
     );
   }
 
@@ -870,6 +1197,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
             courseId: course?.id,
             courseCode: course?.code,
             topicId: !isSelected ? topic.id : null,
+            clearTopic: isSelected,
           );
         },
         borderRadius: BorderRadius.circular(8),
@@ -1376,13 +1704,13 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
   }
 
   Widget _buildDesktopSessionSummary(TimerState timerState, List<StudySession> todaySessions) {
-    final cycleCount = todaySessions.length;
+    final cycleCount = todaySessions.where((s) => s.isCompletedInterval).length;
     final totalSeconds = todaySessions.fold<int>(0, (sum, s) => sum + s.durationSeconds);
     final totalMinutes = (totalSeconds / 60).round();
     final hours = totalMinutes ~/ 60;
     final mins = totalMinutes % 60;
     final timeStr = totalMinutes == 0 ? '0.0 hrs' : (hours > 0 ? '${hours}h ${mins}m' : '${mins}m');
-    const targetCycles = 5;
+    final targetCycles = _targetCycles;
 
     final targetFocusMins = timerState.targetMinutes;
     final shortBreakMins = (targetFocusMins / 5).round().clamp(1, 15);
@@ -1520,16 +1848,29 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           ),
           const SizedBox(height: 12),
 
-          // 5-Segmented Cycle Tracker
+          // Segmented Cycle Tracker (Configurable)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '$cycleCount / $targetCycles cycles completed',
-                style: GoogleFonts.jetBrainsMono(
-                  color: colors.textPrimary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+              InkWell(
+                onTap: _showTargetCyclesDialog,
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                  child: Row(
+                    children: [
+                      Text(
+                        '$cycleCount / $targetCycles cycles completed',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: colors.textPrimary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.tune_rounded, size: 12, color: colors.secondary),
+                    ],
+                  ),
                 ),
               ),
               Text(
@@ -1543,13 +1884,13 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           ),
           const SizedBox(height: 6),
           Row(
-            children: List.generate(5, (idx) {
+            children: List.generate(_targetCycles, (idx) {
               final isCompleted = idx < cycleCount;
               final isCurrent = idx == cycleCount && timerState.status == TimerStatus.running;
               return Expanded(
                 child: Container(
                   height: 6,
-                  margin: EdgeInsets.only(right: idx < 4 ? 4 : 0),
+                  margin: EdgeInsets.only(right: idx < _targetCycles - 1 ? 4 : 0),
                   decoration: BoxDecoration(
                     color: isCompleted
                         ? colors.primary
@@ -1840,7 +2181,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
 
     final todaySessionsAsync = ref.watch(todayStudySessionsStreamProvider);
     final todaySessions = todaySessionsAsync.value ?? [];
-    final cycleCount = todaySessions.length;
+    final cycleCount = todaySessions.where((s) => s.isCompletedInterval).length;
     final totalSeconds = todaySessions.fold<int>(0, (sum, s) => sum + s.durationSeconds);
     final totalMinutes = (totalSeconds / 60).round();
     final hours = totalMinutes ~/ 60;
@@ -2622,12 +2963,22 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                                 letterSpacing: 0.8,
                               ),
                             ),
-                            Text(
-                              '$cycleCount / 5 cycles',
-                              style: GoogleFonts.jetBrainsMono(
-                                color: colors.primary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
+                            InkWell(
+                              onTap: _showTargetCyclesDialog,
+                              borderRadius: BorderRadius.circular(4),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    '$cycleCount / $_targetCycles cycles',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: colors.primary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(Icons.tune_rounded, size: 12, color: colors.primary),
+                                ],
                               ),
                             ),
                           ],
@@ -2832,6 +3183,58 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
   // =========================================================================
   // 4. DIALOGS & MODALS
   // =========================================================================
+  void _showTargetCyclesDialog() {
+    SafeHaptics.selectionClick();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.repeat_rounded, color: colors.secondary, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Target Daily Cycles',
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [2, 4, 5, 6, 8].map((n) {
+            final isSelected = n == _targetCycles;
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              leading: Icon(
+                isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
+                color: isSelected ? colors.primary : colors.textMuted,
+                size: 20,
+              ),
+              title: Text(
+                '$n cycles',
+                style: GoogleFonts.plusJakartaSans(
+                  color: isSelected ? colors.primary : colors.textPrimary,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+              onTap: () {
+                SafeHaptics.selectionClick();
+                setState(() => _targetCycles = n);
+                Navigator.pop(ctx);
+              },
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
   void _showSoundscapePickerSheet() {
     showModalBottomSheet(
       context: context,

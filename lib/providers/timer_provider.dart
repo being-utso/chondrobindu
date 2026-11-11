@@ -260,6 +260,7 @@ class TimerState {
     String? selectedSubject,
     String? selectedCourseId,
     String? selectedTopicId,
+    bool clearSelectedTopic = false,
     String? activeSessionId,
     bool clearActiveSessionId = false,
     int? currentSubjectElapsedSeconds,
@@ -281,7 +282,7 @@ class TimerState {
       extraElapsedSeconds: extraElapsedSeconds ?? this.extraElapsedSeconds,
       selectedSubject: selectedSubject ?? this.selectedSubject,
       selectedCourseId: selectedCourseId ?? this.selectedCourseId,
-      selectedTopicId: selectedTopicId ?? this.selectedTopicId,
+      selectedTopicId: clearSelectedTopic ? null : (selectedTopicId ?? this.selectedTopicId),
       activeSessionId: clearActiveSessionId ? null : (activeSessionId ?? this.activeSessionId),
       baseSubjectElapsedSeconds: baseSubjectElapsedSeconds ?? currentSubjectElapsedSeconds ?? this.baseSubjectElapsedSeconds,
       sessionMetadata: sessionMetadata ?? this.sessionMetadata,
@@ -408,12 +409,17 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
     }
   }
 
-  void setSelectedCourseAndTopic({String? courseId, String? courseCode, String? topicId}) {
+  void setSelectedCourseAndTopic({String? courseId, String? courseCode, String? topicId, bool clearTopic = false}) {
     state = state.copyWith(
       selectedCourseId: courseId ?? state.selectedCourseId,
       selectedSubject: courseCode ?? state.selectedSubject,
-      selectedTopicId: topicId ?? state.selectedTopicId,
+      selectedTopicId: topicId,
+      clearSelectedTopic: clearTopic || topicId == null,
     );
+  }
+
+  void clearSelectedTopic() {
+    state = state.copyWith(clearSelectedTopic: true);
   }
 
   void _onRemoteActiveSessionUpdate(ActiveSessionState remoteSession) {
@@ -1049,6 +1055,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
     String? mode,
     DateTime? sessionStartTime,
     DateTime? sessionEndTime,
+    bool? isCompletedCycle,
   }) async {
     if (_isCompletingSession) return false;
     _isCompletingSession = true;
@@ -1066,6 +1073,11 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
 
       if (uid.isEmpty) return false;
 
+      final isCycleDone = isCompletedCycle ??
+          ((state.timerType == TimerType.target)
+              ? (elapsed >= state.targetSeconds - 5)
+              : (elapsed >= 1500));
+
       _isLocallyInitiated = true;
       final success = await _timerService.completeSession(
         uid: uid,
@@ -1077,6 +1089,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
         mode: sessionMode,
         sessionStartTime: start,
         sessionEndTime: sessionEndTime,
+        isCompletedCycle: isCycleDone,
       );
 
       state = state.copyWith(clearActiveSessionId: true);

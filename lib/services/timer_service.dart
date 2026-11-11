@@ -667,6 +667,7 @@ class TimerService {
     required String mode, // 'focus' or 'stopwatch'
     required DateTime sessionStartTime,
     DateTime? sessionEndTime,
+    bool? isCompletedCycle,
   }) async {
     if (_isSavingSession) {
       debugPrint('TimerService: completeSession already in progress, ignoring concurrent save');
@@ -766,6 +767,7 @@ class TimerService {
             'topicName': data['topicName'] ?? topicName ?? '',
             'durationSeconds': finalCalculatedSeconds,
             'durationMinutes': mins,
+            'isCompletedCycle': isCompletedCycle ?? (finalCalculatedSeconds >= 1440),
             'mode': data['mode'] ?? mode,
             'startedAt': data['startedAt'] ?? Timestamp.fromDate(resolvedStartTime),
             'endedAt': FieldValue.serverTimestamp(),
@@ -846,6 +848,7 @@ class TimerService {
           'topicName': topicName ?? '',
           'durationSeconds': finalElapsedSeconds,
           'durationMinutes': mins,
+          'isCompletedCycle': isCompletedCycle ?? (finalElapsedSeconds >= 1440),
           'mode': mode,
           'startedAt': Timestamp.fromDate(sessionStartTime),
           'endedAt': Timestamp.fromDate(now),
