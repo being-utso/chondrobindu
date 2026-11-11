@@ -23,6 +23,20 @@ class SoundscapeService {
   int _operationSequence = 0;
   bool _isInitialized = false;
 
+  static final AudioContext _audioContext = AudioContext(
+    iOS: AudioContextIOS(
+      category: AVAudioSessionCategory.playback,
+      options: const {AVAudioSessionOptions.mixWithOthers},
+    ),
+    android: const AudioContextAndroid(
+      isSpeakerphoneOn: true,
+      stayAwake: true,
+      contentType: AndroidContentType.music,
+      usageType: AndroidUsageType.media,
+      audioFocus: AndroidAudioFocus.none,
+    ),
+  );
+
   SoundscapeService._internal() {
     _init();
   }
@@ -31,6 +45,8 @@ class SoundscapeService {
     if (_isInitialized) return;
     _isInitialized = true;
     try {
+      AudioPlayer.global.setAudioContext(_audioContext);
+      _player.setAudioContext(_audioContext);
       _player.setReleaseMode(ReleaseMode.loop);
       _player.setVolume(_volume);
     } catch (e) {
@@ -81,6 +97,7 @@ class SoundscapeService {
     _volume = val.clamp(0.0, 1.0);
     try {
       await _player.setVolume(_volume);
+      debugPrint('>>> SOUNDSCAPE VOLUME UPDATED: $_volume');
     } catch (e) {
       debugPrint('SoundscapeService setVolume error: $e');
     }
@@ -94,33 +111,46 @@ class SoundscapeService {
     }
 
     _current = track;
+    final path = _assetPath(track);
+    final currentVolume = _volume;
 
+    // 1. Ensure audio routing and audio context are set to media speaker
     try {
-      // 1. Stop any currently active audio
-      await _player.stop();
-      if (seq != _operationSequence) return;
+      await AudioPlayer.global.setAudioContext(_audioContext);
+      await _player.setAudioContext(_audioContext);
+    } catch (e) {
+      debugPrint('Soundscape setAudioContext notice: $e');
+    }
 
-      // 2. Configure infinite looping and volume
+    if (seq != _operationSequence) return;
+
+    // 2. Set release mode to loop before play
+    try {
       await _player.setReleaseMode(ReleaseMode.loop);
-      if (seq != _operationSequence) return;
+    } catch (e) {
+      debugPrint('Soundscape setReleaseMode notice: $e');
+    }
 
-      await _player.setVolume(_volume);
-      if (seq != _operationSequence) return;
+    if (seq != _operationSequence) return;
 
-      // 3. Play new asset source (noises/filename.mp3 - audioplayers prepends assets/)
-      await _player.play(AssetSource(_assetPath(track)));
+    // 3. Set volume explicitly on the player (Ensure 0.0 to 1.0)
+    try {
+      await _player.setVolume(currentVolume.clamp(0.0, 1.0));
+    } catch (e) {
+      debugPrint('Soundscape setVolume notice: $e');
+    }
+
+    if (seq != _operationSequence) return;
+
+    // 4. Play track with AssetSource
+    debugPrint('>>> ATTEMPTING SOUNDSCAPE PLAY: $path at volume $currentVolume');
+    try {
+      await _player.play(AssetSource(path));
+      debugPrint('>>> SOUNDSCAPE PLAY SUCCESSFUL');
     } catch (e, stack) {
-      debugPrint("Soundscape error: $e");
-      debugPrint(stack.toString());
+      debugPrint('>>> SOUNDSCAPE PLAY FAILED: $e\n$stack');
       if (seq == _operationSequence) {
-        // Fallback directly to play call
-        try {
-          await _player.play(AssetSource(_assetPath(track)), volume: _volume);
-        } catch (e2, stack2) {
-          debugPrint("Soundscape error: $e2");
-          debugPrint(stack2.toString());
-          _current = SoundscapeTrack.none;
-        }
+        _current = SoundscapeTrack.none;
       }
     }
   }
@@ -130,6 +160,7 @@ class SoundscapeService {
     _current = SoundscapeTrack.none;
     try {
       await _player.stop();
+      debugPrint('>>> SOUNDSCAPE STOPPED');
     } catch (e) {
       debugPrint('SoundscapeService stop error: $e');
     }
