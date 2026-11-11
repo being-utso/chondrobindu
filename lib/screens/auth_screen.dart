@@ -98,7 +98,7 @@ const Map<String, List<AdmissionTargetOption>> kAdmissionTargetsByGroup = {
     ),
   ],
 };
-
+ 
 /// Refactored Authentication & Academic Onboarding Portal
 /// Features:
 /// 1. Unified smooth scrollable page wrapper (`min-h-screen overflow-y-auto`).
