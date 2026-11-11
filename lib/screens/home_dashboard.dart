@@ -1682,6 +1682,10 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                           SafeHaptics.heavyImpact();
                           if (activeCourse != null) {
                             ref.read(timerProvider.notifier).changeSubject(activeCourse.title);
+                            ref.read(timerProvider.notifier).setSelectedCourseAndTopic(
+                              courseId: activeCourse.id,
+                              courseCode: activeCourse.code,
+                            );
                           }
                           ref.read(navigationIndexProvider.notifier).state = 2; // Timer tab
                         }

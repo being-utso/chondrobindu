@@ -2,8 +2,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import '../core/theme/app_colors.dart';
 import '../models/course_model.dart';
 import '../models/routine_models.dart';
+import '../models/study_session_model.dart';
+import '../models/syllabus_model.dart';
 import '../providers/firestore_providers.dart';
 import '../providers/timer_provider.dart';
 import '../providers/timer_subjects_provider.dart';
@@ -27,10 +31,11 @@ class TimerScreen extends ConsumerStatefulWidget {
 
 class _TimerScreenState extends ConsumerState<TimerScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  // Desktop Suite State
+  // Desktop Suite & Ambient Soundscape State
   final TextEditingController _desktopScratchpadController = TextEditingController();
   final Set<String> _selectedDesktopTopics = {};
-  bool _desktopSoundEnabled = true;
+  bool _soundEnabled = true;
+  String _selectedSoundscape = 'Rainfall';
 
   // Onboarding Tour Keys
   final GlobalKey _keyTimerDial = GlobalKey();
@@ -53,6 +58,8 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
   late Animation<double> _scaleAnimation;
   late Animation<double> _glowAnimation;
   bool _isPostSessionDialogOpen = false;
+
+  ChondrobinduThemeColors get colors => AppColors.of(context);
 
   @override
   void initState() {
@@ -92,8 +99,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
 
     if (state == AppLifecycleState.resumed) {
       if (timerState.status == TimerStatus.running) {
-        // Authoritative wall-clock calculation automatically computes exact duration
-        // via DateTime.now().difference(startedAt). Simply sync the UI and tick.
         ref.read(timerProvider.notifier).syncUi();
         if (mounted) {
           setState(() {});
@@ -109,13 +114,12 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     final timerNotifier = ref.read(timerProvider.notifier);
     final timerSubjects = ref.watch(timerSubjectsProvider);
 
-
     final isBreak = timerState.mode == TimerMode.breakTime;
     final isRunning = timerState.status == TimerStatus.running;
     final isPaused = timerState.status == TimerStatus.paused;
     final isInitial = timerState.status == TimerStatus.initial;
 
-    // Task 2: Subtle Breathing / Pulse Animation ONLY runs when Timer is Running
+    // Subtle Breathing / Pulse Animation ONLY runs when Timer is Running
     if (isRunning) {
       if (!_pulseController.isAnimating) {
         _pulseController.repeat(reverse: true);
@@ -126,14 +130,58 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
       }
     }
 
-    const accentColor = Color(0xFFF2B78A);
-    const breakColor = Color(0xFF34D399); // Emerald for Break
-    final currentColor = isBreak ? breakColor : accentColor;
-
-    // Ensure selected subject is valid or fallback to first available
+    // Resolve course & syllabus bindings
+    final courses = (ref.watch(coursesStreamProvider).valueOrNull ?? []).where((c) => !c.isArchived).toList();
     final currentSubject = timerSubjects.contains(timerState.selectedSubject)
         ? timerState.selectedSubject
         : (timerSubjects.isNotEmpty ? timerSubjects.first : 'General Study');
+
+    Course? selectedCourse;
+    if (timerState.selectedCourseId != null && timerState.selectedCourseId!.isNotEmpty) {
+      for (final c in courses) {
+        if (c.id == timerState.selectedCourseId) {
+          selectedCourse = c;
+          break;
+        }
+      }
+    }
+    if (selectedCourse == null) {
+      for (final c in courses) {
+        if (c.title.toLowerCase() == currentSubject.toLowerCase() ||
+            c.code.toLowerCase() == currentSubject.toLowerCase() ||
+            currentSubject.toLowerCase().startsWith('${c.code.toLowerCase()}:')) {
+          selectedCourse = c;
+          break;
+        }
+      }
+    }
+    if (selectedCourse == null && courses.isNotEmpty && !timerSubjects.contains(currentSubject)) {
+      selectedCourse = courses.first;
+    }
+
+    List<SyllabusTopic> liveTopics = [];
+    if (selectedCourse != null) {
+      liveTopics = ref.watch(syllabusTopicsStreamProvider(selectedCourse.id)).valueOrNull ?? [];
+    }
+
+    String? selectedTopicTitle;
+    if (timerState.selectedTopicId != null && timerState.selectedTopicId!.isNotEmpty) {
+      for (final t in liveTopics) {
+        if (t.id == timerState.selectedTopicId || t.topicIndex == timerState.selectedTopicId) {
+          selectedTopicTitle = t.title;
+          break;
+        }
+      }
+    }
+    if (selectedTopicTitle == null && _selectedDesktopTopics.isNotEmpty) {
+      for (final t in liveTopics) {
+        if (_selectedDesktopTopics.contains(t.id) || _selectedDesktopTopics.contains(t.topicIndex)) {
+          selectedTopicTitle = t.title;
+          break;
+        }
+      }
+      selectedTopicTitle ??= _selectedDesktopTopics.first;
+    }
 
     final isDesktopWide = MediaQuery.of(context).size.width >= 800;
     if (isDesktopWide) {
@@ -143,12 +191,15 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
         timerState,
         timerNotifier,
         timerSubjects,
+        courses,
+        selectedCourse,
+        liveTopics,
+        selectedTopicTitle,
         currentSubject,
         isBreak,
         isRunning,
         isPaused,
         isInitial,
-        currentColor,
       );
     }
 
@@ -173,30 +224,38 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           timerState,
           timerNotifier,
           timerSubjects,
+          courses,
+          selectedCourse,
+          liveTopics,
+          selectedTopicTitle,
           currentSubject,
           isBreak,
           isRunning,
           isPaused,
           isInitial,
-          currentColor,
         );
       },
     );
   }
 
-  /// Desktop-native 3-column Deep Work Suite (width >= 800px)
+  // =========================================================================
+  // 1. DESKTOP SUITE (Width >= 800px)
+  // =========================================================================
   Widget _buildDesktopSuite(
     BuildContext context,
     WidgetRef ref,
     TimerState timerState,
     TimerNotifier timerNotifier,
     List<String> timerSubjects,
+    List<Course> courses,
+    Course? selectedCourse,
+    List<SyllabusTopic> liveTopics,
+    String? selectedTopicTitle,
     String currentSubject,
     bool isBreak,
     bool isRunning,
     bool isPaused,
     bool isInitial,
-    Color currentColor,
   ) {
     final isStopwatch = timerState.timerType == TimerType.stopwatch;
     final elapsedSec = timerState.elapsedSeconds;
@@ -205,53 +264,60 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
         ? (timerState.status == TimerStatus.initial ? 0.0 : stopwatchProgress)
         : (isBreak ? 1.0 : timerState.progressRatio);
 
+    final userProfile = ref.watch(userProfileProvider);
+    String statusContext;
+    if (userProfile.isUniversityStudent) {
+      final dept = userProfile.department?.isNotEmpty == true ? userProfile.department! : 'ENG';
+      final level = userProfile.level?.isNotEmpty == true ? userProfile.level! : '1';
+      final term = userProfile.term?.isNotEmpty == true ? userProfile.term! : '1';
+      statusContext = 'TERM $level.$term • $dept';
+    } else {
+      final batch = userProfile.hscBatch.isNotEmpty ? userProfile.hscBatch : '2025';
+      final group = userProfile.hscGroup.isNotEmpty ? userProfile.hscGroup : 'Science';
+      statusContext = 'HSC \'$batch • ${group.toUpperCase()}';
+    }
+
+    final todaySessionsAsync = ref.watch(todayStudySessionsStreamProvider);
+    final todaySessions = todaySessionsAsync.value ?? [];
+
     return Scaffold(
-      backgroundColor: const Color(0xFF151211),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1440),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: colors.background,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1360),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Left Column (flex 3): Context & Target Selection
-                Expanded(
-                  flex: 3,
-                  child: _buildDesktopTargetSelection(timerState, timerNotifier, timerSubjects, currentSubject),
-                ),
+                // Top Ribbon & Status Header
+                _buildDesktopTopRibbon(statusContext, isBreak, isRunning, isPaused),
+                const SizedBox(height: 20),
 
-                const SizedBox(width: 24),
+                // 3-Column Studio Grid Layout (320px - Flex Center - 320px)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Column 1: Target Context Panel
+                    SizedBox(
+                      width: 320,
+                      child: _buildDesktopTargetSelection(
+                        timerState,
+                        timerNotifier,
+                        timerSubjects,
+                        courses,
+                        selectedCourse,
+                        liveTopics,
+                        currentSubject,
+                        todaySessions.length,
+                      ),
+                    ),
 
-                // Center Column (flex 6): Immersive Timer Engine
-                Expanded(
-                  flex: 6,
-                  child: Builder(
-                    builder: (context) {
-                      final courses = ref.watch(coursesStreamProvider).valueOrNull ?? [];
-                      Course? selectedCourse;
-                      for (final c in courses) {
-                        if (c.title.toLowerCase() == currentSubject.toLowerCase() ||
-                            c.code.toLowerCase() == currentSubject.toLowerCase()) {
-                          selectedCourse = c;
-                          break;
-                        }
-                      }
-                      String? selectedTopicTitle;
-                      if (selectedCourse != null) {
-                        final liveTopics = ref.watch(syllabusTopicsStreamProvider(selectedCourse.id)).valueOrNull ?? [];
-                        for (final t in liveTopics) {
-                          if (_selectedDesktopTopics.contains(t.topicIndex) || _selectedDesktopTopics.contains(t.id)) {
-                            selectedTopicTitle = t.title;
-                            break;
-                          }
-                        }
-                      }
-                      if (selectedTopicTitle == null && _selectedDesktopTopics.isNotEmpty) {
-                        selectedTopicTitle = _selectedDesktopTopics.first;
-                      }
+                    const SizedBox(width: 20),
 
-                      return _buildDesktopCenterDial(
+                    // Column 2: Center Hero Timer Dial
+                    Expanded(
+                      child: _buildDesktopCenterDial(
                         timerState,
                         timerNotifier,
                         currentSubject,
@@ -260,20 +326,20 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                         isPaused,
                         isStopwatch,
                         dialProgress,
-                        currentColor,
                         selectedCourse: selectedCourse,
                         selectedTopicTitle: selectedTopicTitle,
-                      );
-                    },
-                  ),
-                ),
+                        todaySessionsCount: todaySessions.length,
+                      ),
+                    ),
 
-                const SizedBox(width: 24),
+                    const SizedBox(width: 20),
 
-                // Right Column (flex 3): Session Overview & Motivation
-                Expanded(
-                  flex: 3,
-                  child: _buildDesktopSessionSummary(timerState),
+                    // Column 3: Session Matrix & Live Output
+                    SizedBox(
+                      width: 320,
+                      child: _buildDesktopSessionSummary(timerState, todaySessions),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -283,82 +349,329 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     );
   }
 
-  Widget _buildDesktopTargetSelection(
-    TimerState timerState,
-    TimerNotifier timerNotifier,
-    List<String> timerSubjects,
-    String currentSubject,
+  Widget _buildDesktopTopRibbon(
+    String statusContext,
+    bool isBreak,
+    bool isRunning,
+    bool isPaused,
   ) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1816),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2E2623), width: 1),
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.surfaceBorder, width: 1),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // Breadcrumbs & Status Tags
           Row(
             children: [
-              const Icon(Icons.school_outlined, color: Color(0xFFF2B78A), size: 18),
-              const SizedBox(width: 8),
-              Expanded(
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colors.secondary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: colors.secondary.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: colors.secondary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'DEEP WORK STUDIO',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.secondary,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text('•', style: TextStyle(color: colors.surfaceBorder, fontSize: 16)),
+              const SizedBox(width: 10),
+              Text(
+                'SYNCHRONIZED TO $statusContext',
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.textMuted,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text('•', style: TextStyle(color: colors.surfaceBorder, fontSize: 16)),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: colors.surfaceBorder),
+                ),
                 child: Text(
-                  'TARGET COURSE',
+                  isBreak
+                      ? 'BREAK IN PROGRESS'
+                      : (isRunning ? 'ACTIVE SESSION' : (isPaused ? 'SESSION PAUSED' : 'STUDIO READY')),
                   style: GoogleFonts.jetBrainsMono(
-                    color: const Color(0xFF9E8C82),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.0,
+                    color: isBreak ? colors.success : (isRunning ? colors.primary : colors.textMuted),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          // Custom Dark Course Dropdown
+
+          // Ambient Soundscape Quick Button & Status
+          Row(
+            children: [
+              InkWell(
+                onTap: () {
+                  SafeHaptics.selectionClick();
+                  setState(() => _soundEnabled = !_soundEnabled);
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: colors.surface,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(color: colors.surfaceBorder),
+                      ),
+                      duration: const Duration(seconds: 2),
+                      content: Row(
+                        children: [
+                          Icon(Icons.water_drop_rounded, size: 16, color: colors.secondary),
+                          const SizedBox(width: 8),
+                          Text(
+                            _soundEnabled
+                                ? 'Soundscape: $_selectedSoundscape enabled'
+                                : 'Soundscape muted',
+                            style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: colors.recessed,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: colors.surfaceBorder),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _soundEnabled ? Icons.water_drop_rounded : Icons.water_drop_outlined,
+                        size: 15,
+                        color: _soundEnabled ? colors.secondary : colors.textMuted,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Soundscapes: ',
+                        style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11),
+                      ),
+                      Text(
+                        '$_selectedSoundscape [${_soundEnabled ? 'ON' : 'OFF'}]',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: _soundEnabled ? colors.textPrimary : colors.textMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopTargetSelection(
+    TimerState timerState,
+    TimerNotifier timerNotifier,
+    List<String> timerSubjects,
+    List<Course> courses,
+    Course? selectedCourse,
+    List<SyllabusTopic> liveTopics,
+    String currentSubject,
+    int todaySessionsCount,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.surfaceBorder, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: colors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(Icons.adjust_rounded, color: colors.primary, size: 16),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Target Context',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'BLOCK 0${(todaySessionsCount % 5) + 1}',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Enrolled Course Label
+          Text(
+            'ENROLLED COURSE',
+            style: GoogleFonts.jetBrainsMono(
+              color: colors.textMuted,
+              fontSize: 10.5,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 6),
+
+          // 48px Height Course Dropdown Container
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF241C1A),
+              color: colors.recessed,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF2E2623), width: 1),
+              border: Border.all(color: colors.surfaceBorder, width: 1),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: timerSubjects.contains(currentSubject)
-                    ? currentSubject
-                    : (timerSubjects.isNotEmpty ? timerSubjects.first : null),
+                value: (selectedCourse != null)
+                    ? selectedCourse.id
+                    : (timerSubjects.contains(currentSubject) ? currentSubject : null),
                 isExpanded: true,
-                dropdownColor: const Color(0xFF241C1A),
-                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFFF2B78A)),
+                dropdownColor: colors.surface,
+                icon: Icon(Icons.unfold_more_rounded, color: colors.textMuted, size: 18),
                 style: GoogleFonts.plusJakartaSans(
-                  color: const Color(0xFFEDE8E3),
-                  fontSize: 13.5,
+                  color: colors.textPrimary,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
-                items: timerSubjects
-                    .map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis)))
-                    .toList(),
+                items: [
+                  ...courses.map((c) => DropdownMenuItem(
+                        value: c.id,
+                        child: Row(
+                          children: [
+                            Text(
+                              c.code,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: colors.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                c.title,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: colors.textPrimary,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                  if (courses.isEmpty)
+                    ...timerSubjects.map((s) => DropdownMenuItem(
+                          value: s,
+                          child: Text(
+                            s,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: colors.textPrimary,
+                              fontSize: 12.5,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        )),
+                ],
                 onChanged: (val) {
-                  if (val != null) {
-                    SafeHaptics.selectionClick();
-                    timerNotifier.changeSubject(val);
-                    final courses = ref.read(coursesStreamProvider).valueOrNull ?? [];
-                    Course? matchedCourse;
-                    for (final c in courses) {
-                      if (c.title.toLowerCase() == val.toLowerCase() ||
-                          c.code.toLowerCase() == val.toLowerCase()) {
-                        matchedCourse = c;
-                        break;
-                      }
+                  if (val == null) return;
+                  SafeHaptics.selectionClick();
+                  Course? match;
+                  for (final c in courses) {
+                    if (c.id == val) {
+                      match = c;
+                      break;
                     }
+                  }
+                  if (match != null) {
+                    timerNotifier.changeSubject(match.title);
                     timerNotifier.setSelectedCourseAndTopic(
-                      courseId: matchedCourse?.id,
-                      courseCode: matchedCourse?.code ?? val,
-                      topicId: _selectedDesktopTopics.isNotEmpty ? _selectedDesktopTopics.first : null,
+                      courseId: match.id,
+                      courseCode: match.code,
+                      topicId: null,
+                    );
+                    setState(() {
+                      _selectedDesktopTopics.clear();
+                    });
+                  } else {
+                    timerNotifier.changeSubject(val);
+                    timerNotifier.setSelectedCourseAndTopic(
+                      courseId: null,
+                      courseCode: val,
+                      topicId: null,
                     );
                   }
                 },
@@ -366,156 +679,259 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
+          // Linked Syllabus Topics Checklist Header
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.checklist_rounded, color: Color(0xFF34D399), size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'SELECT ATOMIC TOPICS',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: const Color(0xFF9E8C82),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.0,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+              Text(
+                'LINKED SYLLABUS TOPIC',
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.textMuted,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
                 ),
               ),
+              if (liveTopics.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    liveTopics.first.chapterTitle.isNotEmpty
+                        ? liveTopics.first.chapterTitle.split(':').first
+                        : 'Syllabus',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.primary,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
-          // Atomic topics list
-          ...(() {
-            final courses = ref.watch(coursesStreamProvider).valueOrNull ?? [];
-            Course? matchedCourse;
-            for (final c in courses) {
-              if (c.title.toLowerCase() == currentSubject.toLowerCase() ||
-                  c.code.toLowerCase() == currentSubject.toLowerCase()) {
-                matchedCourse = c;
-                break;
-              }
-            }
-            if (matchedCourse != null) {
-              final liveTopics = ref.watch(syllabusTopicsStreamProvider(matchedCourse.id)).valueOrNull;
-              if (liveTopics != null && liveTopics.isNotEmpty) {
-                return liveTopics.take(5).map((t) => _desktopTopicCheckbox(t.topicIndex, t.title, course: matchedCourse)).toList();
-              }
-            }
-            return [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Text(
-                  'No topics found for this subject. Add topics to your course syllabus.',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: const Color(0xFF9E8C82),
-                    fontSize: 12.5,
-                  ),
+          // Topic list or clean zero state
+          if (liveTopics.isNotEmpty)
+            ...liveTopics.take(4).map((t) => _buildDesktopTopicTile(t, selectedCourse))
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colors.surfaceBorder),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded, size: 16, color: colors.textMuted),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        courses.isEmpty
+                            ? 'No courses enrolled yet. Add courses in Courses tab.'
+                            : 'No topics found for this course. Add topics in Courses & Syllabus.',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textMuted,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ];
-          })(),
+            ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
+          // Scratchpad & Fleeting Thoughts Section
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.edit_note_rounded, color: Color(0xFFF2B78A), size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'SCRATCHPAD / FOCUS NOTES',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: const Color(0xFF9E8C82),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.0,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+              Text(
+                'SCRATCHPAD & THOUGHTS',
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.textMuted,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
                 ),
               ),
+              Icon(Icons.cloud_sync_outlined, size: 14, color: colors.textMuted),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           TextField(
             controller: _desktopScratchpadController,
-            maxLines: 4,
-            style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEDE8E3), fontSize: 13),
+            maxLines: 3,
+            style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 12),
             decoration: InputDecoration(
-              hintText: 'Jot down formulas, derivations, blockages, or fleeting thoughts...',
-              hintStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 12),
+              isDense: true,
+              hintText: 'Jot down formulas, derivations, or fleeting thoughts to preserve flow state...',
+              hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11.5),
               filled: true,
-              fillColor: const Color(0xFF241C1A),
+              fillColor: colors.recessed,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFF2E2623), width: 1),
+                borderSide: BorderSide(color: colors.surfaceBorder, width: 1),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFF2B78A), width: 1.2),
+                borderSide: BorderSide(color: colors.secondary, width: 1.2),
               ),
-              contentPadding: const EdgeInsets.all(12),
+              contentPadding: const EdgeInsets.all(10),
             ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton(
+                onPressed: () {
+                  SafeHaptics.selectionClick();
+                  _desktopScratchpadController.clear();
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: colors.textMuted,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text('Clear', style: GoogleFonts.jetBrainsMono(fontSize: 11)),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  SafeHaptics.lightImpact();
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: colors.surface,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(color: colors.surfaceBorder),
+                      ),
+                      content: Text(
+                        'Scratchpad saved to session notes.',
+                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 12.5),
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.bookmark_added_rounded, size: 13),
+                label: Text('Save', style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _desktopTopicCheckbox(String id, String title, {Course? course}) {
-    final isChecked = _selectedDesktopTopics.contains(id);
+  Widget _buildDesktopTopicTile(SyllabusTopic topic, Course? course) {
+    final isSelected = _selectedDesktopTopics.contains(topic.id) ||
+        _selectedDesktopTopics.contains(topic.topicIndex) ||
+        ref.read(timerProvider).selectedTopicId == topic.id;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 6.0),
       child: InkWell(
         onTap: () {
           SafeHaptics.selectionClick();
           setState(() {
-            if (isChecked) {
-              _selectedDesktopTopics.remove(id);
-            } else {
-              _selectedDesktopTopics.add(id);
+            _selectedDesktopTopics.clear();
+            if (!isSelected) {
+              _selectedDesktopTopics.add(topic.id);
             }
           });
           ref.read(timerProvider.notifier).setSelectedCourseAndTopic(
             courseId: course?.id,
             courseCode: course?.code,
-            topicId: _selectedDesktopTopics.isNotEmpty ? _selectedDesktopTopics.first : null,
+            topicId: !isSelected ? topic.id : null,
           );
         },
         borderRadius: BorderRadius.circular(8),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF241C1A),
+            color: isSelected ? colors.secondary.withValues(alpha: 0.12) : colors.recessed,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isChecked ? const Color(0xFF34D399).withValues(alpha: 0.4) : const Color(0xFF2E2623),
-              width: 0.8,
+              color: isSelected ? colors.secondary : colors.surfaceBorder,
+              width: isSelected ? 1.2 : 0.8,
             ),
           ),
           child: Row(
             children: [
-              Icon(
-                isChecked ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
-                color: isChecked ? const Color(0xFF34D399) : const Color(0xFF9E8C82),
-                size: 18,
+              Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected ? colors.secondary : colors.surfaceBorder,
+                ),
+                child: isSelected
+                    ? Center(
+                        child: Container(
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: colors.surface,
+                          ),
+                        ),
+                      )
+                    : null,
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  '$id $title',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: isChecked ? const Color(0xFFEDE8E3) : const Color(0xFF9E8C82),
-                    fontSize: 12.5,
-                    fontWeight: isChecked ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${topic.topicIndex} ${topic.title}',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: isSelected ? colors.textPrimary : colors.textMuted,
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
+              if (topic.isCompleted)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: colors.success.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'Done',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.success,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -531,103 +947,168 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     bool isRunning,
     bool isPaused,
     bool isStopwatch,
-    double dialProgress,
-    Color currentColor, {
+    double dialProgress, {
     Course? selectedCourse,
     String? selectedTopicTitle,
+    required int todaySessionsCount,
   }) {
+    final targetFocusMins = timerState.targetMinutes;
+    final shortBreakMins = (targetFocusMins / 5).round().clamp(1, 15);
+
     return Container(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1816),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2E2623), width: 1),
+        border: Border.all(color: colors.surfaceBorder, width: 1),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Pill Toggle: [ Focus ] vs [ Stopwatch ]
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF241C1A),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFF2E2623), width: 1),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _desktopPillToggleItem('Focus', !isStopwatch, () {
-                  SafeHaptics.selectionClick();
-                  timerNotifier.setTimerType(TimerType.target);
-                }),
-                _desktopPillToggleItem('Stopwatch', isStopwatch, () {
-                  SafeHaptics.selectionClick();
-                  timerNotifier.setTimerType(TimerType.stopwatch);
-                }),
-              ],
-            ),
+          // Mode Toggle & Duration Presets Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Pill Toggle: [ Focus ] vs [ Stopwatch ]
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: colors.surfaceBorder),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildPillToggleItem('Focus', !isStopwatch, () {
+                      SafeHaptics.selectionClick();
+                      timerNotifier.setTimerType(TimerType.target);
+                    }),
+                    _buildPillToggleItem('Stopwatch', isStopwatch, () {
+                      SafeHaptics.selectionClick();
+                      timerNotifier.setTimerType(TimerType.stopwatch);
+                    }),
+                  ],
+                ),
+              ),
+
+              // Duration Presets (Focus mode only)
+              if (!isStopwatch)
+                _buildDurationPresetsRow(timerState, timerNotifier)
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: colors.recessed,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Open-ended Count-up',
+                    style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11),
+                  ),
+                ),
+            ],
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
-          // Duration Presets Row: [ 15 min ] [ 25 min ] [ 45 min ] [ 60 min ] [ Custom ]
-          if (!isStopwatch) ...[
-            _buildDurationPresetsRow(timerState, timerNotifier),
-            const SizedBox(height: 24),
-          ] else
-            const SizedBox(height: 36),
-
-          // 280px Diameter Circular Countdown Dial
+          // 290px Hero Circular Gauge & Monospace Display
           SizedBox(
-            width: 280,
-            height: 280,
+            width: 290,
+            height: 290,
             child: CustomPaint(
               painter: TimerDialPainter(
                 progress: dialProgress,
                 isStopwatch: isStopwatch,
-                primaryColor: isBreak ? const Color(0xFF34D399) : const Color(0xFFF2B78A),
-                glowColor: timerState.isOvertime ? const Color(0xFFF2B78A).withValues(alpha: 0.35) : null,
-                strokeWidth: 10.0,
+                primaryColor: isBreak ? colors.success : colors.secondary,
+                trackColor: colors.surfaceBorder,
+                dialFillColor: colors.recessed.withValues(alpha: 0.35),
+                borderColor: colors.surfaceBorder,
+                glowColor: isBreak
+                    ? colors.success.withValues(alpha: 0.45)
+                    : colors.secondary.withValues(alpha: 0.45),
+                strokeWidth: 9.0,
               ),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Interval Block Header Tag
+                    Text(
+                      isBreak
+                          ? 'EARNED REST // BREAK'
+                          : (timerState.isOvertime
+                              ? 'DEEP OVERTIME // ZONE'
+                              : 'DEEP FOCUS // BLOCK 0${(todaySessionsCount % 5) + 1}'),
+                      style: GoogleFonts.jetBrainsMono(
+                        color: isBreak ? colors.success : (timerState.isOvertime ? colors.secondary : colors.textMuted),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+
+                    // Massive Digital Readout in JetBrains Mono
                     Text(
                       timerState.formattedTime,
                       style: GoogleFonts.jetBrainsMono(
                         color: isBreak
-                            ? const Color(0xFF34D399)
-                            : (timerState.isOvertime
-                                ? const Color(0xFFF2B78A)
-                                : const Color(0xFFEDE8E3)),
-                        fontSize: 48,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -1.0,
+                            ? colors.success
+                            : (timerState.isOvertime ? colors.secondary : colors.textPrimary),
+                        fontSize: 50,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -1.5,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
+
+                    // Structured Subtitle Pill
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E1A18),
+                        color: colors.recessed,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFF2E2623), width: 1),
+                        border: Border.all(color: colors.surfaceBorder),
                       ),
-                      child: Text(
-                        isBreak
-                            ? 'Break • 5:1 Focus Ratio'
-                            : (timerState.isOvertime
-                                ? 'Overtime • Counting Up'
-                                : '${selectedCourse?.code ?? currentSubject} • ${selectedTopicTitle ?? 'Focus Session'}'),
-                        style: GoogleFonts.plusJakartaSans(
-                          color: isBreak ? const Color(0xFF34D399) : const Color(0xFFD4C5B9),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: isBreak ? colors.success : colors.secondary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              isBreak
+                                  ? 'Break • 5:1 Focus Ratio'
+                                  : (timerState.isOvertime
+                                      ? 'Overtime • Recording study time'
+                                      : '${selectedCourse?.code ?? currentSubject} • ${selectedTopicTitle ?? 'Focus Session'}'),
+                              style: GoogleFonts.plusJakartaSans(
+                                color: colors.textPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Cycle ${(todaySessionsCount % 5) + 1} of 5 Planned',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.textMuted,
+                        fontSize: 10.5,
                       ),
                     ),
                   ],
@@ -636,18 +1117,18 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
             ),
           ),
 
-          const SizedBox(height: 36),
+          const SizedBox(height: 24),
 
-          // Primary Action Bar
+          // Primary Playback Controls Row
           if (isBreak)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF34D399),
-                    side: const BorderSide(color: Color(0xFF064E3B)),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    foregroundColor: colors.success,
+                    side: BorderSide(color: colors.success.withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: () {
@@ -655,14 +1136,14 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                     timerNotifier.skipBreak();
                   },
                   icon: const Icon(Icons.skip_next_rounded),
-                  label: const Text('Skip Break'),
+                  label: Text('Skip Break', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF34D399),
-                    foregroundColor: const Color(0xFF151211),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    backgroundColor: colors.success,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: () {
@@ -670,7 +1151,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                     timerNotifier.endSession();
                   },
                   icon: const Icon(Icons.check_rounded),
-                  label: const Text('End Session'),
+                  label: Text('End Session', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
                 ),
               ],
             )
@@ -678,35 +1159,36 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Sound / Ambient button
+                // Soundscape quick indicator button
                 IconButton(
+                  tooltip: 'Soundscape settings',
                   icon: Icon(
-                    _desktopSoundEnabled ? Icons.volume_up_outlined : Icons.volume_off_outlined,
-                    color: const Color(0xFF9E8C82),
+                    _soundEnabled ? Icons.headphones_rounded : Icons.headphones_outlined,
+                    color: _soundEnabled ? colors.secondary : colors.textMuted,
                     size: 22,
                   ),
                   onPressed: () {
                     SafeHaptics.selectionClick();
-                    setState(() => _desktopSoundEnabled = !_desktopSoundEnabled);
+                    setState(() => _soundEnabled = !_soundEnabled);
                   },
                 ),
                 const SizedBox(width: 16),
 
-                // Large Play / Pause button
+                // Hero 64px Play / Pause Button
                 GestureDetector(
                   onTap: () {
                     SafeHaptics.mediumImpact();
                     timerNotifier.toggleStartPause();
                   },
                   child: Container(
-                    width: 60,
-                    height: 60,
+                    width: 64,
+                    height: 64,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF2B78A),
+                      color: colors.secondary,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFF2B78A).withValues(alpha: 0.3),
+                          color: colors.secondary.withValues(alpha: 0.35),
                           blurRadius: 16,
                           offset: const Offset(0, 4),
                         ),
@@ -714,18 +1196,19 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                     ),
                     child: Icon(
                       isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                      color: const Color(0xFF151211),
-                      size: 32,
+                      color: Colors.white,
+                      size: 34,
                     ),
                   ),
                 ),
                 const SizedBox(width: 16),
 
-                // Finish session button
+                // Log Session / Finish Button
                 IconButton(
-                  icon: const Icon(
-                    Icons.flag_outlined,
-                    color: Color(0xFF9E8C82),
+                  tooltip: 'Log Completed Session',
+                  icon: Icon(
+                    Icons.flag_rounded,
+                    color: (isRunning || isPaused) ? colors.primary : colors.textMuted,
                     size: 22,
                   ),
                   onPressed: () async {
@@ -757,30 +1240,468 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                     }
                   },
                 ),
+                if (isRunning || isPaused) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: 'Discard Session',
+                    icon: Icon(Icons.close_rounded, color: Colors.redAccent.withValues(alpha: 0.8), size: 20),
+                    onPressed: () {
+                      SafeHaptics.heavyImpact();
+                      timerNotifier.discardSession();
+                    },
+                  ),
+                ],
               ],
             ),
+
+          const SizedBox(height: 20),
+
+          // Bottom Motivational & Interval Microcopy
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: colors.recessed,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.verified_user_rounded, size: 14, color: colors.success),
+                    const SizedBox(width: 6),
+                    Text(
+                      'STAY IN FLOW • DISTRACTIONS BLOCKED',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.success,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  'CURRENT INTERVAL: $targetFocusMins MIN FOCUS + $shortBreakMins MIN RESET',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Atelier Soundscape Quick Modulation Palette
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.graphic_eq_rounded, size: 16, color: colors.secondary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Atelier Soundscapes:',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textMuted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: ['Rainfall', 'Library Hall', 'Brown Noise'].map((p) {
+                  final isSel = _selectedSoundscape == p;
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 6.0),
+                    child: InkWell(
+                      onTap: () {
+                        SafeHaptics.selectionClick();
+                        setState(() {
+                          _selectedSoundscape = p;
+                          _soundEnabled = true;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: isSel ? colors.secondary.withValues(alpha: 0.15) : colors.recessed,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isSel ? colors.secondary : colors.surfaceBorder,
+                          ),
+                        ),
+                        child: Text(
+                          p,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: isSel ? colors.secondary : colors.textMuted,
+                            fontSize: 10.5,
+                            fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _desktopPillToggleItem(String label, bool isSelected, VoidCallback onTap) {
+  Widget _buildDesktopSessionSummary(TimerState timerState, List<StudySession> todaySessions) {
+    final cycleCount = todaySessions.length;
+    final totalSeconds = todaySessions.fold<int>(0, (sum, s) => sum + s.durationSeconds);
+    final totalMinutes = (totalSeconds / 60).round();
+    final hours = totalMinutes ~/ 60;
+    final mins = totalMinutes % 60;
+    final timeStr = totalMinutes == 0 ? '0.0 hrs' : (hours > 0 ? '${hours}h ${mins}m' : '${mins}m');
+    const targetCycles = 5;
+    final crEquivalent = ((totalMinutes / 60.0) * 0.5).toStringAsFixed(1);
+
+    final targetFocusMins = timerState.targetMinutes;
+    final shortBreakMins = (targetFocusMins / 5).round().clamp(1, 15);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.surfaceBorder, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: colors.secondary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(Icons.query_stats_rounded, color: colors.secondary, size: 16),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Session Matrix',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                icon: Icon(Icons.tune_rounded, color: colors.textMuted, size: 16),
+                onPressed: () => _showCustomDurationDialog(context, ref.read(timerProvider.notifier)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Parameters Ledger Table
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: colors.recessed,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              children: [
+                _summaryRow('Target Focus', '$targetFocusMins min'),
+                const SizedBox(height: 6),
+                _summaryRow('Short Break', '$shortBreakMins min'),
+                const SizedBox(height: 6),
+                _summaryRow('Long Break', '15 min (post 4th)'),
+                const SizedBox(height: 6),
+                _summaryRow('Cycle Ratio', '5:1 Focus/Rest'),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Today's Deep Work Output
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "TODAY'S DEEP WORK OUTPUT",
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.textMuted,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colors.success.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  cycleCount > 0 ? '94% VELOCITY' : 'READY TO START',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.success,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Big Metric Output Block
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colors.recessed,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: colors.surfaceBorder),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      timeStr,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.textPrimary,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      'Total focused time today',
+                      style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11),
+                    ),
+                  ],
+                ),
+                Text(
+                  '$crEquivalent CR Equivalent',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.secondary,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 5-Segmented Cycle Tracker
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '$cycleCount / $targetCycles cycles completed',
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.textPrimary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                '${((cycleCount / targetCycles) * 100).toInt()}% target',
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.textMuted,
+                  fontSize: 10.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: List.generate(5, (idx) {
+              final isCompleted = idx < cycleCount;
+              final isCurrent = idx == cycleCount && timerState.status == TimerStatus.running;
+              return Expanded(
+                child: Container(
+                  height: 6,
+                  margin: EdgeInsets.only(right: idx < 4 ? 4 : 0),
+                  decoration: BoxDecoration(
+                    color: isCompleted
+                        ? colors.primary
+                        : (isCurrent ? colors.secondary : colors.surfaceBorder),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              );
+            }),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Today's Ledger (Recent Completed Sessions)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "TODAY'S LEDGER",
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.textMuted,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              Text(
+                '$cycleCount Blocks logged',
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.primary,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          if (todaySessions.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              decoration: BoxDecoration(
+                color: colors.recessed,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: colors.surfaceBorder),
+              ),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.timer_outlined, size: 24, color: colors.textMuted),
+                    const SizedBox(height: 6),
+                    Text(
+                      'No focus sessions recorded today',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Start the timer above to log your first block.',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textMuted,
+                        fontSize: 11,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...todaySessions.take(3).map((s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6.0),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: colors.recessed,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colors.surfaceBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    DateFormat('h:mm a').format(s.startedAt),
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: colors.textMuted,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      s.courseCode.isNotEmpty
+                                          ? '${s.courseCode} - ${s.topicName.isNotEmpty ? s.topicName : s.cleanTitle}'
+                                          : s.cleanTitle,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: colors.textPrimary,
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${(s.durationSeconds / 60).round()}m',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.textPrimary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: colors.success.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.check, size: 11, color: colors.success),
+                        ),
+                      ],
+                    ),
+                  ),
+                )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPillToggleItem(String label, bool isSelected, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF2B78A).withValues(alpha: 0.2) : Colors.transparent,
+          color: isSelected ? colors.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
-          border: isSelected ? Border.all(color: const Color(0xFFF2B78A), width: 1) : null,
         ),
         child: Text(
           label,
           style: GoogleFonts.plusJakartaSans(
-            color: isSelected ? const Color(0xFFF2B78A) : const Color(0xFF9E8C82),
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? Colors.white : colors.textMuted,
+            fontSize: 12.5,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           ),
         ),
       ),
@@ -794,34 +1715,33 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           ...presets.map((min) {
             final isSelected = currentTarget == min;
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.only(left: 4),
               child: InkWell(
                 onTap: () {
                   SafeHaptics.selectionClick();
                   timerNotifier.setTargetMinutes(min);
                 },
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                   decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFFF2B78A).withValues(alpha: 0.15) : const Color(0xFF241C1A),
-                    borderRadius: BorderRadius.circular(8),
+                    color: isSelected ? colors.secondary : colors.recessed,
+                    borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: isSelected ? const Color(0xFFF2B78A) : const Color(0xFF2E2623),
-                      width: isSelected ? 1.2 : 1.0,
+                      color: isSelected ? colors.secondary : colors.surfaceBorder,
                     ),
                   ),
                   child: Text(
                     '$min min',
                     style: GoogleFonts.jetBrainsMono(
-                      color: isSelected ? const Color(0xFFF2B78A) : const Color(0xFF9E8C82),
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? Colors.white : colors.textMuted,
+                      fontSize: 11,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                     ),
                   ),
                 ),
@@ -830,228 +1750,28 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           }),
           // Custom preset
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.only(left: 4),
             child: InkWell(
               onTap: () => _showCustomDurationDialog(context, timerNotifier),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(6),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color: (!presets.contains(currentTarget))
-                      ? const Color(0xFFF2B78A).withValues(alpha: 0.15)
-                      : const Color(0xFF241C1A),
-                  borderRadius: BorderRadius.circular(8),
+                  color: (!presets.contains(currentTarget)) ? colors.secondary : colors.recessed,
+                  borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: (!presets.contains(currentTarget))
-                        ? const Color(0xFFF2B78A)
-                        : const Color(0xFF2E2623),
-                    width: (!presets.contains(currentTarget)) ? 1.2 : 1.0,
+                    color: (!presets.contains(currentTarget)) ? colors.secondary : colors.surfaceBorder,
                   ),
                 ),
                 child: Text(
                   !presets.contains(currentTarget) ? '$currentTarget min' : 'Custom',
                   style: GoogleFonts.jetBrainsMono(
-                    color: (!presets.contains(currentTarget))
-                        ? const Color(0xFFF2B78A)
-                        : const Color(0xFF9E8C82),
-                    fontSize: 12,
-                    fontWeight: (!presets.contains(currentTarget)) ? FontWeight.w700 : FontWeight.w500,
+                    color: (!presets.contains(currentTarget)) ? Colors.white : colors.textMuted,
+                    fontSize: 11,
+                    fontWeight: (!presets.contains(currentTarget)) ? FontWeight.bold : FontWeight.w500,
                   ),
                 ),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showCustomDurationDialog(BuildContext context, TimerNotifier timerNotifier) {
-    SafeHaptics.selectionClick();
-    final customCtrl = TextEditingController(text: '30');
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1816),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFF2E2623)),
-        ),
-        title: Text(
-          'Custom Focus Duration',
-          style: GoogleFonts.plusJakartaSans(
-            color: const Color(0xFFEDE8E3),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Set target focus time (10 - 180 minutes):',
-              style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: customCtrl,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              style: GoogleFonts.jetBrainsMono(color: const Color(0xFFEDE8E3), fontSize: 16, fontWeight: FontWeight.w600),
-              decoration: InputDecoration(
-                suffixText: 'minutes',
-                suffixStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
-                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2E2623))),
-                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF2B78A))),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82))),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF2B78A),
-              foregroundColor: const Color(0xFF151211),
-            ),
-            onPressed: () {
-              final mins = int.tryParse(customCtrl.text.trim());
-              if (mins != null && mins > 0) {
-                SafeHaptics.mediumImpact();
-                timerNotifier.setTargetMinutes(mins.clamp(5, 360));
-              }
-              Navigator.of(ctx).pop();
-            },
-            child: Text('Set Target', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDesktopSessionSummary(TimerState timerState) {
-    final todaySessionsAsync = ref.watch(todayStudySessionsStreamProvider);
-    final todaySessions = todaySessionsAsync.value ?? [];
-    final cycleCount = todaySessions.length;
-    final totalSeconds = todaySessions.fold<int>(0, (sum, s) => sum + s.durationSeconds);
-    final totalMinutes = (totalSeconds / 60).round();
-    final hours = totalMinutes ~/ 60;
-    final mins = totalMinutes % 60;
-    final timeStr = hours > 0 ? '${hours}h ${mins}m focused' : '${mins}m focused';
-    const targetCycles = 5;
-    final cycleProgress = (cycleCount / targetCycles).clamp(0.0, 1.0);
-
-    final targetFocusMins = timerState.targetMinutes;
-    final shortBreakMins = (targetFocusMins / 5).round().clamp(1, 15);
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1816),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2E2623), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'SESSION PLAN',
-            style: GoogleFonts.jetBrainsMono(
-              color: const Color(0xFF9E8C82),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.0,
-            ),
-          ),
-          const SizedBox(height: 14),
-          _summaryRow('Target Focus', '$targetFocusMins min'),
-          const SizedBox(height: 10),
-          _summaryRow('Short Break', '$shortBreakMins min'),
-          const SizedBox(height: 10),
-          _summaryRow('Cycle Ratio', '5:1 Focus/Rest'),
-
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 18.0),
-            child: Divider(color: Color(0xFF2E2623), height: 1),
-          ),
-
-          Text(
-            "TODAY'S OUTPUT",
-            style: GoogleFonts.jetBrainsMono(
-              color: const Color(0xFF9E8C82),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.0,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Text(
-                  '$cycleCount / $targetCycles cycles',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: const Color(0xFFEDE8E3),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  timeStr,
-                  style: GoogleFonts.jetBrainsMono(
-                    color: const Color(0xFF34D399),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
-              value: cycleProgress,
-              backgroundColor: const Color(0xFF241C1A),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF34D399)),
-              minHeight: 5,
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          // Motivational Quote
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF241C1A),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF2E2623), width: 1),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.format_quote_rounded, color: Color(0xFFF2B78A), size: 20),
-                const SizedBox(height: 6),
-                Text(
-                  '"Small disciplines repeated with consistency every day lead to great achievements."',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: const Color(0xFF9E8C82),
-                    fontSize: 12.5,
-                    fontStyle: FontStyle.italic,
-                    height: 1.4,
-                  ),
-                ),
-              ],
             ),
           ),
         ],
@@ -1063,30 +1783,889 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(
-          child: Text(
-            label,
-            style: GoogleFonts.plusJakartaSans(color: const Color(0xFF9E8C82), fontSize: 13),
-            overflow: TextOverflow.ellipsis,
-          ),
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12.5),
         ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            value,
-            style: GoogleFonts.jetBrainsMono(
-              color: const Color(0xFFEDE8E3),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-            overflow: TextOverflow.ellipsis,
+        Text(
+          value,
+          style: GoogleFonts.jetBrainsMono(
+            color: colors.textPrimary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
     );
   }
 
-  /// Minimalist "Desk Clock" UI for Landscape StandBy Mode on deep `#110D0C`
+  // =========================================================================
+  // 2. PORTRAIT TIMER (Mobile Width < 800px)
+  // =========================================================================
+  Widget _buildPortraitTimer(
+    BuildContext context,
+    WidgetRef ref,
+    TimerState timerState,
+    TimerNotifier timerNotifier,
+    List<String> timerSubjects,
+    List<Course> courses,
+    Course? selectedCourse,
+    List<SyllabusTopic> liveTopics,
+    String? selectedTopicTitle,
+    String currentSubject,
+    bool isBreak,
+    bool isRunning,
+    bool isPaused,
+    bool isInitial,
+  ) {
+    final isStopwatch = timerState.timerType == TimerType.stopwatch;
+    final elapsedSec = timerState.elapsedSeconds;
+    final stopwatchProgress = (elapsedSec % 1800) / 1800.0;
+    final int completedCycles = elapsedSec ~/ 1800;
+
+    final dialProgress = isStopwatch
+        ? (timerState.status == TimerStatus.initial ? 0.0 : stopwatchProgress)
+        : (isBreak ? 1.0 : timerState.progressRatio);
+
+    final todaySessionsAsync = ref.watch(todayStudySessionsStreamProvider);
+    final todaySessions = todaySessionsAsync.value ?? [];
+    final cycleCount = todaySessions.length;
+    final totalSeconds = todaySessions.fold<int>(0, (sum, s) => sum + s.durationSeconds);
+    final totalMinutes = (totalSeconds / 60).round();
+    final hours = totalMinutes ~/ 60;
+    final mins = totalMinutes % 60;
+    final timeDisplay = totalMinutes == 0 ? '0.0 hrs' : (hours > 0 ? '${hours}h ${mins}m' : '${mins}m');
+
+    return ShowCaseWidget(
+      enableAutoScroll: true,
+      blurValue: 2.0,
+      onFinish: () => TourService().markTourSeen(TourSection.timer),
+      builder: (showcaseContext) {
+        _triggerTimerTourIfNeeded(showcaseContext);
+        return Scaffold(
+          backgroundColor: colors.background,
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header Row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isBreak
+                                ? 'Break Time ☕'
+                                : (timerState.isOvertime
+                                    ? 'Overtime Focus ⚡'
+                                    : (isStopwatch ? 'Stopwatch Timer' : 'Focus Study Timer')),
+                            style: GoogleFonts.plusJakartaSans(
+                              color: colors.textPrimary,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isBreak
+                                ? 'Target reached! Rest your eyes & recharge'
+                                : (timerState.isOvertime
+                                    ? 'In the zone • Recording overtime'
+                                    : (isStopwatch
+                                        ? 'Open-ended study session • Counting up'
+                                        : 'Distraction-free target countdown')),
+                            style: GoogleFonts.plusJakartaSans(
+                              color: isBreak ? colors.success : (timerState.isOvertime ? colors.secondary : colors.textMuted),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: (isBreak ? colors.success : (timerState.isOvertime ? colors.secondary : colors.primary)).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: (isBreak ? colors.success : (timerState.isOvertime ? colors.secondary : colors.primary)).withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Text(
+                          isBreak
+                              ? 'BREAK'
+                              : (timerState.isOvertime
+                                  ? 'OVERTIME'
+                                  : (isRunning
+                                      ? (isStopwatch ? 'STOPWATCH' : 'FOCUS')
+                                      : (isPaused ? 'PAUSED' : (isStopwatch ? 'STOPWATCH' : 'READY')))),
+                          style: GoogleFonts.jetBrainsMono(
+                            color: isBreak ? colors.success : (timerState.isOvertime ? colors.secondary : colors.primary),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Timer Mode Toggle (Countdown vs Stopwatch)
+                  if (!isBreak) ...[
+                    TourShowcaseItem(
+                      section: TourSection.timer,
+                      step: TourStep(
+                        key: _keyTimerMode,
+                        title: 'Study Modes & Course Tagging',
+                        description: 'Toggle between structured Pomodoro intervals with earned breaks or open stopwatch sessions tagged to your courses.',
+                      ),
+                      stepIndex: 2,
+                      totalSteps: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(3.0),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: colors.surfaceBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            // Target Mode
+                            Expanded(
+                              child: InkWell(
+                                onTap: (isRunning || isPaused)
+                                    ? () {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            behavior: SnackBarBehavior.floating,
+                                            content: Text('Finish or reset current session to switch modes.'),
+                                          ),
+                                        );
+                                      }
+                                    : () {
+                                        SafeHaptics.lightImpact();
+                                        timerNotifier.setTimerType(TimerType.target);
+                                      },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: !isStopwatch ? colors.primary : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Center(
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.track_changes_rounded,
+                                          size: 14,
+                                          color: !isStopwatch ? Colors.white : colors.textMuted,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Target (Countdown)',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            color: !isStopwatch ? Colors.white : colors.textMuted,
+                                            fontSize: 12,
+                                            fontWeight: !isStopwatch ? FontWeight.bold : FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+
+                            // Stopwatch Mode
+                            Expanded(
+                              child: InkWell(
+                                onTap: (isRunning || isPaused)
+                                    ? () {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            behavior: SnackBarBehavior.floating,
+                                            content: Text('Finish or reset current session to switch modes.'),
+                                          ),
+                                        );
+                                      }
+                                    : () {
+                                        SafeHaptics.lightImpact();
+                                        timerNotifier.setTimerType(TimerType.stopwatch);
+                                      },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: isStopwatch ? colors.secondary : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Center(
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.timer_outlined,
+                                          size: 14,
+                                          color: isStopwatch ? Colors.white : colors.textMuted,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Stopwatch (Count-up)',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            color: isStopwatch ? Colors.white : colors.textMuted,
+                                            fontSize: 12,
+                                            fontWeight: isStopwatch ? FontWeight.bold : FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 48px Target Course Dropdown Container
+                    Container(
+                      height: 48,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: colors.surfaceBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.school_outlined, color: colors.secondary, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: (selectedCourse != null)
+                                    ? selectedCourse.id
+                                    : (timerSubjects.contains(currentSubject) ? currentSubject : null),
+                                dropdownColor: colors.surface,
+                                icon: Icon(Icons.keyboard_arrow_down_rounded, color: colors.textMuted),
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: colors.textPrimary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                isExpanded: true,
+                                items: [
+                                  ...courses.map((c) => DropdownMenuItem(
+                                        value: c.id,
+                                        child: Text(
+                                          '${c.code}: ${c.title}',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      )),
+                                  if (courses.isEmpty)
+                                    ...timerSubjects.map((subj) => DropdownMenuItem(
+                                          value: subj,
+                                          child: Text(subj, overflow: TextOverflow.ellipsis),
+                                        )),
+                                ],
+                                onChanged: (newVal) {
+                                  if (newVal == null) return;
+                                  SafeHaptics.lightImpact();
+                                  Course? match;
+                                  for (final c in courses) {
+                                    if (c.id == newVal) {
+                                      match = c;
+                                      break;
+                                    }
+                                  }
+                                  if (match != null) {
+                                    timerNotifier.changeSubject(match.title);
+                                    timerNotifier.setSelectedCourseAndTopic(
+                                      courseId: match.id,
+                                      courseCode: match.code,
+                                    );
+                                  } else {
+                                    timerNotifier.changeSubject(newVal);
+                                    timerNotifier.setSelectedCourseAndTopic(
+                                      courseId: null,
+                                      courseCode: newVal,
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.tune_rounded, color: colors.textMuted, size: 18),
+                            tooltip: 'Manage Timer Subjects',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () {
+                              SafeHaptics.lightImpact();
+                              _showManageSubjectsModal(context, ref);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 18),
+
+                  // Quick Duration Presets (Target Mode only)
+                  if (!isBreak && !isStopwatch) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [15, 25, 45, 60].map((mins) {
+                        final isSelected = timerState.targetMinutes == mins;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                          child: InkWell(
+                            onTap: () {
+                              SafeHaptics.lightImpact();
+                              timerNotifier.setTargetMinutes(mins);
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isSelected ? colors.secondary : colors.surface,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isSelected ? colors.secondary : colors.surfaceBorder,
+                                ),
+                              ),
+                              child: Text(
+                                '${mins}m',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: isSelected ? Colors.white : colors.textMuted,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+
+                  // Circular Timer Dial with Breathing Pulse Animation & Adjustment Buttons
+                  Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // '-' Decrease Button
+                        if (!isBreak && !isStopwatch) ...[
+                          InkWell(
+                            onTap: () {
+                              SafeHaptics.lightImpact();
+                              timerNotifier.decrementTargetMinutes(5);
+                            },
+                            borderRadius: BorderRadius.circular(30),
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: colors.surface,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: colors.surfaceBorder),
+                              ),
+                              child: Icon(Icons.remove_rounded, color: colors.textMuted, size: 20),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+
+                        // Dial Dial
+                        TourShowcaseItem(
+                          section: TourSection.timer,
+                          step: TourStep.circle(
+                            key: _keyTimerDial,
+                            title: 'Focus Session',
+                            description: 'Tap to begin tracking your study block with ambient distraction-free focus modes.',
+                          ),
+                          stepIndex: 1,
+                          totalSteps: 2,
+                          child: AnimatedBuilder(
+                            animation: _pulseController,
+                            builder: (context, child) {
+                              return Transform.scale(
+                                scale: isRunning ? _scaleAnimation.value : 1.0,
+                                child: SizedBox(
+                                  width: 240,
+                                  height: 240,
+                                  child: CustomPaint(
+                                    painter: TimerDialPainter(
+                                      progress: dialProgress,
+                                      isStopwatch: isStopwatch,
+                                      primaryColor: isBreak ? colors.success : colors.secondary,
+                                      trackColor: colors.surfaceBorder,
+                                      dialFillColor: colors.surface,
+                                      borderColor: colors.surfaceBorder,
+                                      glowColor: isRunning
+                                          ? (isBreak
+                                              ? colors.success.withValues(alpha: _glowAnimation.value)
+                                              : colors.secondary.withValues(alpha: _glowAnimation.value))
+                                          : null,
+                                      strokeWidth: 8.5,
+                                    ),
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            isBreak
+                                                ? 'BREAK'
+                                                : (timerState.isOvertime
+                                                    ? 'OVERTIME'
+                                                    : 'INTERVAL BLOCK 0${(cycleCount % 5) + 1}'),
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: isBreak
+                                                  ? colors.success
+                                                  : (timerState.isOvertime ? colors.secondary : colors.textMuted),
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 0.8,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            timerState.formattedTime,
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: isBreak
+                                                  ? colors.success
+                                                  : (timerState.isOvertime ? colors.secondary : colors.textPrimary),
+                                              fontSize: isBreak ? 32 : 38,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: -1.0,
+                                              fontFeatures: const [FontFeature.tabularFigures()],
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: colors.recessed,
+                                              borderRadius: BorderRadius.circular(16),
+                                              border: Border.all(color: colors.surfaceBorder),
+                                            ),
+                                            child: Text(
+                                              '${selectedCourse?.code ?? currentSubject} • ${selectedTopicTitle ?? 'Focus Session'}',
+                                              style: GoogleFonts.plusJakartaSans(
+                                                color: colors.textPrimary,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            isBreak
+                                                ? 'Earned Rest • 5:1 Focus Ratio'
+                                                : (timerState.isOvertime
+                                                    ? 'Overtime • Deep Focus'
+                                                    : (isStopwatch
+                                                        ? (completedCycles == 0
+                                                            ? 'Cycle 1 (0–30m)'
+                                                            : 'Cycle ${completedCycles + 1} • ${completedCycles * 30}m+ completed')
+                                                        : 'Target: ${timerState.targetMinutes} min')),
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: colors.textMuted,
+                                              fontSize: 10.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+
+                        // '+' Increase Button
+                        if (!isBreak && !isStopwatch) ...[
+                          const SizedBox(width: 12),
+                          InkWell(
+                            onTap: () {
+                              SafeHaptics.lightImpact();
+                              timerNotifier.incrementTargetMinutes(5);
+                            },
+                            borderRadius: BorderRadius.circular(30),
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: colors.surface,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: colors.surfaceBorder),
+                              ),
+                              child: Icon(Icons.add_rounded, color: colors.textMuted, size: 20),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Smart Earned Break banner
+                  if (!isBreak) ...[
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: colors.success.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          '☕ Earned Break: ${timerState.formattedEarnedBreak} • 5:1 ratio',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.success,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Controls Action Bar
+                  if (isInitial && !isBreak) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Sound ambient button
+                        IconButton(
+                          icon: Icon(
+                            _soundEnabled ? Icons.water_drop_rounded : Icons.water_drop_outlined,
+                            color: _soundEnabled ? colors.secondary : colors.textMuted,
+                            size: 24,
+                          ),
+                          onPressed: () {
+                            SafeHaptics.selectionClick();
+                            setState(() => _soundEnabled = !_soundEnabled);
+                          },
+                        ),
+                        const SizedBox(width: 20),
+
+                        // Hero 60px Play Button
+                        GestureDetector(
+                          onTap: () {
+                            SafeHaptics.heavyImpact();
+                            timerNotifier.startTimer();
+                          },
+                          child: Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: colors.secondary,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: colors.secondary.withValues(alpha: 0.35),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow_rounded,
+                              size: 34,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+
+                        // Custom Target Dialog Button
+                        IconButton(
+                          icon: Icon(Icons.tune_rounded, color: colors.textMuted, size: 22),
+                          onPressed: () => _showCustomDurationDialog(context, timerNotifier),
+                        ),
+                      ],
+                    ),
+                  ] else if (isBreak) ...[
+                    Row(
+                      children: [
+                        // Pause / Resume
+                        IconButton(
+                          icon: Icon(isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded, color: colors.textPrimary),
+                          onPressed: () {
+                            SafeHaptics.lightImpact();
+                            timerNotifier.toggleStartPause();
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        // Next Focus
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: colors.secondary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () {
+                              SafeHaptics.heavyImpact();
+                              timerNotifier.endBreak();
+                            },
+                            icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                            label: Text('Next Focus', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // End Break
+                        IconButton(
+                          icon: const Icon(Icons.stop_rounded, color: Colors.redAccent),
+                          onPressed: () {
+                            SafeHaptics.heavyImpact();
+                            timerNotifier.endSession();
+                          },
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    // Running or Paused Controls
+                    Row(
+                      children: [
+                        // Pause / Resume
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: colors.secondary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () {
+                              SafeHaptics.lightImpact();
+                              timerNotifier.toggleStartPause();
+                            },
+                            icon: Icon(isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 18),
+                            label: Text(isRunning ? 'Pause' : 'Resume', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+
+                        // Finish / Log Session
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colors.primary,
+                              side: BorderSide(color: colors.primary),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () async {
+                              SafeHaptics.heavyImpact();
+                              final metadata = timerNotifier.prepareSessionCompletion();
+                              final totalSecs = metadata.totalDurationSeconds;
+                              int calculatedMins = (totalSecs / 60).round();
+                              if (calculatedMins == 0 && totalSecs >= 15) calculatedMins = 1;
+
+                              if (calculatedMins > 0) {
+                                await ref.read(userProfileProvider.notifier).addFocusMinutes(calculatedMins);
+                              }
+
+                              await timerNotifier.completeSession(
+                                courseId: metadata.courseId,
+                                courseCode: metadata.courseCode,
+                                finalElapsedSeconds: totalSecs,
+                                mode: isStopwatch ? 'stopwatch' : 'focus',
+                                sessionStartTime: metadata.sessionStartTime,
+                              );
+
+                              if (!context.mounted) return;
+                              _showPostSessionDialog(
+                                context,
+                                metadata: metadata,
+                                subject: metadata.courseTitle,
+                                durationMinutes: calculatedMins > 0 ? calculatedMins : 1,
+                              );
+                            },
+                            icon: const Icon(Icons.flag_rounded, size: 18),
+                            label: Text('Finish', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+
+                        // Discard
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Colors.redAccent),
+                          onPressed: () {
+                            SafeHaptics.heavyImpact();
+                            timerNotifier.discardSession();
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  const SizedBox(height: 20),
+
+                  // Collapsible Atomic Syllabus Topics Section
+                  if (liveTopics.isNotEmpty)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: colors.surfaceBorder),
+                      ),
+                      child: ExpansionTile(
+                        initiallyExpanded: false,
+                        shape: const Border(),
+                        tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                        title: Row(
+                          children: [
+                            Icon(Icons.checklist_rtl_rounded, color: colors.secondary, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              'ATOMIC SYLLABUS TOPICS',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: colors.textPrimary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ),
+                        subtitle: Text(
+                          selectedTopicTitle != null ? 'Linked: $selectedTopicTitle' : 'Tap to link topic',
+                          style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11),
+                        ),
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                            child: Column(
+                              children: liveTopics.take(4).map((t) => _buildDesktopTopicTile(t, selectedCourse)).toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  const SizedBox(height: 16),
+
+                  // Today's Output & Ledger
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colors.surfaceBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "TODAY'S DEEP WORK",
+                              style: GoogleFonts.jetBrainsMono(
+                                color: colors.textMuted,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            Text(
+                              '$cycleCount / 5 cycles',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: colors.primary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          timeDisplay,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.textPrimary,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        if (todaySessions.isEmpty)
+                          Text(
+                            'No focus sessions recorded today — start the timer to log your first block.',
+                            style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
+                          )
+                        else
+                          ...todaySessions.take(3).map((s) => Padding(
+                                padding: const EdgeInsets.only(bottom: 6.0),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: colors.recessed,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: colors.surfaceBorder),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          s.courseCode.isNotEmpty
+                                              ? '${s.courseCode}: ${s.topicName.isNotEmpty ? s.topicName : s.cleanTitle}'
+                                              : s.cleanTitle,
+                                          style: GoogleFonts.plusJakartaSans(
+                                            color: colors.textPrimary,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${(s.durationSeconds / 60).round()}m',
+                                        style: GoogleFonts.jetBrainsMono(
+                                          color: colors.textPrimary,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // =========================================================================
+  // 3. LANDSCAPE DESK CLOCK (StandBy Mode)
+  // =========================================================================
   Widget _buildLandscapeDeskClock(
     BuildContext context,
     WidgetRef ref,
@@ -1097,40 +2676,29 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     bool isRunning,
     bool isPaused,
   ) {
-    const deepDeskBackground = Color(0xFF110D0C);
-    const breakColor = Color(0xFF34D399);
-    const accentColor = Color(0xFFF2B78A);
-    final themeColor = isBreak ? breakColor : accentColor;
-
     return Scaffold(
-      backgroundColor: deepDeskBackground,
+      backgroundColor: colors.background,
       body: SafeArea(
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () {
             SafeHaptics.lightImpact();
-            if (timerState.status == TimerStatus.initial &&
-                timerState.selectedSubject != currentSubject) {
-              timerNotifier.changeSubject(currentSubject);
-            }
             timerNotifier.toggleStartPause();
           },
           child: Stack(
             children: [
-              // Center Desk Clock Content with Breathing Pulse Animation
               Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Subtle Subject & Mode Pill
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                       decoration: BoxDecoration(
-                        color: themeColor.withValues(alpha: 0.12),
+                        color: (isBreak ? colors.success : colors.secondary).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: themeColor.withValues(alpha: 0.25)),
+                        border: Border.all(
+                          color: (isBreak ? colors.success : colors.secondary).withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1138,7 +2706,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                           Icon(
                             isBreak ? Icons.coffee_rounded : Icons.menu_book_rounded,
                             size: 14,
-                            color: themeColor,
+                            color: isBreak ? colors.success : colors.secondary,
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -1147,11 +2715,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                                 : (timerState.isOvertime
                                     ? '${currentSubject.toUpperCase()} • OVERTIME ⚡'
                                     : currentSubject.toUpperCase()),
-                            style: TextStyle(
-                              color: themeColor,
+                            style: GoogleFonts.jetBrainsMono(
+                              color: isBreak ? colors.success : colors.secondary,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
+                              letterSpacing: 1.0,
                             ),
                           ),
                         ],
@@ -1159,34 +2727,22 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                     ),
                     const SizedBox(height: 8),
 
-                    // Massive Desk Clock Countdown Text with Pulse Animation
+                    // Massive Desk Clock Countdown
                     AnimatedBuilder(
                       animation: _pulseController,
                       builder: (context, child) {
                         return Transform.scale(
-                          scale: _scaleAnimation.value,
+                          scale: isRunning ? _scaleAnimation.value : 1.0,
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Text(
                               timerState.formattedTime,
-                              style: TextStyle(
-                                color: isBreak ? const Color(0xFFF5EBE6) : Colors.white,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: isBreak ? colors.success : colors.textPrimary,
                                 fontSize: 110,
-                                fontWeight: FontWeight.w900,
+                                fontWeight: FontWeight.bold,
                                 letterSpacing: -3.0,
                                 fontFeatures: const [FontFeature.tabularFigures()],
-                                shadows: [
-                                  Shadow(
-                                    color: themeColor.withValues(alpha: isRunning ? _glowAnimation.value : 0.1),
-                                    offset: const Offset(0, 4),
-                                    blurRadius: isRunning ? (16 + (_pulseController.value * 14)) : 10,
-                                  ),
-                                  const Shadow(
-                                    color: Color(0x55000000),
-                                    offset: Offset(0, 4),
-                                    blurRadius: 18,
-                                  ),
-                                ],
                               ),
                             ),
                           ),
@@ -1194,31 +2750,22 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                       },
                     ),
 
-                    // Subtle Progress / Info Text
                     Text(
                       isBreak
                           ? 'Earned Rest • 5:1 Focus Ratio'
                           : (timerState.isOvertime
                               ? 'Overtime • Deep Focus'
-                              : (timerState.timerType == TimerType.stopwatch
-                                  ? (timerState.elapsedSeconds ~/ 1800 == 0
-                                      ? 'Cycle 1 (0–30m) • ${timerState.formattedEarnedBreak} earned break'
-                                      : 'Cycle ${(timerState.elapsedSeconds ~/ 1800) + 1} • ${(timerState.elapsedSeconds ~/ 1800) * 30}m+ completed • ${timerState.formattedEarnedBreak} earned break')
-                                  : '${(timerState.targetSeconds ~/ 60)} min target • ${timerState.formattedEarnedBreak} earned break')),
-                      style: TextStyle(
-                        color: isBreak
-                            ? const Color(0xFF7B968B)
-                            : (timerState.isOvertime ? const Color(0xFFF2B78A) : Colors.white.withValues(alpha: 0.45)),
+                              : '${timerState.targetMinutes} min target • ${timerState.formattedEarnedBreak} earned break'),
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textMuted,
                         fontSize: 12,
-                        fontWeight: (isBreak || timerState.isOvertime) ? FontWeight.w600 : FontWeight.w500,
-                        letterSpacing: 0.5,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // Subtle Semi-Transparent Pause/Resume Icon at Bottom Center
               Positioned(
                 bottom: 12,
                 left: 0,
@@ -1226,14 +2773,10 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                 child: Center(
                   child: IconButton(
                     iconSize: 42,
-                    color: Colors.white.withValues(alpha: 0.35),
+                    color: colors.textMuted.withValues(alpha: 0.5),
                     tooltip: isRunning ? 'Pause' : 'Resume',
                     onPressed: () {
                       SafeHaptics.lightImpact();
-                      if (timerState.status == TimerStatus.initial &&
-                          timerState.selectedSubject != currentSubject) {
-                        timerNotifier.changeSubject(currentSubject);
-                      }
                       timerNotifier.toggleStartPause();
                     },
                     icon: Icon(
@@ -1251,953 +2794,86 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     );
   }
 
-  /// Standard Portrait Timer UI with Pulse Animation & Haptics
-  Widget _buildPortraitTimer(
-    BuildContext context,
-    WidgetRef ref,
-    TimerState timerState,
-    TimerNotifier timerNotifier,
-    List<String> timerSubjects,
-    String currentSubject,
-    bool isBreak,
-    bool isRunning,
-    bool isPaused,
-    bool isInitial,
-    Color currentColor,
-  ) {
-    const backgroundColor = Color(0xFF110D0C);
-    const cardColor = Color(0xFF241C1A);
-    const accentColor = Color(0xFFF2B78A);
-    const breakColor = Color(0xFF34D399);
-
-    final isStopwatch = timerState.timerType == TimerType.stopwatch;
-    final elapsedSec = timerState.elapsedSeconds;
-    final stopwatchProgress = (elapsedSec % 1800) / 1800.0;
-    final int completedCycles = elapsedSec ~/ 1800;
-
-    final dialProgress = isStopwatch
-        ? (timerState.status == TimerStatus.initial ? 0.0 : stopwatchProgress)
-        : (isBreak ? 1.0 : timerState.progressRatio);
-
-    return ShowCaseWidget(
-      enableAutoScroll: true,
-      blurValue: 2.0,
-      onFinish: () => TourService().markTourSeen(TourSection.timer),
-      builder: (showcaseContext) {
-        _triggerTimerTourIfNeeded(showcaseContext);
-        return Scaffold(
-          backgroundColor: backgroundColor,
-      body: SafeArea(
-        child: Column(
+  // =========================================================================
+  // 4. DIALOGS & MODALS
+  // =========================================================================
+  void _showCustomDurationDialog(BuildContext context, TimerNotifier timerNotifier) {
+    SafeHaptics.selectionClick();
+    final customCtrl = TextEditingController(text: '30');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colors.surfaceBorder),
+        ),
+        title: Text(
+          'Custom Focus Duration',
+          style: GoogleFonts.plusJakartaSans(
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isBreak
-                            ? 'Break Time ☕'
-                            : (timerState.isOvertime
-                                ? 'Overtime Focus ⚡'
-                                : (isStopwatch ? 'Stopwatch Timer' : 'Focus Study Timer')),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        isBreak
-                            ? 'Target reached! Rest your eyes & recharge'
-                            : (timerState.isOvertime
-                                ? 'In the zone • Recording overtime'
-                                : (isStopwatch
-                                    ? 'Open-ended study session • Counting up'
-                                    : 'Distraction-free target countdown')),
-                        style: TextStyle(
-                          color: isBreak
-                              ? breakColor
-                              : (timerState.isOvertime ? accentColor : Colors.blueGrey.shade400),
-                          fontSize: 13,
-                          fontWeight: (isBreak || timerState.isOvertime) ? FontWeight.w600 : FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: (isBreak ? breakColor : (timerState.isOvertime ? accentColor : currentColor)).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: (isBreak ? breakColor : (timerState.isOvertime ? accentColor : currentColor)).withValues(alpha: 0.3)),
-                    ),
-                    child: Text(
-                      isBreak
-                          ? 'BREAK'
-                          : (timerState.isOvertime
-                              ? 'OVERTIME'
-                              : (isRunning
-                                  ? (isStopwatch ? 'STOPWATCH' : 'FOCUS')
-                                  : (isPaused ? 'PAUSED' : (isStopwatch ? 'STOPWATCH' : 'READY')))),
-                      style: TextStyle(
-                        color: isBreak ? breakColor : (timerState.isOvertime ? accentColor : currentColor),
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            Text(
+              'Set target focus time (5 - 360 minutes):',
+              style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
             ),
-
-            // Task 1: Timer Mode Toggle (Target Countdown vs Stopwatch Count-up)
-            if (!isBreak)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
-                child: TourShowcaseItem(
-                  section: TourSection.timer,
-                  step: TourStep(
-                    key: _keyTimerMode,
-                    title: 'Study Modes & Course Tagging',
-                    description: 'Toggle between structured Pomodoro intervals with earned breaks or open stopwatch sessions tagged to your courses.',
-                  ),
-                  stepIndex: 2,
-                  totalSteps: 2,
-                  child: Container(
-                  padding: const EdgeInsets.all(4.0),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-                  ),
-                  child: Row(
-                    children: [
-                      // Target Mode
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: (isRunning || isPaused)
-                              ? () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      behavior: SnackBarBehavior.floating,
-                                      content: Text('Finish or reset current session to switch modes.'),
-                                    ),
-                                  );
-                                }
-                              : () {
-                                  SafeHaptics.lightImpact();
-                                  timerNotifier.setTimerType(TimerType.target);
-                                },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: !isStopwatch
-                                  ? accentColor.withValues(alpha: 0.2)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                              border: !isStopwatch
-                                  ? Border.all(color: accentColor.withValues(alpha: 0.4))
-                                  : null,
-                            ),
-                            child: Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.track_changes_rounded,
-                                    size: 14,
-                                    color: !isStopwatch ? accentColor : Colors.blueGrey.shade400,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Target (Countdown)',
-                                    style: TextStyle(
-                                      color: !isStopwatch ? Colors.white : Colors.blueGrey.shade400,
-                                      fontSize: 11.5,
-                                      fontWeight: !isStopwatch ? FontWeight.bold : FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-
-                      // Stopwatch Mode
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: (isRunning || isPaused)
-                              ? () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      behavior: SnackBarBehavior.floating,
-                                      content: Text('Finish or reset current session to switch modes.'),
-                                    ),
-                                  );
-                                }
-                              : () {
-                                  SafeHaptics.lightImpact();
-                                  timerNotifier.setTimerType(TimerType.stopwatch);
-                                },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isStopwatch
-                                  ? const Color(0xFFA78BFA).withValues(alpha: 0.2)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                              border: isStopwatch
-                                  ? Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.4))
-                                  : null,
-                            ),
-                            child: Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.timer_outlined,
-                                    size: 14,
-                                    color: isStopwatch ? const Color(0xFFA78BFA) : Colors.blueGrey.shade400,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Stopwatch (Count-up)',
-                                    style: TextStyle(
-                                      color: isStopwatch ? Colors.white : Colors.blueGrey.shade400,
-                                      fontSize: 11.5,
-                                      fontWeight: isStopwatch ? FontWeight.bold : FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: customCtrl,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              style: GoogleFonts.jetBrainsMono(
+                color: colors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
               ),
-            ),
-
-            // Decoupled Dynamic Subject Dropdown + Manage Subjects Action
-            if (!isBreak)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 6.0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 4.0),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: accentColor.withValues(alpha: 0.25)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.menu_book_rounded, color: accentColor, size: 18),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Subject: ',
-                        style: TextStyle(color: Colors.blueGrey, fontSize: 12.5, fontWeight: FontWeight.bold),
-                      ),
-                      Expanded(
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: currentSubject,
-                            dropdownColor: const Color(0xFF170F0D),
-                            icon: const Icon(Icons.arrow_drop_down_rounded, color: accentColor),
-                            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                            isExpanded: true,
-                            items: timerSubjects.map((subj) {
-                              return DropdownMenuItem(
-                                value: subj,
-                                child: Text(subj, overflow: TextOverflow.ellipsis),
-                              );
-                            }).toList(),
-                            onChanged: (newSubj) {
-                              if (newSubj != null) {
-                                SafeHaptics.lightImpact();
-                                timerNotifier.changeSubject(newSubj);
-                                final courses = ref.read(coursesStreamProvider).valueOrNull ?? [];
-                                Course? matchedCourse;
-                                for (final c in courses) {
-                                  if (c.title.toLowerCase() == newSubj.toLowerCase() ||
-                                      c.code.toLowerCase() == newSubj.toLowerCase()) {
-                                    matchedCourse = c;
-                                    break;
-                                  }
-                                }
-                                timerNotifier.setSelectedCourseAndTopic(
-                                  courseId: matchedCourse?.id,
-                                  courseCode: matchedCourse?.code ?? newSubj,
-                                );
-                                if (isRunning || isPaused) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      backgroundColor: const Color(0xFF241C1A),
-                                      behavior: SnackBarBehavior.floating,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      duration: const Duration(seconds: 2),
-                                      content: Text(
-                                        'Switched subject to $newSubj. Previous progress saved!',
-                                        style: const TextStyle(color: accentColor, fontSize: 12.5),
-                                      ),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.tune_rounded, color: Color(0xFFF2B78A), size: 18),
-                        tooltip: 'Manage Timer Subjects',
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () {
-                          SafeHaptics.lightImpact();
-                          _showManageSubjectsModal(context, ref);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              // Break Time Banner
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: breakColor.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.coffee_rounded, color: breakColor, size: 20),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          'Break in progress • Hydrate & relax',
-                          style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: breakColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'RECHARGE',
-                          style: TextStyle(color: breakColor, fontSize: 10.5, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            const Spacer(),
-
-            // Main Timer Section with '+' and '-' Adjust Buttons & Breathing Pulse
-            Center(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Minimalist '-' Decrease Target Button (Hidden in Stopwatch mode or Break)
-                  if (!isBreak && !isStopwatch) ...[
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          SafeHaptics.lightImpact();
-                          timerNotifier.decrementTargetMinutes(5);
-                        },
-                        borderRadius: BorderRadius.circular(30),
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: cardColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                          ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.remove_rounded,
-                              color: Colors.white70,
-                              size: 22,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                  ],
-
-                  // Circular Timer Dial with Breathing Pulse Animation
-                  TourShowcaseItem(
-                    section: TourSection.timer,
-                    step: TourStep.circle(
-                      key: _keyTimerDial,
-                      title: 'Focus Session',
-                      description: 'Tap to begin tracking your study block with ambient distraction-free focus modes.',
-                      targetPadding: const EdgeInsets.all(12),
-                    ),
-                    stepIndex: 1,
-                    totalSteps: 2,
-                    child: AnimatedBuilder(
-                      animation: _pulseController,
-                      builder: (context, child) {
-                        return Transform.scale(
-                          scale: _scaleAnimation.value,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // Outer Ambient Glow Ring (Animated breathing glow)
-                              Container(
-                                width: 232,
-                                height: 232,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: isBreak
-                                          ? const Color(0xFF064E3B).withValues(alpha: 0.40)
-                                          : (isStopwatch
-                                              ? const Color(0xFFA855F7)
-                                              : (timerState.isOvertime ? const Color(0xFFF2B78A) : currentColor))
-                                              .withValues(alpha: isRunning ? _glowAnimation.value : 0.08),
-                                      blurRadius: isRunning ? (24 + (_pulseController.value * 14)) : 12,
-                                      spreadRadius: isRunning ? (1 + (_pulseController.value * 3)) : 0,
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              // Custom Dial with 30-min sweep, 5-min interval ticks, tip glow & deep obsidian fill
-                              SizedBox(
-                                width: 220,
-                                height: 220,
-                                child: CustomPaint(
-                                  painter: TimerDialPainter(
-                                    progress: dialProgress,
-                                    isStopwatch: isStopwatch,
-                                    primaryColor: isBreak
-                                        ? const Color(0xFF34D399)
-                                        : (timerState.isOvertime
-                                            ? const Color(0xFFF2B78A)
-                                            : (isStopwatch ? const Color(0xFFF2B78A) : currentColor)),
-                                    secondaryColor: const Color(0xFFA855F7),
-                                    trackColor: isBreak
-                                        ? const Color(0xFF0F1412)
-                                        : (timerState.isOvertime
-                                            ? const Color(0xFFF2B78A)
-                                            : const Color(0xFF261D1A)),
-                                    dialFillColor: isBreak ? const Color(0xFF0F1412) : const Color(0xFF1A1513),
-                                    borderColor: isBreak ? const Color(0xFF1A2420) : const Color(0xFF2D2420),
-                                    glowColor: isBreak ? const Color(0xFF064E3B).withValues(alpha: 0.40) : null,
-                                    strokeWidth: 9.0,
-                                  ),
-                                ),
-                              ),
-
-                              // Center Time Display (MM:SS or HH:MM:SS)
-                              Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    timerState.formattedTime,
-                                    style: TextStyle(
-                                      color: isBreak ? const Color(0xFFF5EBE6) : Colors.white,
-                                      fontSize: isBreak ? 34 : 40,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: -1.0,
-                                      fontFeatures: const [FontFeature.tabularFigures()],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    isBreak
-                                        ? 'Earned Rest • 5:1 Focus Ratio'
-                                        : (timerState.isOvertime
-                                            ? 'Overtime • Deep Focus'
-                                            : (isStopwatch
-                                                ? (completedCycles == 0
-                                                    ? 'Cycle 1 (0–30m)'
-                                                    : 'Cycle ${completedCycles + 1} • ${completedCycles * 30}m+ completed')
-                                                : 'Target: ${(timerState.targetSeconds ~/ 60)} min')),
-                                    style: TextStyle(
-                                      color: isBreak
-                                          ? const Color(0xFF7B968B)
-                                          : (timerState.isOvertime
-                                              ? const Color(0xFFF2B78A)
-                                              : (isStopwatch ? const Color(0xFFD4B8FF) : Colors.blueGrey.shade400)),
-                                      fontSize: 12.0,
-                                      fontWeight: (isBreak || timerState.isOvertime || isStopwatch) ? FontWeight.w600 : FontWeight.w500,
-                                      letterSpacing: 0.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-
-                  // Minimalist '+' Increase Target Button (Hidden in Stopwatch mode or Break)
-                  if (!isBreak && !isStopwatch) ...[
-                    const SizedBox(width: 14),
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          SafeHaptics.lightImpact();
-                          timerNotifier.incrementTargetMinutes(5);
-                        },
-                        borderRadius: BorderRadius.circular(30),
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: cardColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                          ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.add_rounded,
-                              color: Colors.white70,
-                              size: 22,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-
-            if (!isBreak) ...[
-              const SizedBox(height: 20),
-
-              // Smart Break System Display (Accumulated Break Time)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 10.0),
-                margin: const EdgeInsets.symmetric(horizontal: 28.0),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1513),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: const Color(0xFF059669).withValues(alpha: 0.3),
-                    width: 1.0,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF059669).withValues(alpha: 0.06),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '☕ Earned Break: ${timerState.formattedEarnedBreak} • 5:1 ratio',
-                      style: const TextStyle(
-                        color: Color(0xFF34D399),
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            const Spacer(),
-
-            // Quick Preset Selection Chips (Hidden in Stopwatch mode)
-            if (isInitial && !isBreak && !isStopwatch) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [25, 50, 90].map((mins) {
-                    final isSelected = (timerState.targetSeconds ~/ 60) == mins;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 5.0),
-                      child: ChoiceChip(
-                        label: Text('${mins}m'),
-                        selected: isSelected,
-                        selectedColor: accentColor.withValues(alpha: 0.2),
-                        backgroundColor: cardColor,
-                        side: BorderSide(
-                          color: isSelected ? accentColor : const Color(0xFF4A3830),
-                        ),
-                        labelStyle: TextStyle(
-                          color: isSelected ? accentColor : const Color(0xFFABA093),
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                        onSelected: (_) {
-                          SafeHaptics.lightImpact();
-                          timerNotifier.setTargetMinutes(mins);
-                        },
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Action Buttons
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20.0, 0, 20.0, 32.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (isInitial) ...[
-                    // Idle state: Single primary "Start Session" button
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          SafeHaptics.lightImpact();
-                          if (timerState.selectedSubject != currentSubject) {
-                            timerNotifier.changeSubject(currentSubject);
-                          }
-                          timerNotifier.toggleStartPause();
-                        },
-                        icon: const Icon(Icons.play_arrow_rounded, size: 24),
-                        label: const Text(
-                          'Start Session',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isStopwatch ? const Color(0xFFA855F7) : accentColor,
-                          foregroundColor: const Color(0xFF140F0E),
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          elevation: 3,
-                          shadowColor: (isStopwatch ? const Color(0xFFA855F7) : accentColor).withValues(alpha: 0.3),
-                        ),
-                      ),
-                    ),
-                  ] else if (isBreak) ...[
-                    // Break Screen 3-button Control Dock
-                    // 1. [Pause / Resume]: Square subtle icon button with 8px corner radius, border #232B27, bg #141B18, icon #7B968B
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF141B18),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFF232B27),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: () {
-                          SafeHaptics.lightImpact();
-                          timerNotifier.toggleStartPause();
-                        },
-                        icon: Icon(
-                          isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                          color: const Color(0xFF7B968B),
-                          size: 22,
-                        ),
-                        tooltip: isRunning ? 'Pause' : 'Resume',
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-
-                    // 2. [Next Focus]: Wide primary pill button, Warm Peach #F2B78A, dark bold text "Next Focus" with arrow icon
-                    Expanded(
-                      child: SizedBox(
-                        height: 48,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            SafeHaptics.heavyImpact();
-                            timerNotifier.endBreak();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: const Color(0xFFF2B78A),
-                                  behavior: SnackBarBehavior.floating,
-                                  duration: const Duration(seconds: 3),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  content: const Text(
-                                    '🎯 Ready for your next focus session! Let\'s do this.',
-                                    style: TextStyle(
-                                      color: Color(0xFF140F0E),
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                          icon: const Icon(
-                            Icons.arrow_forward_rounded,
-                            size: 19,
-                            color: Color(0xFF140F0E),
-                          ),
-                          label: const Text(
-                            'Next Focus',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF140F0E),
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFF2B78A),
-                            foregroundColor: const Color(0xFF140F0E),
-                            elevation: 3,
-                            shadowColor: const Color(0xFFF2B78A).withValues(alpha: 0.35),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-
-                    // 3. [End]: Square compact button with red border #382323, bg #141B18, red icon #FF6B6B -> ends session completely
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF141B18),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFF382323),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: () {
-                          SafeHaptics.heavyImpact();
-                          timerNotifier.endSession();
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: const Color(0xFF241C1A),
-                                behavior: SnackBarBehavior.floating,
-                                duration: const Duration(seconds: 2),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                content: const Text(
-                                  'Break ended.',
-                                  style: TextStyle(
-                                    color: Color(0xFFABA093),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                        icon: const Icon(
-                          Icons.stop_rounded,
-                          color: Color(0xFFFF6B6B),
-                          size: 22,
-                        ),
-                        tooltip: 'End Break',
-                      ),
-                    ),
-                  ] else ...[
-                    // Active / Break Session: Exactly 3 Clear Controls:
-                    // 1. Pause / Resume toggle
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          SafeHaptics.lightImpact();
-                          timerNotifier.toggleStartPause();
-                        },
-                        icon: Icon(
-                          isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                          size: 20,
-                        ),
-                        label: Text(
-                          isRunning ? 'Pause' : 'Resume',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isStopwatch ? const Color(0xFFA855F7) : currentColor,
-                          foregroundColor: const Color(0xFF140F0E),
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          elevation: 3,
-                          shadowColor: (isStopwatch ? const Color(0xFFA855F7) : currentColor).withValues(alpha: 0.3),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-
-                    // 2. Finish Session (logs time, opens Journal popup) / Next Focus (in Break)
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          SafeHaptics.heavyImpact();
-                          final metadata = timerNotifier.prepareSessionCompletion();
-                          final totalSecs = metadata.totalDurationSeconds;
-                          int calculatedMins = (totalSecs / 60).round();
-                          if (calculatedMins == 0 && totalSecs >= 15) calculatedMins = 1;
-
-                          if (calculatedMins > 0) {
-                            await ref.read(userProfileProvider.notifier).addFocusMinutes(calculatedMins);
-                          }
-
-                          await timerNotifier.completeSession(
-                            courseId: metadata.courseId,
-                            courseCode: metadata.courseCode,
-                            finalElapsedSeconds: totalSecs,
-                            mode: isStopwatch ? 'stopwatch' : 'focus',
-                            sessionStartTime: metadata.sessionStartTime,
-                          );
-
-                          if (!context.mounted) return;
-                          _showPostSessionDialog(
-                            context,
-                            metadata: metadata,
-                            subject: metadata.courseTitle,
-                            durationMinutes: calculatedMins > 0 ? calculatedMins : 1,
-                          );
-                        },
-                        icon: const Icon(
-                          Icons.check_circle_rounded,
-                          size: 19,
-                        ),
-                        label: const Text(
-                          'Finish',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF34D399),
-                          backgroundColor: const Color(0xFF1A1513),
-                          side: BorderSide(
-                            color: const Color(0xFF059669).withValues(alpha: 0.5),
-                            width: 1.2,
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-
-                    // 3. Discard / Cancel (replaces "End" button; red #FF5964, calls discardSession(), dismisses timer to idle without logging)
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          SafeHaptics.heavyImpact();
-                          timerNotifier.discardSession();
-                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              backgroundColor: const Color(0xFF241C1A),
-                              behavior: SnackBarBehavior.floating,
-                              duration: const Duration(seconds: 3),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: const BorderSide(color: Color(0xFFFF5964), width: 1),
-                              ),
-                              content: const Text(
-                                'Session discarded.',
-                                style: TextStyle(
-                                  color: Color(0xFFFF5964),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.close_rounded, size: 19),
-                        label: const Text(
-                          'Discard',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFFF5964),
-                          backgroundColor: const Color(0xFF1A1513),
-                          side: BorderSide(
-                            color: const Color(0xFFFF5964).withValues(alpha: 0.4),
-                            width: 1.2,
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+              decoration: InputDecoration(
+                suffixText: 'minutes',
+                suffixStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.surfaceBorder)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.secondary)),
               ),
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colors.secondary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              final mins = int.tryParse(customCtrl.text.trim());
+              if (mins != null && mins > 0) {
+                SafeHaptics.mediumImpact();
+                timerNotifier.setTargetMinutes(mins.clamp(5, 360));
+              }
+              Navigator.of(ctx).pop();
+            },
+            child: Text('Set Target', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+          ),
+        ],
       ),
-    );
-      },
     );
   }
 
-  /// Modal for adding/deleting timer-specific subjects without altering Syllabus
   void _showManageSubjectsModal(BuildContext context, WidgetRef ref) {
     final customCtrl = TextEditingController();
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF241C1A),
+      backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -2220,16 +2896,16 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Manage Timer Subjects',
-                        style: TextStyle(
-                          color: Colors.white,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textPrimary,
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, color: Colors.blueGrey, size: 20),
+                        icon: Icon(Icons.close_rounded, color: colors.textMuted, size: 20),
                         onPressed: () {
                           SafeHaptics.lightImpact();
                           Navigator.pop(ctx);
@@ -2237,9 +2913,9 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                       ),
                     ],
                   ),
-                  const Text(
+                  Text(
                     'Custom timer subjects are saved to your profile. Modifying this list does NOT alter your Syllabus or delete past study logs.',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5),
+                    style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11.5),
                   ),
                   const SizedBox(height: 16),
 
@@ -2247,18 +2923,30 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                   Row(
                     children: [
                       Expanded(
-                        child: TextField(
-                          controller: customCtrl,
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
-                          decoration: InputDecoration(
-                            hintText: 'Enter new custom subject...',
-                            hintStyle: TextStyle(color: Colors.blueGrey.shade500, fontSize: 12.5),
-                            filled: true,
-                            fillColor: const Color(0xFF170F0D),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFF4A3830)),
+                        child: SizedBox(
+                          height: 48,
+                          child: TextField(
+                            controller: customCtrl,
+                            style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              hintText: 'Enter new custom subject...',
+                              hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12.5),
+                              filled: true,
+                              fillColor: colors.recessed,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: colors.surfaceBorder),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: colors.surfaceBorder),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: colors.secondary),
+                              ),
                             ),
                           ),
                         ),
@@ -2274,22 +2962,22 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                             customCtrl.clear();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                backgroundColor: const Color(0xFF10B981),
+                                backgroundColor: colors.success,
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 duration: const Duration(seconds: 2),
-                                content: Text('Added "$text" to timer subjects.'),
+                                content: Text('Added "$text" to timer subjects.', style: GoogleFonts.plusJakartaSans(color: Colors.white)),
                               ),
                             );
                           }
                         },
                         icon: const Icon(Icons.add_rounded, size: 18),
-                        label: const Text('Add'),
+                        label: Text('Add', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFF2B78A),
-                          foregroundColor: const Color(0xFF140F0E),
+                          backgroundColor: colors.secondary,
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ],
@@ -2297,9 +2985,9 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                   const SizedBox(height: 16),
 
                   // Current Subjects List
-                  const Text(
+                  Text(
                     'CURRENT TIMER SUBJECTS',
-                    style: TextStyle(color: Colors.blueGrey, fontSize: 10.5, fontWeight: FontWeight.bold),
+                    style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
 
@@ -2314,9 +3002,9 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                           margin: const EdgeInsets.only(bottom: 6),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF170F0D),
+                            color: colors.recessed,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFF4A3830)),
+                            border: Border.all(color: colors.surfaceBorder),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2324,13 +3012,13 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                               Expanded(
                                 child: Text(
                                   subj,
-                                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                                  style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               if (subjects.length > 1)
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.pinkAccent, size: 18),
+                                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 18),
                                   visualDensity: VisualDensity.compact,
                                   tooltip: 'Remove from Timer',
                                   onPressed: () {
@@ -2376,30 +3064,29 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           metadata: metadata,
           subjectOrCourseName: resolvedSubject,
           subjectOrCourseId: resolvedId,
-          durationMinutes: metadata?.durationMinutes ?? durationMinutes ?? 1,
+          durationMinutes: durationMinutes ?? metadata?.durationMinutes ?? 1,
           mode: mode,
+          onSaved: () {
+            ref.read(timerProvider.notifier).resetTimer();
+          },
+          onSkipped: () {
+            ref.read(timerProvider.notifier).resetTimer();
+          },
         ),
       );
     } finally {
       _isPostSessionDialogOpen = false;
-      // On modal dismissal / save / skip:
-      // Transition immediately to FocusTimerMode.breakRunning and begin ticking earned break clock
-      if (mounted) {
-        final totalSecs = metadata?.totalDurationSeconds ?? (durationMinutes != null ? durationMinutes * 60 : 0);
-        ref.read(timerProvider.notifier).startBreakAfterSession(totalSecs > 0 ? totalSecs : null);
-      }
     }
   }
 }
 
-
-/// Custom painter for Timer & Stopwatch circular dial with 5-minute ticks,
-/// smooth multi-color gradient sweep arc, tip glow, and deep obsidian finish.
+// =========================================================================
+// 5. CUSTOM TIMER DIAL PAINTER
+// =========================================================================
 class TimerDialPainter extends CustomPainter {
   final double progress; // 0.0 to 1.0
   final bool isStopwatch;
   final Color primaryColor;
-  final Color secondaryColor;
   final Color trackColor;
   final Color dialFillColor;
   final Color borderColor;
@@ -2409,13 +3096,12 @@ class TimerDialPainter extends CustomPainter {
   const TimerDialPainter({
     required this.progress,
     required this.isStopwatch,
-    this.primaryColor = const Color(0xFFF2B78A),
-    this.secondaryColor = const Color(0xFFA855F7),
-    this.trackColor = const Color(0xFF261D1A),
-    this.dialFillColor = const Color(0xFF1A1513),
-    this.borderColor = const Color(0xFF2D2420),
+    required this.primaryColor,
+    required this.trackColor,
+    required this.dialFillColor,
+    required this.borderColor,
     this.glowColor,
-    this.strokeWidth = 9.0,
+    this.strokeWidth = 8.5,
   });
 
   @override
@@ -2424,20 +3110,24 @@ class TimerDialPainter extends CustomPainter {
     final outerRadius = size.width / 2;
     final arcRadius = (size.width - strokeWidth) / 2;
 
-    // 1. Darken base dial fill to deep obsidian (#1A1513)
-    final fillPaint = Paint()
-      ..color = dialFillColor
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, outerRadius, fillPaint);
+    // 1. Dial Fill
+    if (dialFillColor != Colors.transparent) {
+      final fillPaint = Paint()
+        ..color = dialFillColor
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(center, outerRadius, fillPaint);
+    }
 
-    // 2. Soft outer ring border (#2D2420)
-    final borderPaint = Paint()
-      ..color = borderColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    canvas.drawCircle(center, outerRadius - 0.75, borderPaint);
+    // 2. Soft Outer Border
+    if (borderColor != Colors.transparent) {
+      final borderPaint = Paint()
+        ..color = borderColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+      canvas.drawCircle(center, outerRadius - 0.5, borderPaint);
+    }
 
-    // 3. Background track for the progress arc
+    // 3. Background Track
     final trackPaint = Paint()
       ..color = trackColor
       ..style = PaintingStyle.stroke
@@ -2445,47 +3135,27 @@ class TimerDialPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawCircle(center, arcRadius, trackPaint);
 
-    // 4. Subtle 5-minute interval ticks/dots along the inner rim
-    // 6 ticks for 30 minutes (0, 5, 10, 15, 20, 25 minutes)
-    final tickDistance = arcRadius - (strokeWidth / 2) - 8.0;
-    const tickCount = 6;
-    for (int i = 0; i < tickCount; i++) {
-      final tickAngle = -math.pi / 2 + (2 * math.pi * i / tickCount);
+    // 4. Cardinal ticks (top, right, bottom, left)
+    const cardinalCount = 4;
+    for (int i = 0; i < cardinalCount; i++) {
+      final tickAngle = -math.pi / 2 + (2 * math.pi * i / cardinalCount);
+      final tickDistance = arcRadius;
       final tickX = center.dx + tickDistance * math.cos(tickAngle);
       final tickY = center.dy + tickDistance * math.sin(tickAngle);
-
-      final tickProgress = i / tickCount;
-      final isReached = progress >= tickProgress && progress > 0.001;
-
       final tickPaint = Paint()
-        ..style = PaintingStyle.fill
-        ..color = isReached
-            ? primaryColor.withValues(alpha: 0.85)
-            : const Color(0xFF523F37).withValues(alpha: 0.55);
-
-      final dotRadius = (i == 0) ? 2.8 : 2.0;
-      canvas.drawCircle(Offset(tickX, tickY), dotRadius, tickPaint);
+        ..color = borderColor.withValues(alpha: 0.8)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(tickX, tickY), 2.5, tickPaint);
     }
 
-    // 5. Active elapsed arc with StrokeCap.round and smooth gradient (Peach #F2B78A to Purple #A855F7)
+    // 5. Active Progress Arc
     final clampedProgress = progress.clamp(0.0, 1.0);
     if (clampedProgress > 0.001) {
       final sweepAngle = 2 * math.pi * clampedProgress;
       final rect = Rect.fromCircle(center: center, radius: arcRadius);
 
-      final List<Color> gradientColors = isStopwatch
-          ? [primaryColor, secondaryColor]
-          : [primaryColor.withValues(alpha: 0.9), primaryColor];
-
-      final gradient = SweepGradient(
-        startAngle: 0.0,
-        endAngle: math.max(0.05, sweepAngle),
-        colors: gradientColors,
-        transform: const GradientRotation(-math.pi / 2),
-      );
-
       final arcPaint = Paint()
-        ..shader = gradient.createShader(rect)
+        ..color = primaryColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round;
@@ -2498,19 +3168,19 @@ class TimerDialPainter extends CustomPainter {
         arcPaint,
       );
 
-      // 6. Soft radial glow / drop shadow behind active arc tip
+      // Soft tip glow
       final tipAngle = -math.pi / 2 + sweepAngle;
       final tipX = center.dx + arcRadius * math.cos(tipAngle);
       final tipY = center.dy + arcRadius * math.sin(tipAngle);
       final tipCenter = Offset(tipX, tipY);
 
-      final effectiveGlow = glowColor ?? (isStopwatch ? secondaryColor : primaryColor);
+      final effectiveGlow = glowColor ?? primaryColor;
       final tipGlowPaint = Paint()
-        ..color = effectiveGlow.withValues(alpha: 0.55)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-      canvas.drawCircle(tipCenter, strokeWidth * 0.9, tipGlowPaint);
+        ..color = effectiveGlow.withValues(alpha: 0.45)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+      canvas.drawCircle(tipCenter, strokeWidth * 0.8, tipGlowPaint);
 
-      // Crisp inner highlight pip at the arc tip
+      // Inner highlight pip
       final pipPaint = Paint()
         ..color = Colors.white
         ..style = PaintingStyle.fill;
@@ -2523,7 +3193,6 @@ class TimerDialPainter extends CustomPainter {
     return oldDelegate.progress != progress ||
         oldDelegate.isStopwatch != isStopwatch ||
         oldDelegate.primaryColor != primaryColor ||
-        oldDelegate.secondaryColor != secondaryColor ||
         oldDelegate.trackColor != trackColor ||
         oldDelegate.dialFillColor != dialFillColor ||
         oldDelegate.borderColor != borderColor ||
@@ -2531,4 +3200,3 @@ class TimerDialPainter extends CustomPainter {
         oldDelegate.strokeWidth != strokeWidth;
   }
 }
-

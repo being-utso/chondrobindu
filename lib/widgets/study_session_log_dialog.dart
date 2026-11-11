@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../core/theme/app_colors.dart';
 import '../models/session_metadata.dart';
 import '../models/study_session_model.dart';
 import '../models/syllabus_node.dart';
@@ -321,9 +322,11 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
     }
   }
 
+  ChondrobinduThemeColors get colors => AppColors.of(context);
+
   Widget _buildNodeTile(SyllabusNode node, {int depth = 0}) {
-    const accentColor = Color(0xFFF2B78A);
-    const emeraldColor = Color(0xFF10B981);
+    final accentColor = colors.secondary;
+    final emeraldColor = colors.success;
 
     final isSelected = _selectedTopicIds.contains(node.id);
 
@@ -354,7 +357,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
             child: Checkbox(
               value: isSelected,
               activeColor: emeraldColor,
-              checkColor: Colors.black,
+              checkColor: Colors.white,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               onChanged: (val) {
                 setState(() {
@@ -375,11 +378,11 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
                 child: Text(
                   node.title,
                   style: GoogleFonts.plusJakartaSans(
-                    color: Colors.white,
+                    color: colors.textPrimary,
                     fontSize: depth == 0 ? 13.5 : 13.0,
                     fontWeight: depth == 0 ? FontWeight.bold : FontWeight.w600,
                     decoration: node.isCompleted && !isSelected ? TextDecoration.lineThrough : null,
-                    decorationColor: Colors.white38,
+                    decorationColor: colors.textMuted,
                   ),
                 ),
               ),
@@ -411,18 +414,18 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
         child: CheckboxListTile(
           value: isSelected,
           activeColor: emeraldColor,
-          checkColor: Colors.black,
+          checkColor: Colors.white,
           dense: true,
           visualDensity: VisualDensity.compact,
           contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
           title: Text(
             node.title,
             style: GoogleFonts.plusJakartaSans(
-              color: isSelected ? Colors.white : Colors.white70,
+              color: isSelected ? colors.textPrimary : colors.textMuted,
               fontSize: 12.5,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               decoration: node.isCompleted && !isSelected ? TextDecoration.lineThrough : null,
-              decorationColor: Colors.white38,
+              decorationColor: colors.textMuted,
             ),
           ),
           subtitle: node.isCompleted
@@ -449,17 +452,17 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
 
   @override
   Widget build(BuildContext context) {
-    const cardColor = Color(0xFF1C1412);
-    const fieldFill = Color(0xFF241C1A);
-    const borderColor = Color(0xFF382A24);
-    const accentColor = Color(0xFFF2B78A);
-    const emeraldColor = Color(0xFF10B981);
+    final cardColor = colors.surface;
+    final fieldFill = colors.recessed;
+    final borderColor = colors.surfaceBorder;
+    final accentColor = colors.secondary;
+    final emeraldColor = colors.success;
 
     return Dialog(
       backgroundColor: cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: borderColor, width: 0.8),
+        side: BorderSide(color: borderColor, width: 0.8),
       ),
       insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
       child: SingleChildScrollView(
@@ -477,7 +480,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
                     color: emeraldColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.check_circle_rounded, color: emeraldColor, size: 24),
+                  child: Icon(Icons.check_circle_rounded, color: emeraldColor, size: 24),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -487,7 +490,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
                       Text(
                         'Session Completed! 🎉',
                         style: GoogleFonts.plusJakartaSans(
-                          color: Colors.white,
+                          color: colors.textPrimary,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -495,7 +498,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
                       const SizedBox(height: 2),
                       Text(
                         'Log what you learned to your Journal',
-                        style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 12),
+                        style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
                       ),
                     ],
                   ),
@@ -518,7 +521,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
                   Expanded(
                     child: Row(
                       children: [
-                        const Icon(Icons.menu_book_rounded, color: accentColor, size: 18),
+                        Icon(Icons.menu_book_rounded, color: accentColor, size: 18),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -526,7 +529,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
                                 ? '$effectiveCourseCode: $effectiveCourseName'
                                 : effectiveCourseName,
                             style: GoogleFonts.plusJakartaSans(
-                              color: Colors.white,
+                              color: colors.textPrimary,
                               fontWeight: FontWeight.bold,
                               fontSize: 13.5,
                             ),
@@ -546,7 +549,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.timer_outlined, color: emeraldColor, size: 14),
+                        Icon(Icons.timer_outlined, color: emeraldColor, size: 14),
                         const SizedBox(width: 4),
                         Text(
                           '$effectiveDurationMinutes mins',
@@ -586,12 +589,12 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: borderColor),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.sync_rounded, color: accentColor, size: 18),
-                    SizedBox(width: 10),
-                    Text('Loading course syllabus topics...', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    const SizedBox(width: 10),
+                    Text('Loading course syllabus topics...', style: TextStyle(color: colors.textMuted, fontSize: 12)),
                   ],
                 ),
               )
@@ -630,7 +633,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
                   title: Text(
                     'Mark selected topics as completed in main syllabus',
                     style: GoogleFonts.plusJakartaSans(
-                      color: Colors.white,
+                      color: colors.textPrimary,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
                     ),
@@ -638,7 +641,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
                   subtitle: Text(
                     'Syncs status to Course Dashboard & Syllabus',
                     style: GoogleFonts.plusJakartaSans(
-                      color: const Color(0xFFABA093),
+                      color: colors.textMuted,
                       fontSize: 11,
                     ),
                   ),
@@ -658,12 +661,12 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline_rounded, color: Color(0xFFABA093), size: 18),
+                    Icon(Icons.info_outline_rounded, color: colors.textMuted, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'No syllabus structure found for this course. You can enter topics manually below.',
-                        style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 12),
+                        style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
                       ),
                     ),
                   ],
@@ -676,7 +679,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
             Text(
               _syllabusNodes.isNotEmpty ? 'ADDITIONAL TOPICS / KEYWORDS (OPTIONAL)' : 'KEYWORDS / TOPICS READ',
               style: GoogleFonts.plusJakartaSans(
-                color: const Color(0xFFABA093),
+                color: colors.textMuted,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.8,
@@ -685,24 +688,24 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
             const SizedBox(height: 6),
             TextField(
               controller: _customTopicsController,
-              style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
+              style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13.5),
               decoration: InputDecoration(
                 hintText: 'e.g., Problem set 3, Formula derivations',
-                hintStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF7E726B), fontSize: 12.5),
+                hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted.withValues(alpha: 0.7), fontSize: 12.5),
                 filled: true,
                 fillColor: fieldFill,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: borderColor),
+                  borderSide: BorderSide(color: borderColor),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: borderColor),
+                  borderSide: BorderSide(color: borderColor),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: accentColor, width: 1.5),
+                  borderSide: BorderSide(color: accentColor, width: 1.5),
                 ),
               ),
             ),
@@ -712,7 +715,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
             Text(
               'QUICK REFLECTION / NOTES (OPTIONAL)',
               style: GoogleFonts.plusJakartaSans(
-                color: const Color(0xFFABA093),
+                color: colors.textMuted,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.8,
@@ -722,24 +725,24 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
             TextField(
               controller: _reflectionsController,
               maxLines: 2,
-              style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
+              style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13.5),
               decoration: InputDecoration(
                 hintText: 'e.g., Felt confident on derivations; need to practice numericals.',
-                hintStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF7E726B), fontSize: 12.5),
+                hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted.withValues(alpha: 0.7), fontSize: 12.5),
                 filled: true,
                 fillColor: fieldFill,
                 contentPadding: const EdgeInsets.all(12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: borderColor),
+                  borderSide: BorderSide(color: borderColor),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: borderColor),
+                  borderSide: BorderSide(color: borderColor),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: accentColor, width: 1.5),
+                  borderSide: BorderSide(color: accentColor, width: 1.5),
                 ),
               ),
             ),
@@ -751,8 +754,8 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
                 Expanded(
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFABA093),
-                      side: const BorderSide(color: borderColor),
+                      foregroundColor: colors.textMuted,
+                      side: BorderSide(color: borderColor),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
@@ -775,7 +778,7 @@ class _StudySessionLogDialogState extends State<StudySessionLogDialog> {
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: accentColor,
-                      foregroundColor: const Color(0xFF140F0E),
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),

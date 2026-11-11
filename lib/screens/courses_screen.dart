@@ -911,6 +911,10 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                     onPressed: () {
                       SafeHaptics.mediumImpact();
                       ref.read(timerProvider.notifier).changeSubject(course.title);
+                      ref.read(timerProvider.notifier).setSelectedCourseAndTopic(
+                        courseId: course.id,
+                        courseCode: course.code,
+                      );
                       ref.read(navigationIndexProvider.notifier).state = 2; // Jump to Timer
                     },
                     icon: const Icon(Icons.play_arrow_rounded, size: 18),
@@ -1576,6 +1580,11 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
             onTap: () {
               SafeHaptics.mediumImpact();
               ref.read(timerProvider.notifier).changeSubject('${course.code}: ${subtopic.title}');
+              ref.read(timerProvider.notifier).setSelectedCourseAndTopic(
+                courseId: course.id,
+                courseCode: course.code,
+                topicId: subtopic.id,
+              );
               ref.read(navigationIndexProvider.notifier).state = 2; // Jump to Timer
             },
             borderRadius: BorderRadius.circular(6),
@@ -1747,6 +1756,11 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
             onTap: () {
               SafeHaptics.mediumImpact();
               ref.read(timerProvider.notifier).changeSubject('${course.code}: $title');
+              ref.read(timerProvider.notifier).setSelectedCourseAndTopic(
+                courseId: course.id,
+                courseCode: course.code,
+                topicId: id,
+              );
               ref.read(navigationIndexProvider.notifier).state = 2; // Jump to Timer
             },
             borderRadius: BorderRadius.circular(6),
