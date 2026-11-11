@@ -485,9 +485,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: colors.recessed,
+                    color: _soundEnabled ? colors.secondary.withValues(alpha: 0.15) : colors.recessed,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.surfaceBorder),
+                    border: Border.all(
+                      color: _soundEnabled ? colors.secondary : colors.surfaceBorder,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -499,15 +501,13 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        'Soundscapes: ',
-                        style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11),
-                      ),
-                      Text(
-                        '$_selectedSoundscape [${_soundEnabled ? 'ON' : 'OFF'}]',
+                        _soundEnabled
+                            ? 'Soundscapes: [$_selectedSoundscape] [ON]'
+                            : 'Soundscapes: [OFF]',
                         style: GoogleFonts.jetBrainsMono(
-                          color: _soundEnabled ? colors.textPrimary : colors.textMuted,
+                          color: _soundEnabled ? colors.secondary : colors.textMuted,
                           fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: _soundEnabled ? FontWeight.bold : FontWeight.w500,
                         ),
                       ),
                     ],
@@ -1639,8 +1639,10 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           // Atelier Soundscape Quick Modulation Palette
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.graphic_eq_rounded, size: 16, color: colors.secondary),
                   const SizedBox(width: 6),
@@ -1654,47 +1656,70 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                   ),
                 ],
               ),
-              Row(
-                children: ['Rainfall', 'Library Hall', 'Brown Noise'].map((p) {
-                  final track = SoundscapeService.fromLabel(p);
-                  final isCurrentPlaying = _soundEnabled && _soundscapeService.isPlaying && _selectedSoundscape == p;
-                  return Padding(
-                    padding: const EdgeInsets.only(left: 6.0),
-                    child: InkWell(
-                      onTap: () async {
-                        SafeHaptics.selectionClick();
-                        if (isCurrentPlaying) {
-                          await _soundscapeService.stop();
-                        } else {
-                          await _soundscapeService.play(track);
-                        }
-                        setState(() {
-                          _selectedSoundscape = p;
-                          _soundEnabled = _soundscapeService.isPlaying;
-                        });
-                      },
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: isCurrentPlaying ? colors.secondary.withValues(alpha: 0.15) : colors.recessed,
+              const SizedBox(width: 8),
+              Flexible(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: SoundscapeService.allLabels.map((p) {
+                      final track = SoundscapeService.fromLabel(p);
+                      final isCurrentPlaying = _soundEnabled && _soundscapeService.isPlaying && _selectedSoundscape == p;
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
+                      final activeTextColor = isDark ? const Color(0xFF171C24) : Colors.white;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 6.0),
+                        child: InkWell(
+                          onTap: () async {
+                            SafeHaptics.selectionClick();
+                            if (isCurrentPlaying) {
+                              await _soundscapeService.stop();
+                            } else {
+                              await _soundscapeService.play(track);
+                            }
+                            setState(() {
+                              _selectedSoundscape = p;
+                              _soundEnabled = _soundscapeService.isPlaying;
+                            });
+                          },
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: isCurrentPlaying ? colors.secondary : colors.surfaceBorder,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                            decoration: BoxDecoration(
+                              color: isCurrentPlaying ? colors.secondary : colors.recessed,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: isCurrentPlaying ? colors.secondary : colors.surfaceBorder,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (isCurrentPlaying) ...[
+                                  Icon(
+                                    Icons.graphic_eq_rounded,
+                                    size: 11,
+                                    color: activeTextColor,
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
+                                Text(
+                                  p,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: isCurrentPlaying ? activeTextColor : colors.textMuted,
+                                    fontSize: 10.5,
+                                    fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        child: Text(
-                          p,
-                          style: GoogleFonts.jetBrainsMono(
-                            color: isCurrentPlaying ? colors.secondary : colors.textMuted,
-                            fontSize: 10.5,
-                            fontWeight: isCurrentPlaying ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
+                      );
+                    }).toList(),
+                  ),
+                ),
               ),
             ],
           ),
@@ -2709,13 +2734,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                       children: [
                         // Sound ambient button
                         GestureDetector(
-                          onTap: () async {
-                            SafeHaptics.selectionClick();
-                            final track = SoundscapeService.fromLabel(_selectedSoundscape);
-                            await _soundscapeService.toggle(track);
-                            setState(() => _soundEnabled = _soundscapeService.isPlaying);
-                          },
-                          onLongPress: () {
+                          onTap: () {
                             SafeHaptics.selectionClick();
                             _showSoundscapePickerSheet();
                           },
@@ -3239,83 +3258,254 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     showModalBottomSheet(
       context: context,
       backgroundColor: colors.surface,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
         return StatefulBuilder(builder: (ctx, setSheetState) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Ambient Soundscape',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: colors.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+          final isMuted = !_soundscapeService.isPlaying;
+
+          final items = [
+            (
+              label: 'Off',
+              sublabel: 'Mute / Stop playback',
+              track: SoundscapeTrack.none,
+              icon: Icons.volume_off_rounded,
+            ),
+            (
+              label: 'Rainfall',
+              sublabel: 'Gentle academic rain (rain.mp3)',
+              track: SoundscapeTrack.rainfall,
+              icon: Icons.water_drop_outlined,
+            ),
+            (
+              label: 'Heavy Rain',
+              sublabel: 'Deep acoustic rain shower (rain2.mp3)',
+              track: SoundscapeTrack.heavyRain,
+              icon: Icons.thunderstorm_outlined,
+            ),
+            (
+              label: 'Brown Noise',
+              sublabel: 'Low-frequency rumble & wind (wind.mp3)',
+              track: SoundscapeTrack.brownNoise,
+              icon: Icons.air_rounded,
+            ),
+            (
+              label: 'Cafe Ambiance',
+              sublabel: 'Warm coffeehouse murmur (cafe.mp3)',
+              track: SoundscapeTrack.cafeAmbiance,
+              icon: Icons.local_cafe_outlined,
+            ),
+            (
+              label: 'Forest Birds',
+              sublabel: 'Nature woodland atmosphere (birds.mp3)',
+              track: SoundscapeTrack.forestBirds,
+              icon: Icons.forest_outlined,
+            ),
+          ];
+
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Center drag indicator
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: colors.surfaceBorder,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    if (_soundscapeService.isPlaying)
-                      TextButton.icon(
-                        onPressed: () async {
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Ambient Soundscapes',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textPrimary,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (_soundscapeService.isPlaying)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: colors.secondary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: colors.secondary.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.graphic_eq_rounded, size: 12, color: colors.secondary),
+                              const SizedBox(width: 4),
+                              Text(
+                                'LOOPING',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: colors.secondary,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Continuous background noise to sustain deep focus state',
+                    style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Volume Slider Card
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: colors.recessed,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colors.surfaceBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _soundscapeService.volume == 0
+                              ? Icons.volume_mute_rounded
+                              : Icons.volume_down_rounded,
+                          size: 18,
+                          color: colors.textMuted,
+                        ),
+                        Expanded(
+                          child: SliderTheme(
+                            data: SliderTheme.of(ctx).copyWith(
+                              activeTrackColor: colors.secondary,
+                              inactiveTrackColor: colors.surfaceBorder,
+                              thumbColor: colors.secondary,
+                              overlayColor: colors.secondary.withValues(alpha: 0.15),
+                              trackHeight: 4,
+                              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                            ),
+                            child: Slider(
+                              value: _soundscapeService.volume,
+                              min: 0.0,
+                              max: 1.0,
+                              onChanged: (val) async {
+                                await _soundscapeService.setVolume(val);
+                                setSheetState(() {});
+                              },
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 36,
+                          child: Text(
+                            '${(_soundscapeService.volume * 100).round()}%',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.textPrimary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.end,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Soundscape List
+                  ...items.map((item) {
+                    final bool isSelected = item.track == SoundscapeTrack.none
+                        ? isMuted
+                        : (_soundscapeService.isPlaying && _soundscapeService.currentTrack == item.track);
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6.0),
+                      child: InkWell(
+                        onTap: () async {
                           SafeHaptics.selectionClick();
-                          await _soundscapeService.stop();
-                          setState(() => _soundEnabled = false);
+                          if (item.track == SoundscapeTrack.none) {
+                            await _soundscapeService.stop();
+                            setState(() => _soundEnabled = false);
+                          } else {
+                            if (isSelected) {
+                              await _soundscapeService.stop();
+                              setState(() => _soundEnabled = false);
+                            } else {
+                              await _soundscapeService.play(item.track);
+                              setState(() {
+                                _selectedSoundscape = item.label;
+                                _soundEnabled = true;
+                              });
+                            }
+                          }
                           setSheetState(() {});
                         },
-                        icon: const Icon(Icons.volume_off_rounded, size: 16),
-                        label: const Text('Mute'),
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? colors.secondary.withValues(alpha: 0.12)
+                                : colors.recessed,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSelected ? colors.secondary : colors.surfaceBorder,
+                              width: isSelected ? 1.2 : 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                item.icon,
+                                color: isSelected ? colors.secondary : colors.textMuted,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.label,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: isSelected ? colors.secondary : colors.textPrimary,
+                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                        fontSize: 13.5,
+                                      ),
+                                    ),
+                                    Text(
+                                      item.sublabel,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: colors.textMuted,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isSelected)
+                                Icon(Icons.check_circle_rounded, color: colors.secondary, size: 20),
+                            ],
+                          ),
+                        ),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Looped ambient audio for deep focus sessions',
-                  style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
-                ),
-                const SizedBox(height: 16),
-                ...['Rainfall', 'Library Hall', 'Brown Noise'].map((label) {
-                  final track = SoundscapeService.fromLabel(label);
-                  final isActive = _soundscapeService.currentTrack == track && _soundscapeService.isPlaying;
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      isActive ? Icons.graphic_eq_rounded : Icons.water_drop_outlined,
-                      color: isActive ? colors.secondary : colors.textMuted,
-                    ),
-                    title: Text(
-                      label,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: isActive ? colors.secondary : colors.textPrimary,
-                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                    trailing: isActive
-                        ? Icon(Icons.check_circle_rounded, color: colors.secondary, size: 20)
-                        : null,
-                    onTap: () async {
-                      SafeHaptics.selectionClick();
-                      if (isActive) {
-                        await _soundscapeService.stop();
-                      } else {
-                        await _soundscapeService.play(track);
-                      }
-                      setState(() {
-                        _selectedSoundscape = label;
-                        _soundEnabled = _soundscapeService.isPlaying;
-                      });
-                      setSheetState(() {});
-                    },
-                  );
-                }),
-              ],
+                    );
+                  }),
+                ],
+              ),
             ),
           );
         });
