@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/course_model.dart';
 import '../models/syllabus_model.dart';
+import '../models/syllabus_models.dart';
 import '../models/routine_slot_model.dart';
 import '../models/routine_models.dart';
 import '../models/assessment_model.dart';
@@ -168,4 +169,29 @@ final attendanceRecordsStreamProvider = StreamProvider<List<AttendanceRecord>>((
       .collection('attendance_records')
       .snapshots()
       .map((snap) => snap.docs.map((doc) => AttendanceRecord.fromMap(doc.data(), defaultId: doc.id)).toList());
+});
+
+// --- Active Syllabus Subjects Stream Provider (College / HSC & Admission) ---
+final activeSyllabusSubjectsStreamProvider = StreamProvider<List<Subject>>((ref) {
+  if (Firebase.apps.isEmpty) return Stream.value([]);
+  final uidAsync = ref.watch(currentUserIdProvider);
+  final uid = uidAsync.value ?? _getSafeCurrentUid();
+  if (uid.isEmpty) return Stream.value([]);
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('syllabus_state')
+      .doc('active_syllabus')
+      .snapshots()
+      .map((doc) {
+    final data = doc.data();
+    if (!doc.exists || data == null || data['subjects'] == null) {
+      return <Subject>[];
+    }
+    final rawSubjects = data['subjects'] as List<dynamic>;
+    return rawSubjects
+        .whereType<Map>()
+        .map((s) => Subject.fromMap(Map<String, dynamic>.from(s)))
+        .toList();
+  });
 });

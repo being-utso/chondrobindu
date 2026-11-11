@@ -7494,9 +7494,11 @@ void main() {
         await tester.tap(find.text('Assessment / Exam / CT'));
         await tester.pumpAndSettle();
 
-        // Default first course is Theory -> shows Theory Course tag & Class Test (CT)
+        // Default first course is Theory -> shows Theory Course tag, Class Test (CT), Weightage (%), and Uni hint
         expect(find.text('Theory Course'), findsOneWidget);
         expect(find.text('Class Test (CT)'), findsOneWidget);
+        expect(find.text('Weightage (%)'), findsOneWidget);
+        expect(find.text('e.g. CT 4: System Data Structures'), findsOneWidget);
 
         // Switch course to Sessional -> Assessment Type updates to Lab / Sessional options
         await tester.tap(find.text('CSE 301 • Database Systems'));
@@ -7673,6 +7675,121 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('CT-3 Pipeline'), findsOneWidget);
+      });
+
+      testWidgets('Planner Admission Schedule Assessment populates subjects from active syllabus, hides Weightage, and shows admission hint', (tester) async {
+        tester.view.physicalSize = const Size(1280, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        const admissionProfile = UserProfile(
+          uid: 'u7',
+          institutionType: InstitutionType.college,
+          isUniversityStudent: false,
+          primaryTarget: 'Engineering (BUET, CKRUET)',
+          isLoaded: true,
+        );
+        const subjects = [
+          Subject(id: 'eng_phy1', title: 'Physics 1st Paper', chapters: []),
+          Subject(id: 'eng_math1', title: 'Higher Mathematics 1st Paper', chapters: []),
+        ];
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(admissionProfile)),
+              weeklyRoutineStreamProvider.overrideWith((ref) => Stream.value([])),
+              allAssessmentsStreamProvider.overrideWith((ref) => Stream.value([])),
+              coursesStreamProvider.overrideWith((ref) => Stream.value([])),
+              activeSyllabusSubjectsStreamProvider.overrideWith((ref) => Stream.value(subjects)),
+              examsStreamProvider.overrideWith((ref) => Stream.value([])),
+              attendanceRecordsStreamProvider.overrideWith((ref) => Stream.value([])),
+              holidaySettingsStreamProvider.overrideWith((ref) => Stream.value(HolidaySettings.defaultSettings)),
+            ],
+            child: const MaterialApp(
+              home: PlannerScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Schedule'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Assessment / Exam / CT'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Physics 1st Paper'), findsOneWidget);
+        expect(find.text('Total Marks'), findsOneWidget);
+        expect(find.text('Weightage (%)'), findsNothing);
+        expect(find.text('e.g. Weekly Exam 03: Mechanics & Vectors'), findsOneWidget);
+
+        // Select another enrolled syllabus subject
+        await tester.tap(find.text('Physics 1st Paper'));
+        await tester.pumpAndSettle();
+        expect(find.text('Higher Mathematics 1st Paper'), findsWidgets);
+        await tester.tap(find.text('Higher Mathematics 1st Paper').last);
+        await tester.pumpAndSettle();
+        expect(find.text('Higher Mathematics 1st Paper'), findsOneWidget);
+      });
+
+      testWidgets('Planner College HSC uses syllabusProvider subjects, hides Weightage, shows HSC hint, and handles empty syllabus', (tester) async {
+        tester.view.physicalSize = const Size(1280, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        const hscProfile = UserProfile(
+          uid: 'u8',
+          institutionType: InstitutionType.college,
+          isUniversityStudent: false,
+          primaryTarget: 'HSC Candidate / Board Exam',
+          isLoaded: true,
+        );
+        final notifier = SyllabusNotifier()
+          ..setSubjects(const [
+            Subject(id: 'hsc_chem1', title: 'Chemistry 1st Paper', chapters: []),
+          ]);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(hscProfile)),
+              weeklyRoutineStreamProvider.overrideWith((ref) => Stream.value([])),
+              allAssessmentsStreamProvider.overrideWith((ref) => Stream.value([])),
+              coursesStreamProvider.overrideWith((ref) => Stream.value([])),
+              activeSyllabusSubjectsStreamProvider.overrideWith((ref) => Stream.value([])),
+              syllabusProvider.overrideWith((ref) => notifier),
+              examsStreamProvider.overrideWith((ref) => Stream.value([])),
+              attendanceRecordsStreamProvider.overrideWith((ref) => Stream.value([])),
+              holidaySettingsStreamProvider.overrideWith((ref) => Stream.value(HolidaySettings.defaultSettings)),
+            ],
+            child: const MaterialApp(
+              home: PlannerScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Schedule'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Assessment / Exam / CT'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Chemistry 1st Paper'), findsOneWidget);
+        expect(find.text('Weightage (%)'), findsNothing);
+        expect(find.text('e.g. Chapter 3: Dynamics & Work'), findsOneWidget);
+
+        // Close dialog & verify empty syllabus state
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        notifier.setSubjects(const []);
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Schedule'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Assessment / Exam / CT'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('No subjects enrolled in syllabus'), findsOneWidget);
       });
     });
   });
