@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 
 import '../constants/app_config.dart';
 import '../core/constants/app_constants.dart';
+import '../core/theme/app_colors.dart';
 import '../models/course_model.dart';
 import '../models/routine_models.dart';
 import '../widgets/app_preloader.dart';
@@ -2885,10 +2886,11 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFF110D0C);
-    const cardColor = Color(0xFF241C1A);
-    const accentColor = Color(0xFFF2B78A);
-    const borderColor = Color(0xFF4A3830);
+    final colors = AppColors.of(context);
+    final backgroundColor = colors.background;
+    final cardColor = colors.surface;
+    final accentColor = colors.secondary;
+    final borderColor = colors.surfaceBorder;
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
@@ -2906,7 +2908,7 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.restart_alt_rounded, color: accentColor, size: 22),
+            icon: Icon(Icons.restart_alt_rounded, color: accentColor, size: 22),
             tooltip: 'Reset / Replace Routine',
             onPressed: () {
               SafeHaptics.lightImpact();
@@ -2916,7 +2918,7 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
             },
           ),
           IconButton(
-            icon: const Icon(Icons.auto_awesome_rounded, color: accentColor, size: 22),
+            icon: Icon(Icons.auto_awesome_rounded, color: accentColor, size: 22),
             tooltip: 'Smart Import Routine (AI)',
             onPressed: () async {
               SafeHaptics.lightImpact();
@@ -2928,7 +2930,7 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
             },
           ),
           IconButton(
-            icon: const Icon(Icons.fact_check_rounded, color: accentColor, size: 22),
+            icon: Icon(Icons.fact_check_rounded, color: accentColor, size: 22),
             tooltip: 'Open Attendance Matrix',
             onPressed: () {
               SafeHaptics.lightImpact();
@@ -3088,7 +3090,7 @@ Return ONLY the JSON array without any markdown fences, backticks, or extra text
                                           const SizedBox(height: 16),
                                           OutlinedButton.icon(
                                             style: OutlinedButton.styleFrom(
-                                              side: const BorderSide(color: accentColor, width: 0.8),
+                                              side: BorderSide(color: accentColor, width: 0.8),
                                               foregroundColor: accentColor,
                                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                             ),
