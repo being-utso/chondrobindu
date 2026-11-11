@@ -7327,7 +7327,7 @@ void main() {
         expect(find.byType(SingleChildScrollView), findsOneWidget);
       });
 
-      testWidgets('Planner mobile preserves weekly strip, switcher, and empty feed when no routine exists', (tester) async {
+      testWidgets('Planner mobile defaults to Calendar with switcher below it and updates on tab switch', (tester) async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.resetPhysicalSize);
@@ -7359,10 +7359,10 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Weekly strip and segmented switcher remain visible on Agenda
-        for (final day in ['SAT', 'SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI']) {
-          expect(find.text(day), findsOneWidget);
-        }
+        // Defaults to Calendar on mobile with switcher directly below Calendar card
+        expect(find.text('ACADEMIC TIMETABLE'), findsOneWidget);
+        expect(find.byKey(const ValueKey('mobile_weekly_strip')), findsNothing);
+        expect(find.byTooltip('Term & Calendar Settings'), findsOneWidget);
         expect(find.text('TODAY'), findsOneWidget);
         expect(find.text('SCHEDULE'), findsOneWidget);
         expect(find.text('+ SCHEDULE'), findsNothing);
@@ -7376,12 +7376,25 @@ void main() {
         expect(find.text('Semester 24.2 • Fall 2026'), findsNothing);
         expect(find.textContaining('No classes scheduled for'), findsOneWidget);
 
+        // Verify segmented switcher sits directly BELOW the calendar card
+        final calendarTodayBottom = tester.getBottomRight(find.text('TODAY')).dy;
+        final switcherTop = tester.getTopLeft(find.text('Agenda')).dy;
+        expect(switcherTop, greaterThan(calendarTodayBottom));
+
+        // Switch to Agenda -> shows weekly strip above switcher
+        await tester.tap(find.text('Agenda'));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('mobile_weekly_strip')), findsOneWidget);
+        for (final day in ['SAT', 'SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI']) {
+          expect(find.text(day), findsOneWidget);
+        }
+
         // Switch to Week Grid tab -> weekly strip stays visible
         await tester.tap(find.text('Week Grid'));
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('mobile_weekly_strip')), findsOneWidget);
 
-        // Switch to Calendar tab on mobile -> weekly strip hidden; renders full TableCalendar
+        // Switch back to Calendar tab on mobile -> weekly strip hidden; renders full TableCalendar
         await tester.tap(find.text('Calendar'));
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('mobile_weekly_strip')), findsNothing);
@@ -7429,6 +7442,7 @@ void main() {
         expect(find.text('Schedule'), findsOneWidget);
         expect(find.text('+ Schedule'), findsNothing);
         expect(find.text('Attendance Ledger'), findsNothing);
+        expect(find.byTooltip('Term & Calendar Settings'), findsNothing);
         expect(find.text('Add Subject Slot'), findsOneWidget);
         expect(find.text('Semester 24.2 • Fall 2026'), findsNothing);
         expect(find.text('WEEK 04'), findsNothing);
@@ -7590,11 +7604,75 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Attendance'), findsNothing);
+        expect(find.byTooltip('Term & Calendar Settings'), findsNothing);
         expect(find.text('Add Subject Slot'), findsOneWidget);
+
+        await tester.tap(find.text('Agenda'));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Term & Calendar Settings'), findsNothing);
 
         await tester.tap(find.text('SCHEDULE'));
         await tester.pumpAndSettle();
         expect(find.text('Subject Routine Slot'), findsOneWidget);
+      });
+
+      testWidgets('Planner mobile Calendar tap updates lower feed assessments for selected date', (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final now = DateTime.now();
+        final targetDay = now.day == 15 ? 16 : 15;
+        final targetDate = DateTime(now.year, now.month, targetDay);
+
+        const uniProfile = UserProfile(
+          uid: 'u6',
+          institutionType: InstitutionType.university,
+          isUniversityStudent: true,
+          level: '3',
+          term: '1',
+          isLoaded: true,
+        );
+        final courses = [
+          const Course(id: 'c1', code: 'CSE 305', title: 'Computer Architecture'),
+        ];
+        final assessments = [
+          Assessment(
+            id: 'a_target',
+            courseId: 'c1',
+            name: 'CT-3 Pipeline',
+            type: 'ct',
+            totalMarks: 20.0,
+            dueDate: targetDate,
+            status: 'Pending',
+          ),
+        ];
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(uniProfile)),
+              weeklyRoutineStreamProvider.overrideWith((ref) => Stream.value([])),
+              allAssessmentsStreamProvider.overrideWith((ref) => Stream.value(assessments)),
+              coursesStreamProvider.overrideWith((ref) => Stream.value(courses)),
+              examsStreamProvider.overrideWith((ref) => Stream.value([])),
+              attendanceRecordsStreamProvider.overrideWith((ref) => Stream.value([])),
+              holidaySettingsStreamProvider.overrideWith((ref) => Stream.value(HolidaySettings.defaultSettings)),
+            ],
+            child: const MaterialApp(
+              home: PlannerScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('CT-3 Pipeline'), findsNothing);
+
+        // Tap the target day number inside TableCalendar
+        await tester.tap(find.text('$targetDay').first);
+        await tester.pumpAndSettle();
+
+        expect(find.text('CT-3 Pipeline'), findsOneWidget);
       });
     });
   });

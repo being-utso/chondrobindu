@@ -45,7 +45,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedMonth = DateTime.now();
   _PlannerViewTab _currentTab = _PlannerViewTab.agenda;
-  _MobilePlannerView _mobileView = _MobilePlannerView.agenda;
+  _MobilePlannerView _mobileView = _MobilePlannerView.calendar;
 
   static _AcademicTrack _resolveAcademicTrack(UserProfile profile) {
     if (profile.isUniversityStudent) {
@@ -470,62 +470,16 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Top Mobile Header + Weekly Day Strip + Segmented Switcher (Always visible!)
+          // Top Mobile Title + Schedule CTA
           _buildMobileHeader(
-            userProfile: userProfile,
-            isUniversity: isUniversity,
-            effectiveView: effectiveView,
-            allAssessments: allAssessments,
-            allSlots: allSlots,
-            holidaySettings: holidaySettings,
-            activeCourseIds: activeCourseIds,
             colors: colors,
             isDark: isDark,
-            uid: uid,
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
-          if (effectiveView == _MobilePlannerView.agenda) ...[
-            // Section A: Assessments & Quizzes
-            if (selectedDayAssessments.isNotEmpty) ...[
-              _buildAssessmentsSection(
-                assessments: selectedDayAssessments,
-                courseCodeMap: courseCodeMap,
-                courseTitleMap: courseTitleMap,
-                colors: colors,
-                isMobile: true,
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // Section B: Class Schedule (or clean empty state inside lower feed)
-            _buildClassRoutineSection(
-              slots: selectedDaySlots,
-              courseCodeMap: courseCodeMap,
-              courseTitleMap: courseTitleMap,
-              isClassSuppressed: isClassSuppressed,
-              isHoliday: isHoliday,
-              isUniversity: isUniversity,
-              colors: colors,
-              isMobile: true,
-            ),
-
-            const SizedBox(height: 18),
-
-            // Scholar's Notebook Quote
-            _buildScholarFootnote(colors, isMobile: true),
-          ] else if (effectiveView == _MobilePlannerView.weekGrid) ...[
-            _buildMobileWeekGridSection(
-              allSlots: allSlots,
-              activeCourseIds: activeCourseIds,
-              courseCodeMap: courseCodeMap,
-              courseTitleMap: courseTitleMap,
-              isUniversity: isUniversity,
-              colors: colors,
-            ),
-          ] else if (effectiveView == _MobilePlannerView.calendar) ...[
-            // Full Month Calendar View (with exam/holiday dots regardless of routine count)
+          // Primary Date Context Card: Calendar (default) or Weekly Strip
+          if (effectiveView == _MobilePlannerView.calendar)
             _buildCalendarCard(
               userProfile: userProfile,
               allAssessments: allAssessments,
@@ -536,10 +490,34 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               isDark: isDark,
               uid: uid,
               isMobile: true,
+            )
+          else
+            _buildMobileWeeklyStrip(
+              userProfile: userProfile,
+              uid: uid,
+              isUniversity: isUniversity,
+              periodLabel: _buildProfilePeriodLabel(userProfile),
+              weekLabel: _computeWeekLabel(holidaySettings, _selectedDate),
+              allAssessments: allAssessments,
+              allSlots: allSlots,
+              holidaySettings: holidaySettings,
+              activeCourseIds: activeCourseIds,
+              colors: colors,
+              isDark: isDark,
             ),
 
-            const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
+          // Segmented View Switcher directly BELOW the calendar / strip card
+          _buildMobileViewSwitcher(
+            isUniversity: isUniversity,
+            colors: colors,
+          ),
+
+          const SizedBox(height: 16),
+
+          if (effectiveView == _MobilePlannerView.calendar ||
+              effectiveView == _MobilePlannerView.agenda) ...[
             if (selectedDayAssessments.isNotEmpty) ...[
               _buildAssessmentsSection(
                 assessments: selectedDayAssessments,
@@ -560,6 +538,20 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               isUniversity: isUniversity,
               colors: colors,
               isMobile: true,
+            ),
+
+            if (effectiveView == _MobilePlannerView.agenda) ...[
+              const SizedBox(height: 18),
+              _buildScholarFootnote(colors, isMobile: true),
+            ],
+          ] else if (effectiveView == _MobilePlannerView.weekGrid) ...[
+            _buildMobileWeekGridSection(
+              allSlots: allSlots,
+              activeCourseIds: activeCourseIds,
+              courseCodeMap: courseCodeMap,
+              courseTitleMap: courseTitleMap,
+              isUniversity: isUniversity,
+              colors: colors,
             ),
           ] else ...[
             // Attendance Ledger (University only)
@@ -591,6 +583,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     required String uid,
     bool isMobile = false,
   }) {
+    final isUniversity = _resolveAcademicTrack(userProfile) == _AcademicTrack.university;
+
     return Container(
       padding: EdgeInsets.all(isMobile ? 14 : 18),
       decoration: BoxDecoration(
@@ -601,7 +595,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header: Overline + Month Title + Navigation Controls
+          // Header: Overline + Month Title + Compact Navigation Controls
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -621,124 +615,169 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      DateFormat('MMMM yyyy').format(_focusedMonth),
-                      style: GoogleFonts.plusJakartaSans(
-                        color: colors.textPrimary,
-                        fontSize: isMobile ? 18 : 20,
-                        fontWeight: FontWeight.w700,
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          DateFormat('MMMM yyyy').format(_focusedMonth),
+                          style: GoogleFonts.plusJakartaSans(
+                            color: colors.textPrimary,
+                            fontSize: isMobile ? 17.5 : 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // TODAY pill button
-                  InkWell(
-                    onTap: () {
-                      SafeHaptics.selectionClick();
-                      final now = DateTime.now();
-                      setState(() {
-                        _selectedDate = now;
-                        _focusedMonth = now;
-                      });
-                    },
+              if (isMobile)
+                // Compact unified navigation bar: [ < | TODAY | > ]
+                Container(
+                  decoration: BoxDecoration(
+                    color: colors.recessed,
                     borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: colors.recessed,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: colors.surfaceBorder),
-                      ),
-                      child: Text(
-                        'TODAY',
-                        style: GoogleFonts.jetBrainsMono(
-                          color: colors.primary,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                    ),
+                    border: Border.all(color: colors.surfaceBorder),
                   ),
-                  const SizedBox(width: 8),
-
-                  // < and > Chevrons
-                  Container(
-                    decoration: BoxDecoration(
-                      color: colors.recessed,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: colors.surfaceBorder),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.chevron_left_rounded, color: colors.textPrimary, size: 18),
-                          padding: const EdgeInsets.all(4),
-                          constraints: const BoxConstraints(),
-                          onPressed: () {
-                            SafeHaptics.selectionClick();
-                            setState(() {
-                              _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
-                            });
-                          },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          SafeHaptics.selectionClick();
+                          setState(() {
+                            _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
+                          });
+                        },
+                        borderRadius: const BorderRadius.horizontal(left: Radius.circular(6)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                          child: Icon(Icons.chevron_left_rounded, color: colors.textPrimary, size: 17),
                         ),
-                        Container(width: 1, height: 16, color: colors.surfaceBorder),
-                        IconButton(
-                          icon: Icon(Icons.chevron_right_rounded, color: colors.textPrimary, size: 18),
-                          padding: const EdgeInsets.all(4),
-                          constraints: const BoxConstraints(),
-                          onPressed: () {
-                            SafeHaptics.selectionClick();
-                            setState(() {
-                              _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1);
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  // Term & Calendar Settings Gear Button
-                  Tooltip(
-                    message: 'Term & Calendar Settings',
-                    child: InkWell(
-                      onTap: () => _showCalendarSettingsModal(
-                        uid: uid,
-                        currentSettings: holidaySettings,
-                        userProfile: userProfile,
                       ),
+                      Container(width: 1, height: 16, color: colors.surfaceBorder),
+                      InkWell(
+                        onTap: () {
+                          SafeHaptics.selectionClick();
+                          final now = DateTime.now();
+                          setState(() {
+                            _selectedDate = now;
+                            _focusedMonth = now;
+                          });
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          child: Text(
+                            'TODAY',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.primary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Container(width: 1, height: 16, color: colors.surfaceBorder),
+                      InkWell(
+                        onTap: () {
+                          SafeHaptics.selectionClick();
+                          setState(() {
+                            _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1);
+                          });
+                        },
+                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(6)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                          child: Icon(Icons.chevron_right_rounded, color: colors.textPrimary, size: 17),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // TODAY pill button
+                    InkWell(
+                      onTap: () {
+                        SafeHaptics.selectionClick();
+                        final now = DateTime.now();
+                        setState(() {
+                          _selectedDate = now;
+                          _focusedMonth = now;
+                        });
+                      },
                       borderRadius: BorderRadius.circular(6),
                       child: Container(
-                        padding: const EdgeInsets.all(6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
                           color: colors.recessed,
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(color: colors.surfaceBorder),
                         ),
-                        child: Icon(
-                          Icons.settings_outlined,
-                          color: colors.textMuted,
-                          size: 16,
+                        child: Text(
+                          'TODAY',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.primary,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.6,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 8),
+
+                    // < and > Chevrons
+                    Container(
+                      decoration: BoxDecoration(
+                        color: colors.recessed,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: colors.surfaceBorder),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.chevron_left_rounded, color: colors.textPrimary, size: 18),
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(),
+                            onPressed: () {
+                              SafeHaptics.selectionClick();
+                              setState(() {
+                                _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
+                              });
+                            },
+                          ),
+                          Container(width: 1, height: 16, color: colors.surfaceBorder),
+                          IconButton(
+                            icon: Icon(Icons.chevron_right_rounded, color: colors.textPrimary, size: 18),
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(),
+                            onPressed: () {
+                              SafeHaptics.selectionClick();
+                              setState(() {
+                                _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1);
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
 
           const SizedBox(height: 12),
 
-          // Dynamic Profile Term & Week Monospace Capsule Pill
+          // Dynamic Profile Term & Week Monospace Capsule Pill (+ University-only Settings trigger)
           Builder(
             builder: (_) {
               final periodLabel = _buildProfilePeriodLabel(userProfile);
@@ -751,9 +790,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   border: Border.all(color: colors.surfaceBorder.withValues(alpha: 0.6)),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Flexible(
+                    Expanded(
                       child: Text(
                         periodLabel,
                         style: GoogleFonts.jetBrainsMono(
@@ -780,6 +818,28 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                             color: colors.textPrimary,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (isUniversity) ...[
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message: 'Term & Calendar Settings',
+                        child: InkWell(
+                          onTap: () => _showCalendarSettingsModal(
+                            uid: uid,
+                            currentSettings: holidaySettings,
+                            userProfile: userProfile,
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.all(2),
+                            child: Icon(
+                              Icons.settings_outlined,
+                              color: colors.textMuted,
+                              size: 15,
+                            ),
                           ),
                         ),
                       ),
@@ -1288,99 +1348,67 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   // SECTION: Mobile Header, Weekly Day Strip & Segmented Switcher
   // ===========================================================================
   Widget _buildMobileHeader({
-    required UserProfile userProfile,
-    required bool isUniversity,
-    required _MobilePlannerView effectiveView,
-    required List<Assessment> allAssessments,
-    required List<RoutineSlot> allSlots,
-    required HolidaySettings holidaySettings,
-    required Set<String>? activeCourseIds,
     required ChondrobinduThemeColors colors,
     required bool isDark,
-    required String uid,
   }) {
-    final periodLabel = _buildProfilePeriodLabel(userProfile);
-    final weekLabel = _computeWeekLabel(holidaySettings, _selectedDate);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // Top Title + Schedule CTA
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Text(
-                'Agenda: ${DateFormat('dd MMM (EEE)').format(_selectedDate)}',
-                style: GoogleFonts.plusJakartaSans(
-                  color: colors.textPrimary,
-                  fontSize: 19,
-                  fontWeight: FontWeight.bold,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+        Expanded(
+          child: Text(
+            'Agenda: ${DateFormat('dd MMM (EEE)').format(_selectedDate)}',
+            style: GoogleFonts.plusJakartaSans(
+              color: colors.textPrimary,
+              fontSize: 19,
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(width: 8),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colors.primary,
-                foregroundColor: isDark ? const Color(0xFF171C24) : Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-              ),
-              onPressed: () => _showAddPlannerItemDialog(context),
-              icon: const Icon(Icons.add_rounded, size: 14),
-              label: Text('SCHEDULE', style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.bold)),
-            ),
-          ],
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-
-        if (effectiveView != _MobilePlannerView.calendar) ...[
-          const SizedBox(height: 12),
-
-          // Persistent Weekly Day Picker Strip (SAT -> FRI + Today button)
-          _buildMobileWeeklyStrip(
-            userProfile: userProfile,
-            uid: uid,
-            periodLabel: periodLabel,
-            weekLabel: weekLabel,
-            allAssessments: allAssessments,
-            allSlots: allSlots,
-            holidaySettings: holidaySettings,
-            activeCourseIds: activeCourseIds,
-            colors: colors,
-            isDark: isDark,
+        const SizedBox(width: 8),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: colors.primary,
+            foregroundColor: isDark ? const Color(0xFF171C24) : Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           ),
-        ],
-
-        const SizedBox(height: 12),
-
-        // Segmented Switcher (Agenda, Week Grid, Calendar[, Attendance])
-        Container(
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            color: colors.recessed,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: colors.surfaceBorder),
-          ),
-          child: Row(
-            children: [
-              Expanded(child: _buildMobileTabPill('Agenda', _MobilePlannerView.agenda, colors)),
-              Expanded(child: _buildMobileTabPill('Week Grid', _MobilePlannerView.weekGrid, colors)),
-              Expanded(child: _buildMobileTabPill('Calendar', _MobilePlannerView.calendar, colors)),
-              if (isUniversity)
-                Expanded(child: _buildMobileTabPill('Attendance', _MobilePlannerView.attendanceLedger, colors)),
-            ],
-          ),
+          onPressed: () => _showAddPlannerItemDialog(context),
+          icon: const Icon(Icons.add_rounded, size: 14),
+          label: Text('SCHEDULE', style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.bold)),
         ),
       ],
+    );
+  }
+
+  Widget _buildMobileViewSwitcher({
+    required bool isUniversity,
+    required ChondrobinduThemeColors colors,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: colors.recessed,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.surfaceBorder),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: _buildMobileTabPill('Agenda', _MobilePlannerView.agenda, colors)),
+          Expanded(child: _buildMobileTabPill('Week Grid', _MobilePlannerView.weekGrid, colors)),
+          Expanded(child: _buildMobileTabPill('Calendar', _MobilePlannerView.calendar, colors)),
+          if (isUniversity)
+            Expanded(child: _buildMobileTabPill('Attendance', _MobilePlannerView.attendanceLedger, colors)),
+        ],
+      ),
     );
   }
 
   Widget _buildMobileWeeklyStrip({
     required UserProfile userProfile,
     required String uid,
+    required bool isUniversity,
     required String periodLabel,
     required String? weekLabel,
     required List<Assessment> allAssessments,
@@ -1418,122 +1446,138 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
                       DateFormat('MMMM yyyy').format(_selectedDate),
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textPrimary,
-                        fontSize: 13.5,
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
                       ),
+                      maxLines: 1,
                     ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            periodLabel,
-                            style: GoogleFonts.jetBrainsMono(
-                              color: colors.primary,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: colors.surfaceBorder),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        SafeHaptics.selectionClick();
+                        setState(() {
+                          _selectedDate = _selectedDate.subtract(const Duration(days: 7));
+                          _focusedMonth = _selectedDate;
+                        });
+                      },
+                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(6)),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        child: Icon(Icons.chevron_left_rounded, size: 17, color: colors.textMuted),
+                      ),
+                    ),
+                    Container(width: 1, height: 15, color: colors.surfaceBorder),
+                    InkWell(
+                      onTap: () {
+                        SafeHaptics.selectionClick();
+                        final today = DateTime.now();
+                        setState(() {
+                          _selectedDate = today;
+                          _focusedMonth = today;
+                        });
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Text(
+                          'TODAY',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.primary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        if (weekLabel != null) ...[
-                          const SizedBox(width: 6),
-                          Text(
-                            '• $weekLabel',
-                            style: GoogleFonts.jetBrainsMono(
-                              color: colors.textMuted,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ],
+                      ),
+                    ),
+                    Container(width: 1, height: 15, color: colors.surfaceBorder),
+                    InkWell(
+                      onTap: () {
+                        SafeHaptics.selectionClick();
+                        setState(() {
+                          _selectedDate = _selectedDate.add(const Duration(days: 7));
+                          _focusedMonth = _selectedDate;
+                        });
+                      },
+                      borderRadius: const BorderRadius.horizontal(right: Radius.circular(6)),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        child: Icon(Icons.chevron_right_rounded, size: 17, color: colors.textMuted),
+                      ),
                     ),
                   ],
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  InkWell(
-                    onTap: () {
-                      SafeHaptics.selectionClick();
-                      final today = DateTime.now();
-                      setState(() {
-                        _selectedDate = today;
-                        _focusedMonth = today;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: colors.recessed,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: colors.surfaceBorder),
-                      ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
                       child: Text(
-                        'TODAY',
+                        periodLabel,
                         style: GoogleFonts.jetBrainsMono(
                           color: colors.primary,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (weekLabel != null) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        '• $weekLabel',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: colors.textMuted,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  InkWell(
-                    onTap: () {
-                      SafeHaptics.selectionClick();
-                      setState(() {
-                        _selectedDate = _selectedDate.subtract(const Duration(days: 7));
-                        _focusedMonth = _selectedDate;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(6),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(Icons.chevron_left_rounded, size: 18, color: colors.textMuted),
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () {
-                      SafeHaptics.selectionClick();
-                      setState(() {
-                        _selectedDate = _selectedDate.add(const Duration(days: 7));
-                        _focusedMonth = _selectedDate;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(6),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(Icons.chevron_right_rounded, size: 18, color: colors.textMuted),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    icon: Icon(Icons.settings_outlined, size: 17, color: colors.textMuted),
-                    onPressed: () => _showCalendarSettingsModal(
+                    ],
+                  ],
+                ),
+              ),
+              if (isUniversity)
+                Tooltip(
+                  message: 'Term & Calendar Settings',
+                  child: InkWell(
+                    onTap: () => _showCalendarSettingsModal(
                       uid: uid,
                       currentSettings: holidaySettings,
                       userProfile: userProfile,
                     ),
-                    tooltip: 'Term & Calendar Settings',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(Icons.settings_outlined, size: 15, color: colors.textMuted),
+                    ),
                   ),
-                ],
-              ),
+                ),
             ],
           ),
           const SizedBox(height: 10),
@@ -1826,40 +1870,49 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Icon(Icons.warning_amber_rounded, size: 18, color: colors.secondary),
-                const SizedBox(width: 6),
-                Text(
-                  'Assessments & Deadlines',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: colors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+            Expanded(
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, size: 18, color: colors.secondary),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Assessments & Deadlines',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: colors.secondary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: colors.secondary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${assessments.length}',
+                      style: GoogleFonts.jetBrainsMono(color: colors.secondary, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                  child: Text(
-                    '${assessments.length}',
-                    style: GoogleFonts.jetBrainsMono(color: colors.secondary, fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-            Text(
-              'CRITICAL PATH EVALUATION',
-              style: GoogleFonts.jetBrainsMono(
-                color: colors.textMuted,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+                ],
               ),
             ),
+            if (!isMobile) ...[
+              const SizedBox(width: 8),
+              Text(
+                'CRITICAL PATH EVALUATION',
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.textMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ],
         ),
 
