@@ -7359,27 +7359,37 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Weekly strip and segmented switcher remain visible
+        // Weekly strip and segmented switcher remain visible on Agenda
         for (final day in ['SAT', 'SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI']) {
           expect(find.text(day), findsOneWidget);
         }
         expect(find.text('TODAY'), findsOneWidget);
+        expect(find.text('SCHEDULE'), findsOneWidget);
+        expect(find.text('+ SCHEDULE'), findsNothing);
+        expect(find.textContaining('ASSESSMENTS •'), findsNothing);
         expect(find.text('Agenda'), findsOneWidget);
         expect(find.text('Week Grid'), findsOneWidget);
         expect(find.text('Calendar'), findsOneWidget);
+        expect(find.text('Attendance'), findsOneWidget);
         expect(find.text('Level 2 • Term 1'), findsOneWidget);
         expect(find.text('WEEK 04'), findsNothing);
         expect(find.text('Semester 24.2 • Fall 2026'), findsNothing);
         expect(find.textContaining('No classes scheduled for'), findsOneWidget);
 
-        // Switch to Calendar tab on mobile -> renders full TableCalendar even with 0 routine
+        // Switch to Week Grid tab -> weekly strip stays visible
+        await tester.tap(find.text('Week Grid'));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('mobile_weekly_strip')), findsOneWidget);
+
+        // Switch to Calendar tab on mobile -> weekly strip hidden; renders full TableCalendar
         await tester.tap(find.text('Calendar'));
         await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('mobile_weekly_strip')), findsNothing);
         expect(find.text('ACADEMIC TIMETABLE'), findsOneWidget);
         expect(find.text('Class Routine'), findsWidgets);
       });
 
-      testWidgets('Planner desktop binds profile header dynamically and computes Week XX from semesterStart', (tester) async {
+      testWidgets('Planner desktop binds profile header dynamically, removes fabricated stats, and hides Attendance for non-Uni', (tester) async {
         tester.view.physicalSize = const Size(1280, 900);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.resetPhysicalSize);
@@ -7416,8 +7426,16 @@ void main() {
 
         expect(find.text('Engineering Track'), findsOneWidget);
         expect(find.text('WEEK 03'), findsOneWidget);
+        expect(find.text('Schedule'), findsOneWidget);
+        expect(find.text('+ Schedule'), findsNothing);
+        expect(find.text('Attendance Ledger'), findsNothing);
+        expect(find.text('Add Subject Slot'), findsOneWidget);
         expect(find.text('Semester 24.2 • Fall 2026'), findsNothing);
         expect(find.text('WEEK 04'), findsNothing);
+        expect(find.textContaining('Teaching Days:'), findsNothing);
+        expect(find.text('Next Day'), findsNothing);
+        expect(find.text('Prev Day'), findsNothing);
+        expect(find.text('Mid-Term Prep in 14 Days'), findsNothing);
       });
 
       testWidgets('Planner Schedule Assessment dialog dynamically swaps types by track and Theory vs Sessional course', (tester) async {
@@ -7456,8 +7474,8 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Open + Schedule modal -> choose Assessment / Exam
-        await tester.tap(find.text('+ Schedule'));
+        // Open Schedule modal -> choose Assessment / Exam
+        await tester.tap(find.text('Schedule'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Assessment / Exam / CT'));
         await tester.pumpAndSettle();
@@ -7474,6 +7492,109 @@ void main() {
 
         expect(find.text('Lab / Sessional'), findsOneWidget);
         expect(find.text('Lab Quiz'), findsOneWidget);
+      });
+
+      testWidgets('Planner dynamic milestone card shows next upcoming assessment and settings gear opens Calendar Settings', (tester) async {
+        tester.view.physicalSize = const Size(1280, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final today = DateTime.now();
+        final inFiveDays = DateTime(today.year, today.month, today.day).add(const Duration(days: 5));
+        const uniProfile = UserProfile(
+          uid: 'u4',
+          institutionType: InstitutionType.university,
+          isUniversityStudent: true,
+          level: '3',
+          term: '1',
+          isLoaded: true,
+        );
+        final courses = [
+          const Course(id: 'c1', code: 'CSE 311', title: 'Microprocessors'),
+        ];
+        final assessments = [
+          Assessment(
+            id: 'a1',
+            courseId: 'c1',
+            name: 'CT-2 Interrupts',
+            type: 'ct',
+            totalMarks: 20.0,
+            dueDate: inFiveDays,
+            status: 'Pending',
+          ),
+        ];
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(uniProfile)),
+              weeklyRoutineStreamProvider.overrideWith((ref) => Stream.value([])),
+              allAssessmentsStreamProvider.overrideWith((ref) => Stream.value(assessments)),
+              coursesStreamProvider.overrideWith((ref) => Stream.value(courses)),
+              examsStreamProvider.overrideWith((ref) => Stream.value([])),
+              attendanceRecordsStreamProvider.overrideWith((ref) => Stream.value([])),
+              holidaySettingsStreamProvider.overrideWith((ref) => Stream.value(HolidaySettings.defaultSettings)),
+            ],
+            child: const MaterialApp(
+              home: PlannerScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('CT-2 Interrupts in 5 Days'), findsOneWidget);
+        expect(find.textContaining('CSE 311'), findsWidgets);
+
+        // Open Academic Term & Calendar Settings via gear icon
+        await tester.tap(find.byTooltip('Term & Calendar Settings'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Academic Term & Calendar Settings'), findsOneWidget);
+        expect(find.text('Term / Semester Dates'), findsOneWidget);
+        expect(find.text('Academic Weekdays'), findsOneWidget);
+        expect(find.text('Sat–Wed'), findsOneWidget);
+        expect(find.text('Sun–Thu'), findsOneWidget);
+        expect(find.text('Mon–Fri'), findsOneWidget);
+        expect(find.text('Vacations, Breaks & Exam Windows'), findsOneWidget);
+        expect(find.text('Single Holidays'), findsOneWidget);
+      });
+
+      testWidgets('Planner College HSC mobile hides Attendance tab and uses Subject wording in Schedule picker', (tester) async {
+        tester.view.physicalSize = const Size(430, 932);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        const hscProfile = UserProfile(
+          uid: 'u5',
+          institutionType: InstitutionType.college,
+          isUniversityStudent: false,
+          isLoaded: true,
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(hscProfile)),
+              weeklyRoutineStreamProvider.overrideWith((ref) => Stream.value([])),
+              allAssessmentsStreamProvider.overrideWith((ref) => Stream.value([])),
+              coursesStreamProvider.overrideWith((ref) => Stream.value([])),
+              examsStreamProvider.overrideWith((ref) => Stream.value([])),
+              attendanceRecordsStreamProvider.overrideWith((ref) => Stream.value([])),
+              holidaySettingsStreamProvider.overrideWith((ref) => Stream.value(HolidaySettings.defaultSettings)),
+            ],
+            child: const MaterialApp(
+              home: PlannerScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Attendance'), findsNothing);
+        expect(find.text('Add Subject Slot'), findsOneWidget);
+
+        await tester.tap(find.text('SCHEDULE'));
+        await tester.pumpAndSettle();
+        expect(find.text('Subject Routine Slot'), findsOneWidget);
       });
     });
   });

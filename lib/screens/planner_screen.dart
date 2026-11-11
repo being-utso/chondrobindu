@@ -324,6 +324,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     required bool isExamPeriod,
     required String uid,
   }) {
+    final isUniversity = _resolveAcademicTrack(userProfile) == _AcademicTrack.university;
+    final showLedger = isUniversity && _currentTab == _PlannerViewTab.attendanceLedger;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
       child: Center(
@@ -349,12 +352,18 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       activeCourseIds: activeCourseIds,
                       colors: colors,
                       isDark: isDark,
+                      uid: uid,
                     ),
 
                     const SizedBox(height: 16),
 
-                    // Upcoming Milestone Focus Card (e.g. Mid-Term Prep in 14 Days)
-                    _buildUpcomingMilestoneCard(colors),
+                    // Dynamic Upcoming Assessment Card (hidden when no upcoming assessment)
+                    _buildUpcomingMilestoneCard(
+                      allAssessments: allAssessments,
+                      courseCodeMap: courseCodeMap,
+                      courseTitleMap: courseTitleMap,
+                      colors: colors,
+                    ),
                   ],
                 ),
               ),
@@ -368,8 +377,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Right Header: Date, Active Day View Pill, Switcher, + Schedule
+                    // Right Header: Date, Active Day View Pill, Switcher (Uni only), Schedule
                     _buildRightStudioHeader(
+                      isUniversity: isUniversity,
                       selectedDayAssessments: selectedDayAssessments,
                       selectedDaySlots: selectedDaySlots,
                       colors: colors,
@@ -378,8 +388,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 
                     const SizedBox(height: 18),
 
-                    // Dynamic Tab Content: Agenda vs Attendance Ledger
-                    if (_currentTab == _PlannerViewTab.agenda) ...[
+                    // Dynamic Tab Content: Agenda vs Attendance Ledger (Uni only)
+                    if (!showLedger) ...[
                       // SECTION A: Assessments & Deadlines
                       if (selectedDayAssessments.isNotEmpty) ...[
                         _buildAssessmentsSection(
@@ -398,6 +408,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         courseTitleMap: courseTitleMap,
                         isClassSuppressed: isClassSuppressed,
                         isHoliday: isHoliday,
+                        isUniversity: isUniversity,
                         colors: colors,
                       ),
 
@@ -449,6 +460,11 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     required bool isExamPeriod,
     required String uid,
   }) {
+    final isUniversity = _resolveAcademicTrack(userProfile) == _AcademicTrack.university;
+    final effectiveView = (!isUniversity && _mobileView == _MobilePlannerView.attendanceLedger)
+        ? _MobilePlannerView.agenda
+        : _mobileView;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
       child: Column(
@@ -457,19 +473,20 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           // Top Mobile Header + Weekly Day Strip + Segmented Switcher (Always visible!)
           _buildMobileHeader(
             userProfile: userProfile,
+            isUniversity: isUniversity,
+            effectiveView: effectiveView,
             allAssessments: allAssessments,
             allSlots: allSlots,
             holidaySettings: holidaySettings,
             activeCourseIds: activeCourseIds,
-            selectedDayAssessments: selectedDayAssessments,
-            selectedDaySlots: selectedDaySlots,
             colors: colors,
             isDark: isDark,
+            uid: uid,
           ),
 
           const SizedBox(height: 16),
 
-          if (_mobileView == _MobilePlannerView.agenda) ...[
+          if (effectiveView == _MobilePlannerView.agenda) ...[
             // Section A: Assessments & Quizzes
             if (selectedDayAssessments.isNotEmpty) ...[
               _buildAssessmentsSection(
@@ -489,6 +506,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               courseTitleMap: courseTitleMap,
               isClassSuppressed: isClassSuppressed,
               isHoliday: isHoliday,
+              isUniversity: isUniversity,
               colors: colors,
               isMobile: true,
             ),
@@ -497,15 +515,16 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 
             // Scholar's Notebook Quote
             _buildScholarFootnote(colors, isMobile: true),
-          ] else if (_mobileView == _MobilePlannerView.weekGrid) ...[
+          ] else if (effectiveView == _MobilePlannerView.weekGrid) ...[
             _buildMobileWeekGridSection(
               allSlots: allSlots,
               activeCourseIds: activeCourseIds,
               courseCodeMap: courseCodeMap,
               courseTitleMap: courseTitleMap,
+              isUniversity: isUniversity,
               colors: colors,
             ),
-          ] else if (_mobileView == _MobilePlannerView.calendar) ...[
+          ] else if (effectiveView == _MobilePlannerView.calendar) ...[
             // Full Month Calendar View (with exam/holiday dots regardless of routine count)
             _buildCalendarCard(
               userProfile: userProfile,
@@ -515,6 +534,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               activeCourseIds: activeCourseIds,
               colors: colors,
               isDark: isDark,
+              uid: uid,
               isMobile: true,
             ),
 
@@ -537,11 +557,12 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               courseTitleMap: courseTitleMap,
               isClassSuppressed: isClassSuppressed,
               isHoliday: isHoliday,
+              isUniversity: isUniversity,
               colors: colors,
               isMobile: true,
             ),
           ] else ...[
-            // Attendance Ledger
+            // Attendance Ledger (University only)
             _buildAttendanceLedgerView(
               courses: courses,
               allAttendanceRecords: allAttendanceRecords,
@@ -567,6 +588,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     required Set<String>? activeCourseIds,
     required ChondrobinduThemeColors colors,
     required bool isDark,
+    required String uid,
     bool isMobile = false,
   }) {
     return Container(
@@ -681,6 +703,32 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                           },
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  // Term & Calendar Settings Gear Button
+                  Tooltip(
+                    message: 'Term & Calendar Settings',
+                    child: InkWell(
+                      onTap: () => _showCalendarSettingsModal(
+                        uid: uid,
+                        currentSettings: holidaySettings,
+                        userProfile: userProfile,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: colors.recessed,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: colors.surfaceBorder),
+                        ),
+                        child: Icon(
+                          Icons.settings_outlined,
+                          color: colors.textMuted,
+                          size: 16,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -854,36 +902,6 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               ],
             ),
           ),
-
-          const SizedBox(height: 10),
-
-          // Academic Stats Footer
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            alignment: WrapAlignment.spaceBetween,
-            children: [
-              Text(
-                'Teaching Days: 22',
-                style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5),
-              ),
-              Text('•', style: GoogleFonts.jetBrainsMono(color: colors.surfaceBorder)),
-              Text(
-                'Quizzes: 3',
-                style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5),
-              ),
-              Text('•', style: GoogleFonts.jetBrainsMono(color: colors.surfaceBorder)),
-              Text(
-                'Lab Finals: 1',
-                style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5),
-              ),
-              Text('•', style: GoogleFonts.jetBrainsMono(color: colors.surfaceBorder)),
-              Text(
-                'Breaks: 4d',
-                style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -1056,9 +1074,55 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   }
 
   // ===========================================================================
-  // SECTION: Mid-Term Prep / Upcoming Milestone Card
+  // SECTION: Dynamic Upcoming Assessment Milestone Card
   // ===========================================================================
-  Widget _buildUpcomingMilestoneCard(ChondrobinduThemeColors colors) {
+  Widget _buildUpcomingMilestoneCard({
+    required List<Assessment> allAssessments,
+    required Map<String, String> courseCodeMap,
+    required Map<String, String> courseTitleMap,
+    required ChondrobinduThemeColors colors,
+  }) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final upcoming = allAssessments.where((a) {
+      if (a.status.toLowerCase() == 'attended' || a.status.toLowerCase() == 'completed') {
+        return false;
+      }
+      final rawDate = a.dueDate ?? a.date;
+      if (rawDate == null) return false;
+      final d = DateTime(rawDate.year, rawDate.month, rawDate.day);
+      return !d.isBefore(today);
+    }).toList()
+      ..sort((a, b) {
+        final da = a.dueDate ?? a.date!;
+        final db = b.dueDate ?? b.date!;
+        return da.compareTo(db);
+      });
+
+    if (upcoming.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final nextAss = upcoming.first;
+    final rawTarget = nextAss.dueDate ?? nextAss.date!;
+    final targetDay = DateTime(rawTarget.year, rawTarget.month, rawTarget.day);
+    final daysRemaining = targetDay.difference(today).inDays;
+
+    final String titleText = switch (daysRemaining) {
+      0 => '${nextAss.name} Today',
+      1 => '${nextAss.name} Tomorrow',
+      _ => '${nextAss.name} in $daysRemaining Days',
+    };
+
+    final code = courseCodeMap[nextAss.courseId] ?? nextAss.courseCode;
+    final subtitleParts = <String>[
+      if (code.isNotEmpty) code,
+      DateFormat('dd MMM yyyy').format(targetDay),
+      if (nextAss.syllabusSummary != null && nextAss.syllabusSummary!.trim().isNotEmpty)
+        nextAss.syllabusSummary!.trim(),
+    ];
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1083,19 +1147,23 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Mid-Term Prep in 14 Days',
+                  titleText,
                   style: GoogleFonts.plusJakartaSans(
                     color: colors.textPrimary,
                     fontSize: 13.5,
                     fontWeight: FontWeight.bold,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  'Recommended focus: Oscillations & Differential Eq.',
+                  subtitleParts.join(' • '),
                   style: GoogleFonts.plusJakartaSans(
                     color: colors.textMuted,
                     fontSize: 11.5,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -1111,7 +1179,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             ),
             onPressed: () {
               SafeHaptics.selectionClick();
-              ref.read(navigationIndexProvider.notifier).state = 1; // Switch to Courses tab
+              ref.read(navigationIndexProvider.notifier).state = 1; // Switch to Courses / Subjects tab
             },
             child: Text(
               'SYLLABUS',
@@ -1127,6 +1195,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   // SECTION: Right Studio Header (Desktop)
   // ===========================================================================
   Widget _buildRightStudioHeader({
+    required bool isUniversity,
     required List<Assessment> selectedDayAssessments,
     required List<RoutineSlot> selectedDaySlots,
     required ChondrobinduThemeColors colors,
@@ -1176,24 +1245,25 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            // Switcher: [ Agenda ] / [ Attendance Ledger ]
-            Container(
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: colors.recessed,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: colors.surfaceBorder),
+            // Attendance Ledger Toggle (University Track Only)
+            if (isUniversity)
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colors.surfaceBorder),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildTabPill('Agenda', _PlannerViewTab.agenda, colors),
+                    _buildTabPill('Attendance Ledger', _PlannerViewTab.attendanceLedger, colors),
+                  ],
+                ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildTabPill('Agenda', _PlannerViewTab.agenda, colors),
-                  _buildTabPill('Attendance Ledger', _PlannerViewTab.attendanceLedger, colors),
-                ],
-              ),
-            ),
 
-            // + Schedule Button
+            // Single-icon Schedule Button
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: colors.primary,
@@ -1204,7 +1274,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               onPressed: () => _showAddPlannerItemDialog(context),
               icon: const Icon(Icons.add_rounded, size: 16),
               label: Text(
-                '+ Schedule',
+                'Schedule',
                 style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold),
               ),
             ),
@@ -1219,14 +1289,15 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   // ===========================================================================
   Widget _buildMobileHeader({
     required UserProfile userProfile,
+    required bool isUniversity,
+    required _MobilePlannerView effectiveView,
     required List<Assessment> allAssessments,
     required List<RoutineSlot> allSlots,
     required HolidaySettings holidaySettings,
     required Set<String>? activeCourseIds,
-    required List<Assessment> selectedDayAssessments,
-    required List<RoutineSlot> selectedDaySlots,
     required ChondrobinduThemeColors colors,
     required bool isDark,
+    required String uid,
   }) {
     final periodLabel = _buildProfilePeriodLabel(userProfile);
     final weekLabel = _computeWeekLabel(holidaySettings, _selectedDate);
@@ -1239,30 +1310,15 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Agenda: ${DateFormat('dd MMM (EEE)').format(_selectedDate)}',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: colors.textPrimary,
-                      fontSize: 19,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${selectedDayAssessments.length} ASSESSMENTS • ${selectedDaySlots.length} LECTURES',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: colors.secondary,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.6,
-                    ),
-                  ),
-                ],
+              child: Text(
+                'Agenda: ${DateFormat('dd MMM (EEE)').format(_selectedDate)}',
+                style: GoogleFonts.plusJakartaSans(
+                  color: colors.textPrimary,
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: 8),
@@ -1275,28 +1331,32 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               ),
               onPressed: () => _showAddPlannerItemDialog(context),
               icon: const Icon(Icons.add_rounded, size: 14),
-              label: Text('+ SCHEDULE', style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.bold)),
+              label: Text('SCHEDULE', style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
 
+        if (effectiveView != _MobilePlannerView.calendar) ...[
+          const SizedBox(height: 12),
+
+          // Persistent Weekly Day Picker Strip (SAT -> FRI + Today button)
+          _buildMobileWeeklyStrip(
+            userProfile: userProfile,
+            uid: uid,
+            periodLabel: periodLabel,
+            weekLabel: weekLabel,
+            allAssessments: allAssessments,
+            allSlots: allSlots,
+            holidaySettings: holidaySettings,
+            activeCourseIds: activeCourseIds,
+            colors: colors,
+            isDark: isDark,
+          ),
+        ],
+
         const SizedBox(height: 12),
 
-        // Persistent Weekly Day Picker Strip (SAT -> FRI + Today button)
-        _buildMobileWeeklyStrip(
-          periodLabel: periodLabel,
-          weekLabel: weekLabel,
-          allAssessments: allAssessments,
-          allSlots: allSlots,
-          holidaySettings: holidaySettings,
-          activeCourseIds: activeCourseIds,
-          colors: colors,
-          isDark: isDark,
-        ),
-
-        const SizedBox(height: 12),
-
-        // Segmented Switcher (Agenda, Week Grid, Calendar, Attendance)
+        // Segmented Switcher (Agenda, Week Grid, Calendar[, Attendance])
         Container(
           padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
@@ -1309,7 +1369,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               Expanded(child: _buildMobileTabPill('Agenda', _MobilePlannerView.agenda, colors)),
               Expanded(child: _buildMobileTabPill('Week Grid', _MobilePlannerView.weekGrid, colors)),
               Expanded(child: _buildMobileTabPill('Calendar', _MobilePlannerView.calendar, colors)),
-              Expanded(child: _buildMobileTabPill('Attendance', _MobilePlannerView.attendanceLedger, colors)),
+              if (isUniversity)
+                Expanded(child: _buildMobileTabPill('Attendance', _MobilePlannerView.attendanceLedger, colors)),
             ],
           ),
         ),
@@ -1318,6 +1379,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   }
 
   Widget _buildMobileWeeklyStrip({
+    required UserProfile userProfile,
+    required String uid,
     required String periodLabel,
     required String? weekLabel,
     required List<Assessment> allAssessments,
@@ -1342,6 +1405,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     const dayNames = ['SAT', 'SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI'];
 
     return Container(
+      key: const ValueKey('mobile_weekly_strip'),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colors.surface,
@@ -1455,6 +1519,18 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       padding: const EdgeInsets.all(4),
                       child: Icon(Icons.chevron_right_rounded, size: 18, color: colors.textMuted),
                     ),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: Icon(Icons.settings_outlined, size: 17, color: colors.textMuted),
+                    onPressed: () => _showCalendarSettingsModal(
+                      uid: uid,
+                      currentSettings: holidaySettings,
+                      userProfile: userProfile,
+                    ),
+                    tooltip: 'Term & Calendar Settings',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                   ),
                 ],
               ),
@@ -1610,6 +1686,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   }
 
   Widget _buildMobileWeekGridSection({
+    required bool isUniversity,
     required List<RoutineSlot> allSlots,
     required Set<String>? activeCourseIds,
     required Map<String, String> courseCodeMap,
@@ -1644,7 +1721,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 
     if (filteredSlots.isEmpty) {
       return _buildEmptyRoutineFeedCard(
-        message: 'No weekly routine uploaded yet — add a class slot or import your routine.',
+        isUniversity: isUniversity,
+        message:
+            'No weekly routine uploaded yet — add a ${isUniversity ? 'class' : 'subject'} slot or import your routine.',
         colors: colors,
       );
     }
@@ -1846,6 +1925,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     required bool isHoliday,
     required ChondrobinduThemeColors colors,
     bool isMobile = false,
+    bool isUniversity = true,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1943,7 +2023,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         // Routine Slot Cards Stack
         if (slots.isEmpty && !isClassSuppressed)
           _buildEmptyRoutineFeedCard(
-            message: 'No classes scheduled for ${DateFormat('EEEE').format(_selectedDate)} — add a class slot or import your routine.',
+            isUniversity: isUniversity,
+            message:
+                'No classes scheduled for ${DateFormat('EEEE').format(_selectedDate)} — add a ${isUniversity ? 'class' : 'subject'} slot or import your routine.',
             colors: colors,
           )
         else
@@ -1961,6 +2043,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   Widget _buildEmptyRoutineFeedCard({
     required String message,
     required ChondrobinduThemeColors colors,
+    bool isUniversity = true,
   }) {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -1996,7 +2079,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 ),
                 onPressed: () => _showAddRoutineSlotDialog(context),
                 icon: const Icon(Icons.add_rounded, size: 16),
-                label: Text('Add Class Slot', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                label: Text(
+                  isUniversity ? 'Add Class Slot' : 'Add Subject Slot',
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 12.5),
+                ),
               ),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
@@ -2261,44 +2347,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               ],
             ),
           ),
-          if (!isMobile) ...[
-            const SizedBox(width: 12),
-            Row(
-              children: [
-                _buildKbdPill('J', 'Next Day', colors),
-                const SizedBox(width: 8),
-                _buildKbdPill('K', 'Prev Day', colors),
-              ],
-            ),
-          ],
         ],
       ),
-    );
-  }
-
-  Widget _buildKbdPill(String keyLabel, String actionLabel, ChondrobinduThemeColors colors) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-          decoration: BoxDecoration(
-            color: colors.recessed,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: colors.surfaceBorder),
-          ),
-          child: Text(
-            keyLabel,
-            style: GoogleFonts.jetBrainsMono(
-              color: colors.textPrimary,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(actionLabel, style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 10.5)),
-      ],
     );
   }
 
@@ -3137,6 +3187,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   void _showAddPlannerItemDialog(BuildContext context) {
     SafeHaptics.selectionClick();
     final colors = AppColors.of(context);
+    final isUniversity = _resolveAcademicTrack(ref.read(userProfileProvider)) == _AcademicTrack.university;
 
     showModalBottomSheet(
       context: context,
@@ -3186,8 +3237,14 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   decoration: BoxDecoration(color: colors.primary.withValues(alpha: 0.15), shape: BoxShape.circle),
                   child: Icon(Icons.school_rounded, color: colors.primary, size: 20),
                 ),
-                title: Text('Class Routine Slot', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold)),
-                subtitle: Text('Regular lecture, tutorial, or lab sessional', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12)),
+                title: Text(
+                  isUniversity ? 'Class Routine Slot' : 'Subject Routine Slot',
+                  style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(
+                  isUniversity ? 'Regular lecture, tutorial, or lab sessional' : 'Regular class, coaching, or study slot',
+                  style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   _showAddRoutineSlotDialog(context);
@@ -3226,6 +3283,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     final colors = AppColors.of(context);
     final coursesAsync = ref.read(coursesStreamProvider);
     final courses = coursesAsync.value ?? [];
+    final isUniversity = _resolveAcademicTrack(ref.read(userProfileProvider)) == _AcademicTrack.university;
 
     Course? selectedCourse = courses.isNotEmpty
         ? courses.firstWhere((c) => existing != null && c.id == existing.courseId, orElse: () => courses.first)
@@ -3258,7 +3316,9 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             side: BorderSide(color: colors.surfaceBorder),
           ),
           title: Text(
-            existing == null ? 'Add Class Routine Slot' : 'Edit Routine Slot',
+            existing == null
+                ? (isUniversity ? 'Add Class Routine Slot' : 'Add Subject Routine Slot')
+                : 'Edit Routine Slot',
             style: GoogleFonts.plusJakartaSans(
               color: colors.textPrimary,
               fontWeight: FontWeight.w700,
@@ -3271,8 +3331,8 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Course Selector
-                  Text('Course', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12)),
+                  // Course / Subject Selector
+                  Text(isUniversity ? 'Course' : 'Subject', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12)),
                   const SizedBox(height: 6),
                   Container(
                     height: 48,
@@ -3287,7 +3347,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         value: selectedCourse,
                         isExpanded: true,
                         dropdownColor: colors.surface,
-                        hint: Text('Select course', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
+                        hint: Text(isUniversity ? 'Select course' : 'Select subject', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
                         items: courses.map((c) {
                           return DropdownMenuItem<Course>(
                             value: c,
@@ -3576,7 +3636,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Course', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12)),
+                    Text(
+                      track == _AcademicTrack.university ? 'Course' : 'Subject',
+                      style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
+                    ),
                     const SizedBox(height: 6),
                     Container(
                       height: 48,
@@ -3591,7 +3654,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                           value: selectedCourse,
                           isExpanded: true,
                           dropdownColor: colors.surface,
-                          hint: Text('Select course', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
+                          hint: Text(
+                            track == _AcademicTrack.university ? 'Select course' : 'Select subject',
+                            style: GoogleFonts.plusJakartaSans(color: colors.textMuted),
+                          ),
                           items: courses.map((c) {
                             return DropdownMenuItem<Course>(
                               value: c,
@@ -4119,6 +4185,669 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 ],
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // SECTION: Academic Term, Vacation & Calendar Settings Modal
+  // ===========================================================================
+  Future<void> _saveHolidaySettings(String uid, HolidaySettings updated) async {
+    if (Firebase.apps.isEmpty || uid.isEmpty) return;
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('settings')
+        .doc('holidays')
+        .set(updated.toMap(), SetOptions(merge: true));
+  }
+
+  void _showCalendarSettingsModal({
+    required String uid,
+    required HolidaySettings currentSettings,
+    required UserProfile userProfile,
+  }) {
+    SafeHaptics.selectionClick();
+    final colors = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final periodLabel = _buildProfilePeriodLabel(userProfile);
+
+    DateTime? semesterStart = currentSettings.semesterStart;
+    DateTime? semesterEnd = currentSettings.semesterEnd;
+    List<int> weeklyHolidays = List<int>.from(currentSettings.weeklyHolidays);
+    List<TermBreak> termBreaks = List<TermBreak>.from(currentSettings.termBreaks);
+    List<DateTime> specificHolidays = List<DateTime>.from(currentSettings.specificHolidays);
+
+    final breakTitleCtrl = TextEditingController();
+    OverrideType newBreakType = OverrideType.termBreak;
+    DateTime newBreakStart = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    DateTime newBreakEnd = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day).add(const Duration(days: 6));
+    bool isSaving = false;
+
+    const weekdayEntries = [
+      (label: 'SAT', day: DateTime.saturday),
+      (label: 'SUN', day: DateTime.sunday),
+      (label: 'MON', day: DateTime.monday),
+      (label: 'TUE', day: DateTime.tuesday),
+      (label: 'WED', day: DateTime.wednesday),
+      (label: 'THU', day: DateTime.thursday),
+      (label: 'FRI', day: DateTime.friday),
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final isSatWed = weeklyHolidays.contains(DateTime.thursday) &&
+              weeklyHolidays.contains(DateTime.friday) &&
+              weeklyHolidays.length == 2;
+          final isSunThu = weeklyHolidays.contains(DateTime.friday) &&
+              weeklyHolidays.contains(DateTime.saturday) &&
+              weeklyHolidays.length == 2;
+          final isMonFri = weeklyHolidays.contains(DateTime.saturday) &&
+              weeklyHolidays.contains(DateTime.sunday) &&
+              weeklyHolidays.length == 2;
+
+          return AlertDialog(
+            backgroundColor: colors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: colors.surfaceBorder),
+            ),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Academic Term & Calendar Settings',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: colors.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  periodLabel,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: SizedBox(
+                width: 480,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 1. Term / Semester Dates
+                    Text(
+                      'Term / Semester Dates',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildSettingsDateBox(
+                            label: 'Start Date',
+                            value: semesterStart != null
+                                ? DateFormat('dd MMM yyyy').format(semesterStart!)
+                                : 'Not set',
+                            colors: colors,
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: ctx,
+                                initialDate: semesterStart ?? _selectedDate,
+                                firstDate: DateTime(2023),
+                                lastDate: DateTime(2030),
+                              );
+                              if (picked != null) {
+                                setDialogState(() => semesterStart = picked);
+                              }
+                            },
+                            onClear: semesterStart != null
+                                ? () => setDialogState(() => semesterStart = null)
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildSettingsDateBox(
+                            label: 'End Date',
+                            value: semesterEnd != null
+                                ? DateFormat('dd MMM yyyy').format(semesterEnd!)
+                                : 'Not set',
+                            colors: colors,
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: ctx,
+                                initialDate: semesterEnd ?? (semesterStart?.add(const Duration(days: 110)) ?? _selectedDate),
+                                firstDate: DateTime(2023),
+                                lastDate: DateTime(2030),
+                              );
+                              if (picked != null) {
+                                setDialogState(() => semesterEnd = picked);
+                              }
+                            },
+                            onClear: semesterEnd != null
+                                ? () => setDialogState(() => semesterEnd = null)
+                                : null,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // 2. Academic Weekdays
+                    Text(
+                      'Academic Weekdays',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Active class days are highlighted; unselected days are marked as weekly holidays.',
+                      style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11.5),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        _buildSettingsPresetChip(
+                          label: 'Sat–Wed',
+                          isSelected: isSatWed,
+                          colors: colors,
+                          onTap: () => setDialogState(() {
+                            weeklyHolidays = [DateTime.thursday, DateTime.friday];
+                          }),
+                        ),
+                        _buildSettingsPresetChip(
+                          label: 'Sun–Thu',
+                          isSelected: isSunThu,
+                          colors: colors,
+                          onTap: () => setDialogState(() {
+                            weeklyHolidays = [DateTime.friday, DateTime.saturday];
+                          }),
+                        ),
+                        _buildSettingsPresetChip(
+                          label: 'Mon–Fri',
+                          isSelected: isMonFri,
+                          colors: colors,
+                          onTap: () => setDialogState(() {
+                            weeklyHolidays = [DateTime.saturday, DateTime.sunday];
+                          }),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: weekdayEntries.map((entry) {
+                        final isAcademicDay = !weeklyHolidays.contains(entry.day);
+                        return InkWell(
+                          onTap: () => setDialogState(() {
+                            if (isAcademicDay) {
+                              weeklyHolidays.add(entry.day);
+                            } else {
+                              weeklyHolidays.remove(entry.day);
+                            }
+                          }),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isAcademicDay
+                                  ? colors.primary.withValues(alpha: 0.16)
+                                  : colors.recessed,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: isAcademicDay ? colors.primary : colors.surfaceBorder,
+                              ),
+                            ),
+                            child: Text(
+                              entry.label,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: isAcademicDay ? colors.primary : colors.textMuted,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // 3. Vacations, PL & Exam Windows
+                    Text(
+                      'Vacations, Breaks & Exam Windows',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (termBreaks.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'No breaks or exam windows configured.',
+                          style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
+                        ),
+                      )
+                    else
+                      ...termBreaks.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final tb = entry.value;
+                        final badgeColor = tb.type == OverrideType.examPeriod
+                            ? colors.secondary
+                            : const Color(0xFFFF8075);
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: colors.recessed,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: colors.surfaceBorder),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(color: badgeColor, shape: BoxShape.circle),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      tb.title,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: colors.textPrimary,
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${DateFormat('dd MMM').format(tb.startDate)} – ${DateFormat('dd MMM yyyy').format(tb.endDate)}',
+                                      style: GoogleFonts.jetBrainsMono(
+                                        color: colors.textMuted,
+                                        fontSize: 10.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close_rounded, size: 16),
+                                color: colors.textMuted,
+                                onPressed: () => setDialogState(() => termBreaks.removeAt(idx)),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: colors.recessed,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: colors.surfaceBorder),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            height: 48,
+                            child: DropdownButtonFormField<OverrideType>(
+                              initialValue: newBreakType,
+                              isExpanded: true,
+                              dropdownColor: colors.surface,
+                              style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 12.5),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: colors.surface,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: colors.surfaceBorder),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: colors.primary),
+                                ),
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: OverrideType.termBreak,
+                                  child: Text('Vacation / Mid-Term Break / PL'),
+                                ),
+                                DropdownMenuItem(
+                                  value: OverrideType.examPeriod,
+                                  child: Text('Exam Window / Term Final'),
+                                ),
+                                DropdownMenuItem(
+                                  value: OverrideType.holiday,
+                                  child: Text('Holiday Range'),
+                                ),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) setDialogState(() => newBreakType = val);
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 48,
+                            child: TextField(
+                              controller: breakTitleCtrl,
+                              style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
+                              decoration: InputDecoration(
+                                hintText: newBreakType == OverrideType.examPeriod
+                                    ? 'e.g., Term Final Exam Window'
+                                    : 'e.g., Mid-Term Break / Preparatory Leave',
+                                hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12.5),
+                                filled: true,
+                                fillColor: colors.surface,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: colors.surfaceBorder),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: colors.primary),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildSettingsDateBox(
+                                  label: 'From',
+                                  value: DateFormat('dd MMM yyyy').format(newBreakStart),
+                                  colors: colors,
+                                  onTap: () async {
+                                    final picked = await showDatePicker(
+                                      context: ctx,
+                                      initialDate: newBreakStart,
+                                      firstDate: DateTime(2023),
+                                      lastDate: DateTime(2030),
+                                    );
+                                    if (picked != null) {
+                                      setDialogState(() {
+                                        newBreakStart = picked;
+                                        if (newBreakEnd.isBefore(picked)) {
+                                          newBreakEnd = picked;
+                                        }
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _buildSettingsDateBox(
+                                  label: 'To',
+                                  value: DateFormat('dd MMM yyyy').format(newBreakEnd),
+                                  colors: colors,
+                                  onTap: () async {
+                                    final picked = await showDatePicker(
+                                      context: ctx,
+                                      initialDate: newBreakEnd.isBefore(newBreakStart) ? newBreakStart : newBreakEnd,
+                                      firstDate: newBreakStart,
+                                      lastDate: DateTime(2030),
+                                    );
+                                    if (picked != null) {
+                                      setDialogState(() => newBreakEnd = picked);
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: colors.primary,
+                                side: BorderSide(color: colors.primary.withValues(alpha: 0.5)),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                              onPressed: () {
+                                final title = breakTitleCtrl.text.trim().isNotEmpty
+                                    ? breakTitleCtrl.text.trim()
+                                    : switch (newBreakType) {
+                                        OverrideType.examPeriod => 'Exam Window',
+                                        OverrideType.holiday => 'Holiday Range',
+                                        OverrideType.termBreak => 'Term Break / PL',
+                                      };
+                                setDialogState(() {
+                                  termBreaks.add(TermBreak(
+                                    id: 'tb_${DateTime.now().millisecondsSinceEpoch}',
+                                    title: title,
+                                    startDate: newBreakStart,
+                                    endDate: newBreakEnd,
+                                    type: newBreakType,
+                                  ));
+                                  breakTitleCtrl.clear();
+                                });
+                              },
+                              icon: const Icon(Icons.add_rounded, size: 15),
+                              label: Text(
+                                'Add Window',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // 4. Single Holidays
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Single Holidays',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: colors.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: ctx,
+                              initialDate: _selectedDate,
+                              firstDate: DateTime(2023),
+                              lastDate: DateTime(2030),
+                            );
+                            if (picked != null) {
+                              setDialogState(() {
+                                final exists = specificHolidays.any((d) =>
+                                    d.year == picked.year && d.month == picked.month && d.day == picked.day);
+                                if (!exists) specificHolidays.add(picked);
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.add_rounded, size: 15),
+                          label: Text(
+                            'Add Date',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (specificHolidays.isNotEmpty)
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: specificHolidays.asMap().entries.map((entry) {
+                          final idx = entry.key;
+                          final d = entry.value;
+                          return InputChip(
+                            label: Text(
+                              DateFormat('dd MMM yyyy').format(d),
+                              style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 11),
+                            ),
+                            backgroundColor: colors.recessed,
+                            side: BorderSide(color: colors.surfaceBorder),
+                            onDeleted: () => setDialogState(() => specificHolidays.removeAt(idx)),
+                          );
+                        }).toList(),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colors.primary,
+                  foregroundColor: isDark ? const Color(0xFF171C24) : Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        setDialogState(() => isSaving = true);
+                        final updated = HolidaySettings(
+                          weeklyHolidays: weeklyHolidays,
+                          specificHolidays: specificHolidays,
+                          termBreaks: termBreaks,
+                          semesterStart: semesterStart,
+                          semesterEnd: semesterEnd,
+                        );
+                        await _saveHolidaySettings(uid, updated);
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      },
+                child: Text(
+                  isSaving ? 'Saving...' : 'Save Settings',
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSettingsDateBox({
+    required String label,
+    required String value,
+    required ChondrobinduThemeColors colors,
+    required VoidCallback onTap,
+    VoidCallback? onClear,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: colors.recessed,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colors.surfaceBorder),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 10),
+                  ),
+                  Text(
+                    value,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.textPrimary,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            if (onClear != null)
+              InkWell(
+                onTap: onClear,
+                child: Icon(Icons.close_rounded, size: 15, color: colors.textMuted),
+              )
+            else
+              Icon(Icons.calendar_today_rounded, size: 14, color: colors.textMuted),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsPresetChip({
+    required String label,
+    required bool isSelected,
+    required ChondrobinduThemeColors colors,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? colors.secondary.withValues(alpha: 0.16) : colors.recessed,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: isSelected ? colors.secondary : colors.surfaceBorder),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            color: isSelected ? colors.secondary : colors.textPrimary,
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           ),
         ),
       ),
