@@ -737,7 +737,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: colors.surfaceBorder),
       ),
       child: Column(
@@ -779,7 +779,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   margin: const EdgeInsets.symmetric(horizontal: 3),
                   decoration: BoxDecoration(
                     color: isToday ? colors.primary.withValues(alpha: 0.05) : colors.recessed.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isToday ? colors.primary : colors.surfaceBorder.withValues(alpha: 0.7),
                       width: isToday ? 1.5 : 1,
@@ -793,7 +793,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                         decoration: BoxDecoration(
                           color: isToday ? colors.primary.withValues(alpha: 0.15) : colors.surface,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
                           border: Border(bottom: BorderSide(color: colors.surfaceBorder)),
                         ),
                         child: Column(
@@ -1262,7 +1262,13 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             ),
           )
         else
-          ...selectedDaySlots.map((slot) => _buildRoutineSlotCard(slot, courseCodeMap, courseTitleMap, colors)),
+          ...selectedDaySlots.map((slot) => _buildRoutineSlotCard(
+                slot,
+                courseCodeMap,
+                courseTitleMap,
+                colors,
+                isSuspended: isClassSuppressed,
+              )),
       ],
     );
   }
@@ -1281,25 +1287,40 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: colors.surfaceBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Row: Month Name + Year + Controls
+          // Header Row: Overline + Month Name + Year + Controls
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text(
-                  DateFormat('MMMM yyyy').format(_focusedMonth),
-                  style: GoogleFonts.plusJakartaSans(
-                    color: colors.textPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ACADEMIC TIMETABLE',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.secondary,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      DateFormat('MMMM yyyy').format(_focusedMonth),
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
               Row(
@@ -1350,6 +1371,46 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 ],
               ),
             ],
+          ),
+
+          // Term Capsule Pill
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            margin: const EdgeInsets.only(top: 10, bottom: 12),
+            decoration: BoxDecoration(
+              color: colors.recessed,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: colors.surfaceBorder.withValues(alpha: 0.6)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Semester 24.2 • Fall 2026',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.primary,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: colors.surfaceBorder),
+                  ),
+                  child: Text(
+                    'WEEK 04',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.textPrimary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
 
@@ -1636,17 +1697,16 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     required bool isExamPeriod,
     required ChondrobinduThemeColors colors,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Agenda Top Card
+        // Agenda Top Card (Stitch Token rounded-lg 8px)
         Container(
           padding: const EdgeInsets.all(16),
           margin: const EdgeInsets.only(bottom: 14),
           decoration: BoxDecoration(
             color: colors.surface,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: colors.surfaceBorder),
           ),
           child: Row(
@@ -1660,36 +1720,42 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       Container(width: 6, height: 6, decoration: BoxDecoration(color: colors.secondary, shape: BoxShape.circle)),
                       const SizedBox(width: 6),
                       Text(
-                        'ACTIVE DAY AGENDA',
+                        'SELECTED SCHEDULE',
                         style: GoogleFonts.plusJakartaSans(
                           color: colors.secondary,
                           fontSize: 10.5,
                           fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    DateFormat('EEEE, dd MMMM yyyy').format(_selectedDate),
+                    'Agenda: ${DateFormat('dd MMM (EEEE)').format(_selectedDate)}',
                     style: GoogleFonts.plusJakartaSans(
                       color: colors.textPrimary,
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colors.primary,
-                  foregroundColor: isDark ? const Color(0xFF171C24) : Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: () => _showAddPlannerItemDialog(context),
-                icon: const Icon(Icons.add_rounded, size: 16),
-                label: Text('Schedule', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 13)),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colors.secondary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () => _showAddPlannerItemDialog(context),
+                    icon: const Icon(Icons.add_rounded, size: 16),
+                    label: Text('+ Schedule', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 13)),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1702,7 +1768,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             margin: const EdgeInsets.only(bottom: 14),
             decoration: BoxDecoration(
               color: colors.surface,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: colors.surfaceBorder),
             ),
             child: Column(
@@ -1726,10 +1792,10 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       ],
                     ),
                     Text(
-                      '${selectedDayAssessments.length} DUE',
+                      'CRITICAL PATH EVALUATION',
                       style: GoogleFonts.jetBrainsMono(
-                        color: colors.secondary,
-                        fontSize: 11,
+                        color: colors.textMuted,
+                        fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -1765,7 +1831,7 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: colors.surface,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: colors.surfaceBorder),
           ),
           child: Column(
@@ -1834,7 +1900,13 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   ),
                 )
               else
-                ...selectedDaySlots.map((slot) => _buildRoutineSlotCard(slot, courseCodeMap, courseTitleMap, colors)),
+                ...selectedDaySlots.map((slot) => _buildRoutineSlotCard(
+                      slot,
+                      courseCodeMap,
+                      courseTitleMap,
+                      colors,
+                      isSuspended: isClassSuppressed,
+                    )),
             ],
           ),
         ),
@@ -1843,137 +1915,201 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   }
 
   // ===========================================================================
-  // SECTION: Day Agenda Routine Slot Card (Desktop & Mobile)
+  // SECTION: Day Agenda Routine Slot Card (Desktop & Mobile - Stitch Tokens)
   // ===========================================================================
   Widget _buildRoutineSlotCard(
     RoutineSlot slot,
     Map<String, String> courseCodeMap,
     Map<String, String> courseTitleMap,
-    ChondrobinduThemeColors colors,
-  ) {
+    ChondrobinduThemeColors colors, {
+    bool isSuspended = false,
+  }) {
     final isLab = slot.slotType == CourseType.sessional || slot.slotType == CourseType.practical;
-    final accent = isLab ? colors.secondary : colors.primary;
+    final accent = isSuspended
+        ? colors.surfaceBorder
+        : (isLab ? const Color(0xFF4E9F72) : colors.primary);
+
+    // Calculate duration in minutes if possible
+    int durationMinutes = isLab ? 150 : 50;
+    try {
+      final sParts = slot.startTime.replaceAll(RegExp(r'[^\d:]'), '').split(':');
+      final eParts = slot.endTime.replaceAll(RegExp(r'[^\d:]'), '').split(':');
+      if (sParts.isNotEmpty && eParts.isNotEmpty) {
+        int sH = int.parse(sParts[0]);
+        int sM = sParts.length > 1 ? int.parse(sParts[1]) : 0;
+        int eH = int.parse(eParts[0]);
+        int eM = eParts.length > 1 ? int.parse(eParts[1]) : 0;
+        if (slot.startTime.toLowerCase().contains('pm') && sH < 12) sH += 12;
+        if (slot.endTime.toLowerCase().contains('pm') && eH < 12) eH += 12;
+        final diff = (eH * 60 + eM) - (sH * 60 + sM);
+        if (diff > 0 && diff < 360) durationMinutes = diff;
+      }
+    } catch (_) {}
+
+    final durationLabel = isLab
+        ? 'LAB BLOCK ($durationMinutes MIN)'
+        : 'PERIOD ($durationMinutes MIN)';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
-      child: InkWell(
-        onTap: () => _showSlotDetails(slot),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: colors.recessed,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: colors.surfaceBorder),
-          ),
-          child: Row(
-            children: [
-              // 3px Accent Indicator Bar
-              Container(
-                width: 3.5,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: accent,
-                  borderRadius: BorderRadius.circular(2),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: () => _showSlotDetails(slot),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isSuspended ? colors.recessed.withValues(alpha: 0.7) : colors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colors.surfaceBorder),
+            ),
+            child: Stack(
+              children: [
+                // 4px Left Accent Stripe
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 4,
+                  child: Container(color: accent),
                 ),
-              ),
-              const SizedBox(width: 12),
-
-              // Time Block
-              SizedBox(
-                width: 78,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      slot.startTime,
-                      style: GoogleFonts.jetBrainsMono(
-                        color: colors.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      slot.endTime,
-                      style: GoogleFonts.jetBrainsMono(
-                        color: colors.textMuted,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(width: 8),
-
-              // Course & Details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          slot.courseCode,
-                          style: GoogleFonts.jetBrainsMono(
-                            color: accent,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Time block in JetBrains Mono + Duration caps
+                      SizedBox(
+                        width: 110,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${slot.startTime} – ${slot.endTime}',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: isSuspended ? colors.textMuted : colors.textPrimary,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                decoration: isSuspended ? TextDecoration.lineThrough : null,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              durationLabel,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: isSuspended
+                                    ? colors.textMuted
+                                    : (isLab ? const Color(0xFF4E9F72) : colors.textMuted),
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: accent.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            isLab ? 'LAB' : 'THEORY',
-                            style: GoogleFonts.jetBrainsMono(color: accent, fontSize: 9, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (slot.courseTitle.isNotEmpty)
-                      Text(
-                        slot.courseTitle,
-                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 12),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                  ],
-                ),
-              ),
+                      const SizedBox(width: 8),
 
-              // Room & Instructor Badges
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (slot.room.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: colors.surface,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: colors.surfaceBorder),
+                      // Center Course details
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  slot.courseCode,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: isSuspended ? colors.textMuted : accent,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.bold,
+                                    decoration: isSuspended ? TextDecoration.lineThrough : null,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: (isLab ? const Color(0xFF4E9F72) : colors.primary).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: (isLab ? const Color(0xFF4E9F72) : colors.primary).withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    isLab ? 'LAB SESSIONAL' : 'THEORY',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: isLab ? const Color(0xFF4E9F72) : colors.primary,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              slot.courseTitle.isNotEmpty ? slot.courseTitle : slot.courseCode,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: isSuspended ? colors.textMuted : colors.textPrimary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                decoration: isSuspended ? TextDecoration.lineThrough : null,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                if (slot.room.isNotEmpty) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: colors.recessed,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: colors.surfaceBorder),
+                                    ),
+                                    child: Text(
+                                      slot.room.toUpperCase().contains('RM') ? slot.room : 'RM ${slot.room}',
+                                      style: GoogleFonts.jetBrainsMono(
+                                        color: colors.textMuted,
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                ],
+                                if (slot.teacherBadge != null && slot.teacherBadge!.isNotEmpty)
+                                  Flexible(
+                                    child: Text(
+                                      slot.teacherBadge!,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: colors.textMuted,
+                                        fontSize: 11,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                      child: Text(
-                        slot.room,
-                        style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 10.5, fontWeight: FontWeight.w600),
+
+                      // Right Action Icon Button
+                      IconButton(
+                        icon: Icon(Icons.more_vert_rounded, color: colors.textMuted, size: 18),
+                        onPressed: () => _showSlotDetails(slot),
+                        tooltip: 'Slot Details',
                       ),
-                    ),
-                  if (slot.teacherBadge != null && slot.teacherBadge!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3.0),
-                      child: Text(
-                        slot.teacherBadge!,
-                        style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10),
-                      ),
-                    ),
-                ],
-              ),
-            ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

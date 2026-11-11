@@ -174,27 +174,32 @@ class AssessmentCard extends StatelessWidget {
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 200),
       opacity: isPostponed ? 0.65 : 1.0,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: cardColor ?? const Color(0xFF241C1A),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: accentColor ?? amberAccent.withValues(alpha: 0.65),
-            width: 1.3,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: (accentColor ?? amberAccent).withValues(alpha: 0.08),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: cardColor ?? const Color(0xFF202733),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: const Color(0xFF2E3846),
+              width: 1.0,
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 4,
+                child: Container(color: accentColor ?? const Color(0xFFC88256)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
             // Top Row: Amber Badge + Course Code + Time Chip + Status / Menu
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -503,6 +508,10 @@ class AssessmentCard extends StatelessWidget {
               ),
             ],
           ],
+        ),
+              ),
+            ],
+          ),
         ),
       ),
     );

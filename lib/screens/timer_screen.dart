@@ -1410,9 +1410,9 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
 
                     // Structured Subtitle Pill
                     ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 320),
+                      constraints: const BoxConstraints(maxWidth: 180),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: colors.recessed,
                           borderRadius: BorderRadius.circular(20),
@@ -2645,21 +2645,41 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                                           ),
                                           const SizedBox(height: 6),
                                           ConstrainedBox(
-                                            constraints: const BoxConstraints(maxWidth: 220),
+                                            constraints: const BoxConstraints(maxWidth: 180),
                                             child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                               decoration: BoxDecoration(
                                                 color: colors.recessed,
                                                 borderRadius: BorderRadius.circular(16),
                                                 border: Border.all(color: colors.surfaceBorder),
                                               ),
-                                              child: AutoScrollMarqueeText(
-                                                text: '${selectedCourse?.code ?? currentSubject} • ${selectedTopicTitle ?? 'Focus Session'}',
-                                                style: GoogleFonts.plusJakartaSans(
-                                                  color: colors.textPrimary,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Container(
+                                                    width: 6,
+                                                    height: 6,
+                                                    decoration: BoxDecoration(
+                                                      color: isBreak ? colors.success : colors.secondary,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Flexible(
+                                                    child: AutoScrollMarqueeText(
+                                                      text: isBreak
+                                                          ? 'Break'
+                                                          : (timerState.isOvertime
+                                                              ? 'Overtime • Recording study time'
+                                                              : '${selectedCourse?.code ?? currentSubject} • ${selectedTopicTitle ?? 'Focus Session'}'),
+                                                      style: GoogleFonts.plusJakartaSans(
+                                                        color: colors.textPrimary,
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ),
