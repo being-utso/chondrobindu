@@ -15,6 +15,7 @@ import '../providers/user_profile_provider.dart';
 import '../providers/nav_provider.dart';
 import '../services/notification_service.dart';
 import '../services/soundscape_service.dart';
+import '../widgets/auto_scroll_marquee_text.dart';
 import '../widgets/study_session_log_dialog.dart';
 import 'package:showcaseview/showcaseview.dart';
 import '../services/tour_service.dart';
@@ -1430,8 +1431,8 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                             ),
                             const SizedBox(width: 6),
                             Flexible(
-                              child: Text(
-                                isBreak
+                              child: AutoScrollMarqueeText(
+                                text: isBreak
                                     ? 'Break'
                                     : (timerState.isOvertime
                                         ? 'Overtime • Recording study time'
@@ -1441,8 +1442,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -2654,16 +2653,13 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                                                 borderRadius: BorderRadius.circular(16),
                                                 border: Border.all(color: colors.surfaceBorder),
                                               ),
-                                              child: Text(
-                                                '${selectedCourse?.code ?? currentSubject} • ${selectedTopicTitle ?? 'Focus Session'}',
+                                              child: AutoScrollMarqueeText(
+                                                text: '${selectedCourse?.code ?? currentSubject} • ${selectedTopicTitle ?? 'Focus Session'}',
                                                 style: GoogleFonts.plusJakartaSans(
                                                   color: colors.textPrimary,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w600,
                                                 ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                textAlign: TextAlign.center,
                                               ),
                                             ),
                                           ),

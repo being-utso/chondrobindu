@@ -15,6 +15,7 @@ import 'package:chondrobindu/models/note_model.dart';
 import 'package:chondrobindu/models/planner_event_model.dart';
 import 'package:chondrobindu/models/routine_models.dart';
 import 'package:chondrobindu/models/syllabus_node.dart';
+import 'package:chondrobindu/widgets/auto_scroll_marquee_text.dart';
 import 'package:chondrobindu/screens/insights_screen.dart';
 import 'package:chondrobindu/screens/course_syllabus_screen.dart';
 import 'package:chondrobindu/screens/grading_setup_screen.dart';
@@ -7280,6 +7281,50 @@ void main() {
           final data = await rootBundle.load('assets/noises/$file');
           expect(data.lengthInBytes, greaterThan(0), reason: '$file should be non-empty');
         }
+      });
+
+      testWidgets('AutoScrollMarqueeText renders statically when text fits container', (tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 250,
+                child: AutoScrollMarqueeText(
+                  text: 'Short text',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Short text'), findsOneWidget);
+        // Does not wrap in ShaderMask when text fits within container
+        expect(find.byType(ShaderMask), findsNothing);
+      });
+
+      testWidgets('AutoScrollMarqueeText applies ShaderMask and scroll view when text overflows container', (tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 100,
+                child: AutoScrollMarqueeText(
+                  text: 'Physics 1st Paper (পদার্থবিজ্ঞান ১ম পত্র) • Chapter 2: Vectors and Dynamics',
+                  style: TextStyle(fontSize: 12),
+                  autoScroll: false,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Physics 1st Paper (পদার্থবিজ্ঞান ১ম পত্র) • Chapter 2: Vectors and Dynamics'), findsOneWidget);
+        // Wraps in ShaderMask to provide edge fading
+        expect(find.byType(ShaderMask), findsOneWidget);
+        expect(find.byType(SingleChildScrollView), findsOneWidget);
       });
     });
   });
