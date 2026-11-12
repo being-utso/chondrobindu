@@ -1,18 +1,23 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
+import '../core/theme/app_colors.dart';
 import '../models/exam_model.dart';
 import '../models/journal_entry_model.dart';
 import '../models/note_model.dart';
 import '../models/routine_models.dart';
+import '../models/syllabus_models.dart';
+import '../providers/firestore_providers.dart';
 import '../providers/journal_provider.dart';
 import '../providers/notes_provider.dart';
+import '../providers/syllabus_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/exam_service.dart';
-import '../widgets/app_logo.dart';
 import '../widgets/app_preloader.dart';
 import 'note_editor_screen.dart';
 import 'package:chondrobindu/utils/safe_haptics.dart';
@@ -22,6 +27,7 @@ typedef JournalNotesScreen = JournalScreen;
 typedef JournalAndNotesScreen = JournalScreen;
 
 final universityCoursesStreamProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  if (Firebase.apps.isEmpty) return Stream.value([]);
   final uid = FirebaseAuth.instance.currentUser?.uid;
   if (uid == null) return Stream.value([]);
   return FirebaseFirestore.instance
@@ -33,6 +39,7 @@ final universityCoursesStreamProvider = StreamProvider<List<Map<String, dynamic>
 });
 
 final holidaySettingsStreamProvider = StreamProvider<HolidaySettings>((ref) {
+  if (Firebase.apps.isEmpty) return Stream.value(HolidaySettings.defaultSettings);
   final uid = FirebaseAuth.instance.currentUser?.uid;
   if (uid == null) return Stream.value(HolidaySettings.defaultSettings);
   return FirebaseFirestore.instance
@@ -42,9 +49,9 @@ final holidaySettingsStreamProvider = StreamProvider<HolidaySettings>((ref) {
       .doc('holidays')
       .snapshots()
       .map((snap) {
-        final data = snap.data();
-        return data != null ? HolidaySettings.fromMap(data) : HolidaySettings.defaultSettings;
-      });
+    final data = snap.data();
+    return data != null ? HolidaySettings.fromMap(data) : HolidaySettings.defaultSettings;
+  });
 });
 
 abstract class JournalFeedItem {
@@ -85,6 +92,11 @@ class StudySessionFeedItem implements JournalFeedItem {
   bool get isPinned => false;
 }
 
+typedef _JournalTagTargetOption = ({String id, String label});
+
+/// Screen 05: Academic Journal & Reflection Workspace (Stitch Design System)
+/// 1:1 Reference Implementation of academic_journal_brain_dump_desktop_web(_dark_mode)
+/// and academic_journal_brain_dump_mobile(_dark_mode) from _design_reference.
 class JournalScreen extends ConsumerStatefulWidget {
   final String? initialTag;
   final String? initialCourseFilter;
@@ -95,10 +107,22 @@ class JournalScreen extends ConsumerStatefulWidget {
 }
 
 class _JournalScreenState extends ConsumerState<JournalScreen> {
-  bool _isGridView = true;
+  bool _isGridView = false;
   final TextEditingController _searchController = TextEditingController();
   String _selectedJournalSegment = 'current'; // 'current' or 'archived'
   String? _selectedCourseFilter;
+  String? _selectedDesktopItemKey;
+
+  static const List<String> _tagFilters = [
+    'All',
+    'Notes',
+    'Exam Journal',
+    'Study Sessions',
+    'Pinned',
+    'Formulas',
+    'Brain Dump',
+    'Mistake',
+  ];
 
   @override
   void initState() {
@@ -119,27 +143,87 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
     super.dispose();
   }
 
-  String _formatDate(DateTime dt) {
-    final now = DateTime.now();
-    final diff = now.difference(dt);
+  String _itemKey(JournalFeedItem item) {
+    if (item is NoteFeedItem) return 'note_${item.note.id}_${item.note.title}';
+    if (item is ExamFeedItem) return 'exam_${item.exam.id}_${item.exam.examName}';
+    if (item is StudySessionFeedItem) return 'session_${item.entry.id}_${item.entry.title}';
+    return item.hashCode.toString();
+  }
 
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-    if (diff.inDays < 1 && now.day == dt.day) {
-      return 'Today ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  String _formatCardDate(DateTime dt) {
+    return DateFormat('dd MMM yyyy • EEE').format(dt).toUpperCase();
+  }
+
+  String _formatTime(DateTime dt) {
+    return DateFormat('hh:mm a').format(dt);
+  }
+
+  String _formatHeaderDate(DateTime dt) {
+    return '${DateFormat('EEEE, dd MMM yyyy').format(dt)} • ${DateFormat('hh:mm a').format(dt)}';
+  }
+
+  String _buildTrackOverline(UserProfile profile) {
+    if (profile.isUniversityStudent) {
+      final lvl = profile.level?.trim() ?? '';
+      final trm = profile.term?.trim() ?? '';
+      if (lvl.isNotEmpty && trm.isNotEmpty) {
+        return 'UNIVERSITY TRACK // $lvl • $trm'.toUpperCase();
+      }
+      return 'UNIVERSITY TRACK // ACADEMIC JOURNAL';
+    }
+    final target = profile.primaryTarget.trim();
+    if (target.toLowerCase().contains('hsc') || (profile.collegeClass?.trim().isNotEmpty ?? false)) {
+      return 'COLLEGE / HSC TRACK // STUDY LOG & REFLECTIONS';
+    }
+    if (target.isNotEmpty) {
+      return 'ADMISSION TRACK // ${target.toUpperCase()}';
+    }
+    return 'ACADEMIC JOURNAL // REFLECTIONS & LOGS';
+  }
+
+  List<_JournalTagTargetOption> _resolveTagTargets({
+    required bool isUniversity,
+    required List<Map<String, dynamic>> rawCourses,
+    required List<Subject> streamSubjects,
+    required List<Subject> memorySubjects,
+  }) {
+    final List<_JournalTagTargetOption> result = [];
+    final Set<String> seen = {};
+
+    if (isUniversity) {
+      for (final c in rawCourses) {
+        if (c['isArchived'] == true) continue;
+        final code = (c['courseCode'] ?? c['code'] ?? '').toString().trim();
+        final name = (c['courseName'] ?? c['title'] ?? c['name'] ?? '').toString().trim();
+        final label = (code.isNotEmpty && name.isNotEmpty && code != name)
+            ? '$code • $name'
+            : (code.isNotEmpty ? code : name);
+        final value = code.isNotEmpty ? code : label;
+        if (value.isNotEmpty && seen.add(value)) {
+          result.add((id: value, label: label));
+        }
+      }
+      return result;
     }
 
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+    final primary = streamSubjects.isNotEmpty ? streamSubjects : memorySubjects;
+    for (final s in primary) {
+      final title = s.title.trim();
+      if (title.isNotEmpty && seen.add(title)) {
+        result.add((id: title, label: title));
+      }
+    }
+    return result;
   }
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFF110D0C);
-    const accentColor = Color(0xFFF2B78A);
-    const borderColor = Color(0xFF4A3830);
+    final colors = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isWide = MediaQuery.of(context).size.width >= 900;
 
     final userProfile = ref.watch(userProfileProvider);
+    final isUniversity = userProfile.isUniversityStudent;
     final selectedTag = ref.watch(selectedNoteTagProvider);
     final searchQuery = ref.watch(noteSearchQueryProvider).trim().toLowerCase();
     final notesAsync = ref.watch(notesStreamProvider);
@@ -178,18 +262,6 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
         .where((entry) => entry.isStudySession)
         .toList();
 
-    // Available filter tags
-    final tagFilters = [
-      'All',
-      'Notes',
-      'Exam Journal',
-      'Study Sessions',
-      'Pinned',
-      'Formulas',
-      'Brain Dump',
-      'Mistake',
-    ];
-
     bool isCurrentTermNote(NoteModel note) {
       final text = '${note.title} ${note.plainTextContent} ${note.tags.join(' ')}'.toLowerCase();
       for (final id in activeCourseIds) {
@@ -220,7 +292,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
     List<ExamModel> filteredExams;
     List<StudyJournalEntry> filteredStudySessions;
 
-    if (userProfile.isUniversityStudent) {
+    if (isUniversity) {
       if (_selectedJournalSegment == 'current') {
         filteredNotes = standardNotes.where(isCurrentTermNote).toList();
         filteredExams = []; // Admission model tests are legacy
@@ -275,13 +347,13 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
         } else if (selectedTag != 'All' && selectedTag != 'Notes') {
           matchesTag = note.tags.contains(selectedTag);
         }
-
         if (!matchesTag) continue;
 
         if (searchQuery.isNotEmpty) {
           final matchesTitle = note.title.toLowerCase().contains(searchQuery);
           final matchesContent = note.plainTextContent.toLowerCase().contains(searchQuery);
-          if (!matchesTitle && !matchesContent) continue;
+          final matchesTags = note.tags.any((t) => t.toLowerCase().contains(searchQuery));
+          if (!matchesTitle && !matchesContent && !matchesTags) continue;
         }
 
         feedItems.add(NoteFeedItem(note));
@@ -334,317 +406,979 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
     final hasError = notesAsync.hasError || examsAsync.hasError || journalAsync.hasError;
 
     return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        title: Row(
-          children: [
-            const AppLogo(size: 28),
-            const SizedBox(width: 10),
-            Flexible(
-              child: Text(
-                'Journal & Notes',
-                style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 19),
-                overflow: TextOverflow.ellipsis,
+      backgroundColor: colors.background,
+      floatingActionButton: isWide
+          ? null
+          : FloatingActionButton.extended(
+              backgroundColor: colors.secondary,
+              foregroundColor: Colors.white,
+              elevation: 3,
+              icon: const Icon(Icons.add_rounded, size: 20),
+              label: Text(
+                'New Entry',
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 13),
               ),
+              onPressed: () => _showReflectionComposerModal(context),
             ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _isGridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
-              color: Colors.white,
-            ),
-            tooltip: _isGridView ? 'List View' : 'Grid View',
-            onPressed: () {
-              SafeHaptics.lightImpact();
-              setState(() {
-                _isGridView = !_isGridView;
-              });
-            },
-          ),
-        ],
+      body: SafeArea(
+        child: isWide
+            ? _buildDesktopLayout(
+                context: context,
+                colors: colors,
+                isDark: isDark,
+                userProfile: userProfile,
+                isUniversity: isUniversity,
+                selectedTag: selectedTag,
+                feedItems: feedItems,
+                isLoading: isLoading,
+                hasError: hasError,
+              )
+            : _buildMobileLayout(
+                context: context,
+                colors: colors,
+                isDark: isDark,
+                userProfile: userProfile,
+                isUniversity: isUniversity,
+                selectedTag: selectedTag,
+                feedItems: feedItems,
+                isLoading: isLoading,
+                hasError: hasError,
+              ),
       ),
-      body: Column(
-        children: [
-          // Top Segment Filter for University Students [Current Term | Admission / Archived]
-          if (userProfile.isUniversityStudent) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-              child: Container(
-                height: 42,
-                padding: const EdgeInsets.all(3.5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1C1412),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: borderColor, width: 0.8),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () {
-                          SafeHaptics.selectionClick();
-                          setState(() => _selectedJournalSegment = 'current');
-                        },
-                        borderRadius: BorderRadius.circular(9),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: _selectedJournalSegment == 'current'
-                                ? accentColor
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(9),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.school_rounded,
-                                size: 15,
-                                color: _selectedJournalSegment == 'current'
-                                    ? const Color(0xFF140F0E)
-                                    : const Color(0xFFABA093),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Current Term',
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: _selectedJournalSegment == 'current'
-                                      ? const Color(0xFF140F0E)
-                                      : const Color(0xFFABA093),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () {
-                          SafeHaptics.selectionClick();
-                          setState(() => _selectedJournalSegment = 'archived');
-                        },
-                        borderRadius: BorderRadius.circular(9),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: _selectedJournalSegment == 'archived'
-                                ? accentColor
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(9),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.inventory_2_rounded,
-                                size: 15,
-                                color: _selectedJournalSegment == 'archived'
-                                    ? const Color(0xFF140F0E)
-                                    : const Color(0xFFABA093),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Admission / Archived',
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: _selectedJournalSegment == 'archived'
-                                      ? const Color(0xFF140F0E)
-                                      : const Color(0xFFABA093),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+    );
+  }
 
-          // 1. Search Bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (val) {
-                ref.read(noteSearchQueryProvider.notifier).state = val;
-              },
-              style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'Search notes, formulas, exam reflections...',
-                hintStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 13.5),
-                prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFFABA093), size: 20),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded, color: Color(0xFFABA093), size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          ref.read(noteSearchQueryProvider.notifier).state = '';
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: const Color(0xFF1C1412),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: borderColor, width: 0.8),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: borderColor, width: 0.8),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: accentColor, width: 1.2),
-                ),
-              ),
-            ),
-          ),
+  // ===========================================================================
+  // DESKTOP / WEB DUAL-PANE LAYOUT (Stitch 1:1 Reference)
+  // ===========================================================================
+  Widget _buildDesktopLayout({
+    required BuildContext context,
+    required ChondrobinduThemeColors colors,
+    required bool isDark,
+    required UserProfile userProfile,
+    required bool isUniversity,
+    required String selectedTag,
+    required List<JournalFeedItem> feedItems,
+    required bool isLoading,
+    required bool hasError,
+  }) {
+    final selectedItem = feedItems.isEmpty
+        ? null
+        : feedItems.firstWhere(
+            (item) => _itemKey(item) == _selectedDesktopItemKey,
+            orElse: () => feedItems.first,
+          );
 
-          // Course Scope Filter Badge
-          if (_selectedCourseFilter != null && _selectedCourseFilter!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Row(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1400),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Top Utility Bar
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: accentColor.withValues(alpha: 0.4), width: 0.8),
-                    ),
+                  Expanded(
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.school_rounded, color: accentColor, size: 14),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Course: $_selectedCourseFilter',
-                          style: GoogleFonts.plusJakartaSans(color: accentColor, fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(width: 6),
-                        InkWell(
-                          onTap: () {
-                            SafeHaptics.lightImpact();
-                            setState(() => _selectedCourseFilter = null);
-                          },
-                          borderRadius: BorderRadius.circular(10),
-                          child: const Padding(
-                            padding: EdgeInsets.all(2),
-                            child: Icon(Icons.close_rounded, color: accentColor, size: 14),
+                        Icon(Icons.auto_stories_outlined, size: 16, color: colors.secondary),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            _buildTrackOverline(userProfile),
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.textMuted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.7,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
-
-          // 2. Filter Tag Chips
-          SizedBox(
-            height: 48,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              itemCount: tagFilters.length,
-              itemBuilder: (context, index) {
-                final tag = tagFilters[index];
-                final isSelected = selectedTag == tag;
-
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: FilterChip(
-                    label: Text(tag),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      if (selected) {
-                        SafeHaptics.lightImpact();
-                        ref.read(selectedNoteTagProvider.notifier).state = tag;
-                      }
-                    },
-                    selectedColor: accentColor,
-                    backgroundColor: const Color(0xFF1C1412),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      side: BorderSide(
-                        color: isSelected ? accentColor : borderColor,
-                        width: 0.8,
-                      ),
-                    ),
-                    labelStyle: GoogleFonts.plusJakartaSans(
-                      color: isSelected ? const Color(0xFF140F0E) : const Color(0xFFABA093),
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                      fontSize: 12,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // 3. Unified Feed (Mix of Grid Notes & Full-Width Aggregated Exam Cards)
-          Expanded(
-            child: isLoading
-                ? const Center(
-                    child: AppPreloader(size: 44),
-                  )
-                : hasError
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Text(
-                            'Error loading journal entries',
-                            style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEF4444)),
-                            textAlign: TextAlign.center,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isUniversity) ...[
+                        _buildUniversitySegmentBar(colors, isDark, compact: true),
+                        const SizedBox(width: 12),
+                      ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: colors.surfaceBorder),
+                        ),
+                        child: Text(
+                          '${feedItems.length} ${feedItems.length == 1 ? 'ENTRY' : 'ENTRIES'} INDEXED',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.textMuted,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      )
-                    : _buildFeedView(context, feedItems),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Dual-Pane Split: Left Chronological Feed (340px) + Right Active Reader / Composer
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Left Pane (340px)
+                    SizedBox(
+                      width: 340,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Primary + New Entry Button + Open Rich Editor icon
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 44,
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: colors.primary,
+                                      foregroundColor: isDark ? const Color(0xFF171C24) : Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      elevation: 0,
+                                    ),
+                                    onPressed: () => _showReflectionComposerModal(context),
+                                    icon: const Icon(Icons.add_circle_outline_rounded, size: 17),
+                                    label: Text(
+                                      'New Entry',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Tooltip(
+                                message: 'Open Rich Text Editor',
+                                child: InkWell(
+                                  onTap: () {
+                                    SafeHaptics.lightImpact();
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(builder: (_) => const NoteEditorScreen()),
+                                    );
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    height: 44,
+                                    width: 44,
+                                    decoration: BoxDecoration(
+                                      color: colors.surface,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: colors.surfaceBorder),
+                                    ),
+                                    child: Icon(Icons.edit_note_rounded, color: colors.textPrimary, size: 20),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          // 48px Search Bar
+                          _buildSearchField(colors),
+
+                          if (_selectedCourseFilter != null && _selectedCourseFilter!.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            _buildScopeFilterBadge(colors, isUniversity),
+                          ],
+
+                          const SizedBox(height: 10),
+
+                          // Filter Tag Chips
+                          _buildFilterChipsRow(colors, isDark, selectedTag),
+
+                          const SizedBox(height: 12),
+
+                          // Chronological Entry Cards
+                          Expanded(
+                            child: isLoading
+                                ? const Center(child: AppPreloader(size: 36))
+                                : hasError
+                                    ? _buildErrorBanner(colors)
+                                    : feedItems.isEmpty
+                                        ? _buildEmptyStateCard(context, colors, isCompact: true)
+                                        : ListView.separated(
+                                            itemCount: feedItems.length,
+                                            separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                            itemBuilder: (ctx, idx) {
+                                              final item = feedItems[idx];
+                                              final key = _itemKey(item);
+                                              final isSelected = selectedItem != null && _itemKey(selectedItem) == key;
+                                              return _buildSidebarEntryCard(
+                                                item: item,
+                                                isSelected: isSelected,
+                                                colors: colors,
+                                                onTap: () {
+                                                  SafeHaptics.selectionClick();
+                                                  setState(() => _selectedDesktopItemKey = key);
+                                                },
+                                              );
+                                            },
+                                          ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 20),
+
+                    // Right Pane: Active Entry Reader & Actions (or Empty State)
+                    Expanded(
+                      child: isLoading
+                          ? const Center(child: AppPreloader(size: 44))
+                          : hasError
+                              ? _buildErrorBanner(colors)
+                              : selectedItem == null
+                                  ? _buildEmptyStateCard(context, colors)
+                                  : _buildDesktopDetailPane(
+                                      context: context,
+                                      item: selectedItem,
+                                      colors: colors,
+                                      isDark: isDark,
+                                      userProfile: userProfile,
+                                      isUniversity: isUniversity,
+                                    ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: accentColor,
-        foregroundColor: const Color(0xFF140F0E),
-        elevation: 3,
-        icon: const Icon(Icons.add_rounded, color: Color(0xFF140F0E), size: 22),
-        label: Text(
-          'New Note',
-          style: GoogleFonts.plusJakartaSans(color: const Color(0xFF140F0E), fontWeight: FontWeight.bold),
         ),
-        onPressed: () {
-          SafeHaptics.lightImpact();
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const NoteEditorScreen()),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // MOBILE LAYOUT (Stitch 1:1 Reference)
+  // ===========================================================================
+  Widget _buildMobileLayout({
+    required BuildContext context,
+    required ChondrobinduThemeColors colors,
+    required bool isDark,
+    required UserProfile userProfile,
+    required bool isUniversity,
+    required String selectedTag,
+    required List<JournalFeedItem> feedItems,
+    required bool isLoading,
+    required bool hasError,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Compact Mobile Header Bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Journal & Notes',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      '${feedItems.length} ${feedItems.length == 1 ? 'ENTRY' : 'ENTRIES'}',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.textMuted,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Tooltip(
+                    message: _isGridView ? 'List View' : 'Grid View',
+                    child: InkWell(
+                      onTap: () {
+                        SafeHaptics.lightImpact();
+                        setState(() => _isGridView = !_isGridView);
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: colors.surfaceBorder),
+                        ),
+                        child: Icon(
+                          _isGridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
+                          color: colors.textPrimary,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: 'Open Rich Text Editor',
+                    child: InkWell(
+                      onTap: () {
+                        SafeHaptics.lightImpact();
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const NoteEditorScreen()),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: colors.surfaceBorder),
+                        ),
+                        child: Icon(Icons.edit_note_rounded, color: colors.textPrimary, size: 18),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // Top Segment Filter for University Students [Current Term | Admission / Archived]
+        if (isUniversity)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: _buildUniversitySegmentBar(colors, isDark),
+          ),
+
+        // 48px Search Field
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: _buildSearchField(colors),
+        ),
+
+        // Course / Subject Scope Filter Badge
+        if (_selectedCourseFilter != null && _selectedCourseFilter!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+            child: _buildScopeFilterBadge(colors, isUniversity),
+          ),
+
+        // Horizontal Filter Chips
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: _buildFilterChipsRow(colors, isDark, selectedTag),
+        ),
+
+        // Unified Chronological Feed
+        Expanded(
+          child: isLoading
+              ? const Center(child: AppPreloader(size: 44))
+              : hasError
+                  ? _buildErrorBanner(colors)
+                  : _buildMobileFeedView(context, feedItems, colors),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUniversitySegmentBar(ChondrobinduThemeColors colors, bool isDark, {bool compact = false}) {
+    Widget buildSeg(String label, String value, IconData icon) {
+      final isSelected = _selectedJournalSegment == value;
+      return InkWell(
+        onTap: () {
+          SafeHaptics.selectionClick();
+          setState(() => _selectedJournalSegment = value);
+        },
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12, vertical: compact ? 5 : 8),
+          decoration: BoxDecoration(
+            color: isSelected ? colors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected
+                    ? (isDark ? const Color(0xFF171C24) : Colors.white)
+                    : colors.textMuted,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: isSelected
+                        ? (isDark ? const Color(0xFF171C24) : Colors.white)
+                        : colors.textMuted,
+                    fontWeight: FontWeight.bold,
+                    fontSize: compact ? 11.5 : 12.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: colors.recessed,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.surfaceBorder),
+      ),
+      child: compact
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                buildSeg('Current Term', 'current', Icons.school_rounded),
+                const SizedBox(width: 4),
+                buildSeg('Admission / Archived', 'archived', Icons.inventory_2_rounded),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: buildSeg('Current Term', 'current', Icons.school_rounded)),
+                const SizedBox(width: 4),
+                Expanded(child: buildSeg('Admission / Archived', 'archived', Icons.inventory_2_rounded)),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildSearchField(ChondrobinduThemeColors colors) {
+    return SizedBox(
+      height: 48,
+      child: TextField(
+        controller: _searchController,
+        onChanged: (val) {
+          ref.read(noteSearchQueryProvider.notifier).state = val;
+        },
+        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13.5),
+        decoration: InputDecoration(
+          hintText: 'Search notes, formulas, reflections...',
+          hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+          prefixIcon: Icon(Icons.search_rounded, color: colors.textMuted, size: 18),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.clear_rounded, color: colors.textMuted, size: 18),
+                  onPressed: () {
+                    _searchController.clear();
+                    ref.read(noteSearchQueryProvider.notifier).state = '';
+                  },
+                )
+              : null,
+          filled: true,
+          fillColor: colors.recessed,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: colors.surfaceBorder),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: colors.primary),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScopeFilterBadge(ChondrobinduThemeColors colors, bool isUniversity) {
+    final prefix = isUniversity ? 'Course' : 'Subject';
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: colors.primary.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: colors.primary.withValues(alpha: 0.4)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.menu_book_rounded, color: colors.primary, size: 14),
+              const SizedBox(width: 6),
+              Text(
+                '$prefix: $_selectedCourseFilter',
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.primary,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: () {
+                  SafeHaptics.lightImpact();
+                  setState(() => _selectedCourseFilter = null);
+                },
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: Icon(Icons.close_rounded, color: colors.primary, size: 14),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterChipsRow(ChondrobinduThemeColors colors, bool isDark, String selectedTag) {
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _tagFilters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (ctx, idx) {
+          final tag = _tagFilters[idx];
+          final isSelected = selectedTag == tag;
+          return InkWell(
+            onTap: () {
+              SafeHaptics.lightImpact();
+              ref.read(selectedNoteTagProvider.notifier).state = tag;
+            },
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isSelected ? colors.primary : colors.surface,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: isSelected ? colors.primary : colors.surfaceBorder),
+              ),
+              child: Text(
+                tag,
+                style: GoogleFonts.plusJakartaSans(
+                  color: isSelected
+                      ? (isDark ? const Color(0xFF171C24) : Colors.white)
+                      : colors.textMuted,
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                ),
+              ),
+            ),
           );
         },
       ),
     );
   }
 
-  /// Builds a responsive mixed Slivers layout where Exam Cards take full width and Notes grid in 2 columns
-  Widget _buildFeedView(BuildContext context, List<JournalFeedItem> items) {
-    if (items.isEmpty) {
-      return _buildEmptyState(context);
+  Widget _buildSidebarEntryCard({
+    required JournalFeedItem item,
+    required bool isSelected,
+    required ChondrobinduThemeColors colors,
+    required VoidCallback onTap,
+  }) {
+    String badgeLabel;
+    Color badgeColor;
+    String title;
+    String preview;
+    List<String> chips = const [];
+
+    if (item is NoteFeedItem) {
+      final n = item.note;
+      badgeLabel = n.tags.isNotEmpty ? n.tags.first : 'Note';
+      badgeColor = colors.secondary;
+      title = n.title.isNotEmpty ? n.title : 'Untitled Note';
+      preview = n.plainTextContent;
+      chips = n.tags.take(2).toList();
+    } else if (item is StudySessionFeedItem) {
+      final e = item.entry;
+      badgeLabel = '${e.durationMinutes}m Session';
+      badgeColor = colors.primary;
+      title = e.title;
+      preview = e.topicsCovered?.trim().isNotEmpty == true ? e.topicsCovered! : e.content;
+      if (e.subjectOrCourseId.trim().isNotEmpty) chips = [e.subjectOrCourseId.trim()];
+    } else if (item is ExamFeedItem) {
+      final ex = item.exam;
+      final pct = ex.totalMarks > 0 ? ((ex.marksObtained / ex.totalMarks) * 100).round() : 0;
+      badgeLabel = 'Exam $pct%';
+      badgeColor = const Color(0xFF4E9F72);
+      title = ex.examName;
+      preview = ex.journalEntries.map((j) => j.content).join(' • ');
+      if (ex.subject.trim().isNotEmpty) chips = [ex.subject.trim()];
+    } else {
+      badgeLabel = 'Entry';
+      badgeColor = colors.primary;
+      title = '';
+      preview = '';
     }
 
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? colors.primary
+                : (item.isPinned ? colors.secondary : colors.surfaceBorder),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    _formatCardDate(item.date),
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.textMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: badgeColor.withValues(alpha: 0.35)),
+                  ),
+                  child: Text(
+                    badgeLabel,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: badgeColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (preview.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                preview,
+                style: GoogleFonts.plusJakartaSans(
+                  color: colors.textMuted,
+                  fontSize: 12,
+                  height: 1.35,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: chips.map((c) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colors.recessed,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: colors.surfaceBorder),
+                        ),
+                        child: Text(
+                          '#$c',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.primary,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                Text(
+                  _formatTime(item.date),
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.textMuted,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopDetailPane({
+    required BuildContext context,
+    required JournalFeedItem item,
+    required ChondrobinduThemeColors colors,
+    required bool isDark,
+    required UserProfile userProfile,
+    required bool isUniversity,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.surfaceBorder),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (item is NoteFeedItem) ...[
+              _buildDesktopNoteDetail(context, item.note, colors, isDark, userProfile),
+            ] else if (item is StudySessionFeedItem) ...[
+              _buildStudySessionCard(item.entry, colors, isUniversity, embedded: true),
+            ] else if (item is ExamFeedItem) ...[
+              _buildAggregatedExamJournalCard(item.exam, colors, isUniversity, embedded: true),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopNoteDetail(
+    BuildContext context,
+    NoteModel note,
+    ChondrobinduThemeColors colors,
+    bool isDark,
+    UserProfile userProfile,
+  ) {
+    final body = note.plainTextContent;
+    final wordCount = body.trim().isEmpty ? 0 : body.trim().split(RegExp(r'\s+')).length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Meta Header Row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_today_outlined, size: 14, color: colors.textMuted),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      _formatHeaderDate(note.updatedAt),
+                      style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11.5),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    note.isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                    color: note.isPinned ? colors.secondary : colors.textMuted,
+                    size: 18,
+                  ),
+                  tooltip: note.isPinned ? 'Unpin' : 'Pin',
+                  onPressed: () {
+                    final uid = FirebaseAuth.instance.currentUser?.uid;
+                    if (uid != null) {
+                      ref.read(noteServiceProvider).togglePinNote(uid, note.id, note.isPinned);
+                    }
+                  },
+                ),
+                const SizedBox(width: 4),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colors.primary,
+                    side: BorderSide(color: colors.surfaceBorder),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  onPressed: () {
+                    SafeHaptics.lightImpact();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => NoteEditorScreen(note: note)),
+                    );
+                  },
+                  icon: const Icon(Icons.edit_outlined, size: 15),
+                  label: Text(
+                    'Edit Note',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 10),
+
+        // Tag Pills
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: note.tags.map((tag) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: colors.recessed,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: colors.surfaceBorder),
+              ),
+              child: Text(
+                '#$tag',
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.primary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+
+        const SizedBox(height: 16),
+
+        Text(
+          _buildTrackOverline(userProfile),
+          style: GoogleFonts.jetBrainsMono(
+            color: colors.textMuted,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.7,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          note.title.isNotEmpty ? note.title : 'Untitled Note',
+          style: GoogleFonts.plusJakartaSans(
+            color: colors.textPrimary,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            height: 1.25,
+          ),
+        ),
+
+        const SizedBox(height: 16),
+        Divider(color: colors.surfaceBorder, height: 1),
+        const SizedBox(height: 18),
+
+        Text(
+          body.isNotEmpty ? body : 'No content recorded for this note yet.',
+          style: GoogleFonts.plusJakartaSans(
+            color: body.isNotEmpty ? colors.textPrimary : colors.textMuted,
+            fontSize: 14.5,
+            height: 1.65,
+          ),
+        ),
+
+        const SizedBox(height: 24),
+
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: colors.recessed,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: colors.surfaceBorder),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '$wordCount WORDS • ${body.length} CHARS',
+                style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5),
+              ),
+              Text(
+                'SYNCED',
+                style: GoogleFonts.jetBrainsMono(
+                  color: const Color(0xFF4E9F72),
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // MOBILE FEED VIEW
+  // ===========================================================================
+  Widget _buildMobileFeedView(
+    BuildContext context,
+    List<JournalFeedItem> items,
+    ChondrobinduThemeColors colors,
+  ) {
+    if (items.isEmpty) {
+      return _buildEmptyStateCard(context, colors);
+    }
+
+    final isUniversity = ref.read(userProfileProvider).isUniversityStudent;
     final List<Widget> slivers = [];
     List<NoteModel> noteChunk = [];
 
@@ -659,12 +1393,12 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.85,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.86,
               ),
               delegate: SliverChildBuilderDelegate(
-                (context, index) => _buildNoteCard(chunk[index]),
+                (context, index) => _buildNoteCard(chunk[index], colors),
                 childCount: chunk.length,
               ),
             ),
@@ -676,7 +1410,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
             delegate: SliverChildBuilderDelegate(
               (context, index) => Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
-                child: _buildNoteCard(chunk[index]),
+                child: _buildNoteCard(chunk[index], colors),
               ),
               childCount: chunk.length,
             ),
@@ -691,14 +1425,14 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
         flushNoteChunk();
         slivers.add(
           SliverToBoxAdapter(
-            child: _buildAggregatedExamJournalCard(item.exam),
+            child: _buildAggregatedExamJournalCard(item.exam, colors, isUniversity),
           ),
         );
       } else if (item is StudySessionFeedItem) {
         flushNoteChunk();
         slivers.add(
           SliverToBoxAdapter(
-            child: _buildStudySessionCard(item.entry),
+            child: _buildStudySessionCard(item.entry, colors, isUniversity),
           ),
         );
       } else if (item is NoteFeedItem) {
@@ -708,56 +1442,62 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
     flushNoteChunk();
 
     return Padding(
-  padding: const EdgeInsets.all(16),
-  child: CustomScrollView(
-    physics: const BouncingScrollPhysics(),
-    slivers: slivers,
-  ),
-);
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 88),
+      child: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: slivers,
+      ),
+    );
   }
 
-  /// Study Session Log Card with distinct badge and organized structure
-  Widget _buildStudySessionCard(StudyJournalEntry entry) {
-    const cardColor = Color(0xFF241C1A);
-    const accentColor = Color(0xFFF2B78A);
-    const borderColor = Color(0xFF4A3830);
-    final dateStr = _formatDate(entry.timestamp);
+  /// Study Session Log Card
+  Widget _buildStudySessionCard(
+    StudyJournalEntry entry,
+    ChondrobinduThemeColors colors,
+    bool isUniversity, {
+    bool embedded = false,
+  }) {
+    final dateStr = _formatCardDate(entry.timestamp);
+    final timeStr = _formatTime(entry.timestamp);
+    final modeLabel = entry.mode.toLowerCase() == 'university'
+        ? 'University'
+        : (isUniversity ? 'Admission' : 'Study Log');
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor, width: 0.8),
-      ),
+      margin: embedded ? EdgeInsets.zero : const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.all(embedded ? 0 : 16),
+      decoration: embedded
+          ? null
+          : BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colors.surfaceBorder),
+            ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Row: Distinct Badge + Mode + Date + More Menu
           Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: 8,
             runSpacing: 6,
             children: [
-              // Distinct Study Session Badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 0.8),
+                  color: colors.secondary.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: colors.secondary.withValues(alpha: 0.35)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('⏱️', style: TextStyle(fontSize: 12)),
+                    Icon(Icons.timer_outlined, size: 13, color: colors.secondary),
                     const SizedBox(width: 5),
                     Text(
                       'Study Session • ${entry.durationMinutes} mins',
                       style: GoogleFonts.plusJakartaSans(
-                        color: accentColor,
+                        color: colors.secondary,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -771,23 +1511,27 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF140F0E),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: borderColor, width: 0.6),
+                      color: colors.recessed,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: colors.surfaceBorder),
                     ),
                     child: Text(
-                      entry.mode == 'university' ? 'University' : 'Admission',
-                      style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 10, fontWeight: FontWeight.w600),
+                      modeLabel,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textMuted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    dateStr,
-                    style: GoogleFonts.jetBrainsMono(color: const Color(0xFFABA093), fontSize: 11),
+                    '$dateStr • $timeStr',
+                    style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5),
                   ),
                   const SizedBox(width: 4),
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert_rounded, color: Color(0xFFABA093), size: 18),
+                    icon: Icon(Icons.more_vert_rounded, color: colors.textMuted, size: 18),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onSelected: (val) async {
@@ -824,31 +1568,50 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Title
           Text(
             entry.title,
             style: GoogleFonts.plusJakartaSans(
-              color: Colors.white,
-              fontSize: 15.5,
+              color: colors.textPrimary,
+              fontSize: embedded ? 20 : 15.5,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 10),
 
-          // Topics Covered / Keywords
+          if (entry.subjectOrCourseId.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: colors.recessed,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: colors.surfaceBorder),
+              ),
+              child: Text(
+                '#${entry.subjectOrCourseId.trim()}',
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.primary,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 12),
+
           if (entry.topicsCovered != null && entry.topicsCovered!.trim().isNotEmpty) ...[
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(11),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF140F0E),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: borderColor, width: 0.8),
+                color: colors.recessed,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: colors.surfaceBorder),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.tag_rounded, size: 16, color: accentColor),
+                  Icon(Icons.tag_rounded, size: 16, color: colors.primary),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -856,20 +1619,20 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                       children: [
                         Text(
                           'TOPICS COVERED',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: accentColor,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.primary,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                            letterSpacing: 0.6,
                           ),
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 4),
                         Text(
                           entry.topicsCovered!,
                           style: GoogleFonts.plusJakartaSans(
-                            color: Colors.white,
+                            color: colors.textPrimary,
                             fontSize: 13,
-                            height: 1.35,
+                            height: 1.4,
                           ),
                         ),
                       ],
@@ -881,20 +1644,19 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
             const SizedBox(height: 8),
           ],
 
-          // Quick Notes / Reflections
           if (entry.reflections != null && entry.reflections!.trim().isNotEmpty) ...[
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(11),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF1C1412),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4), width: 0.8),
+                color: colors.recessed,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: colors.secondary.withValues(alpha: 0.45)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.lightbulb_outline_rounded, size: 16, color: Color(0xFFF59E0B)),
+                  Icon(Icons.lightbulb_outline_rounded, size: 16, color: colors.secondary),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -902,20 +1664,20 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                       children: [
                         Text(
                           'QUICK NOTES & REFLECTIONS',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: const Color(0xFFF59E0B),
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.secondary,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                            letterSpacing: 0.6,
                           ),
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 4),
                         Text(
                           entry.reflections!,
                           style: GoogleFonts.plusJakartaSans(
-                            color: Colors.white,
-                            fontSize: 12.5,
-                            height: 1.35,
+                            color: colors.textPrimary,
+                            fontSize: 13,
+                            height: 1.4,
                           ),
                         ),
                       ],
@@ -927,7 +1689,11 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
           ] else if (entry.topicsCovered == null || entry.topicsCovered!.trim().isEmpty) ...[
             Text(
               entry.content,
-              style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 13, height: 1.4),
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textMuted,
+                fontSize: 13,
+                height: 1.45,
+              ),
             ),
           ],
         ],
@@ -935,30 +1701,29 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
     );
   }
 
-  /// Aggregated Exam Journal Card grouping all mistakes and tips for a single exam
-  Widget _buildAggregatedExamJournalCard(ExamModel exam) {
-    const cardColor = Color(0xFF241C1A);
-    const accentColor = Color(0xFFF2B78A);
-    const borderColor = Color(0xFF4A3830);
-
-    final pct = exam.totalMarks > 0
-        ? ((exam.marksObtained / exam.totalMarks) * 100).toInt()
-        : 0;
-
-    final dateStr = _formatDate(exam.date);
+  /// Aggregated Exam Journal Card grouping mistakes and tips for a single exam
+  Widget _buildAggregatedExamJournalCard(
+    ExamModel exam,
+    ChondrobinduThemeColors colors,
+    bool isUniversity, {
+    bool embedded = false,
+  }) {
+    final pct = exam.totalMarks > 0 ? ((exam.marksObtained / exam.totalMarks) * 100).toInt() : 0;
+    final dateStr = _formatCardDate(exam.date);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor, width: 0.8),
-      ),
+      margin: embedded ? EdgeInsets.zero : const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.all(embedded ? 0 : 16),
+      decoration: embedded
+          ? null
+          : BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colors.surfaceBorder),
+            ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top Header Row with Exam Info & Score Badge
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -972,55 +1737,60 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: accentColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
+                            color: colors.secondary.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             'Exam Journal',
                             style: GoogleFonts.plusJakartaSans(
-                              color: accentColor,
-                              fontSize: 10,
+                              color: colors.secondary,
+                              fontSize: 10.5,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          dateStr,
-                          style: GoogleFonts.jetBrainsMono(color: const Color(0xFFABA093), fontSize: 11),
+                        Flexible(
+                          child: Text(
+                            dateStr,
+                            style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Text(
                       exam.examName,
                       style: GoogleFonts.plusJakartaSans(
-                        color: Colors.white,
-                        fontSize: 16,
+                        color: colors.textPrimary,
+                        fontSize: embedded ? 20 : 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       exam.subject,
-                      style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 12),
+                      style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12.5),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF140F0E),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: borderColor, width: 0.8),
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colors.surfaceBorder),
                 ),
                 child: Column(
                   children: [
                     Text(
                       '${exam.marksObtained.toInt()} / ${exam.totalMarks.toInt()}',
                       style: GoogleFonts.jetBrainsMono(
-                        color: accentColor,
+                        color: colors.primary,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -1028,7 +1798,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                     Text(
                       '$pct%',
                       style: GoogleFonts.jetBrainsMono(
-                        color: const Color(0xFFABA093),
+                        color: colors.textMuted,
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1039,36 +1809,39 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          const Divider(color: borderColor, height: 1),
+          Divider(color: colors.surfaceBorder, height: 1),
           const SizedBox(height: 14),
 
-          // Grouped Journal Entries
           ...exam.journalEntries.map((entry) {
             final isMistake = entry.type == 'mistake';
-            final badgeColor = isMistake ? const Color(0xFFEF4444) : const Color(0xFF06D6A0);
+            final badgeColor = isMistake ? const Color(0xFFFF8075) : const Color(0xFF4E9F72);
 
             return Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF140F0E),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: badgeColor.withValues(alpha: 0.35), width: 0.8),
+                color: colors.recessed,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: badgeColor.withValues(alpha: 0.35)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Text(isMistake ? '🔴' : '💡', style: const TextStyle(fontSize: 12)),
+                      Icon(
+                        isMistake ? Icons.error_outline_rounded : Icons.lightbulb_outline_rounded,
+                        size: 14,
+                        color: badgeColor,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         isMistake ? 'MISTAKE REASON' : 'KEY TIP / TRICK',
-                        style: GoogleFonts.plusJakartaSans(
+                        style: GoogleFonts.jetBrainsMono(
                           color: badgeColor,
-                          fontSize: 11,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
+                          letterSpacing: 0.6,
                         ),
                       ),
                     ],
@@ -1077,7 +1850,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                   Text(
                     entry.content,
                     style: GoogleFonts.plusJakartaSans(
-                      color: Colors.white,
+                      color: colors.textPrimary,
                       fontSize: 13.5,
                       height: 1.4,
                     ),
@@ -1091,75 +1864,25 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
-    const accentColor = Color(0xFFF2B78A);
-    final search = ref.watch(noteSearchQueryProvider);
-    final tag = ref.watch(selectedNoteTagProvider);
-
-    String message = 'No notes saved yet.\nTap the + button to capture your thoughts!';
-    if (search.isNotEmpty) {
-      message = 'No notes matching "$search"';
-    } else if (tag == 'Exam Journal') {
-      message = 'No exam reflections recorded yet.\nRecord exam scores with mistakes or tips to view them here!';
-    } else if (tag == 'Study Sessions') {
-      message = 'No study session notes recorded yet.\nFinish a timer session to auto-save your topics and reflections!';
-    } else if (tag != 'All') {
-      message = 'No notes found under "$tag"';
-    }
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF241C1A),
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF4A3830), width: 0.8),
-              ),
-              child: Icon(
-                search.isNotEmpty ? Icons.search_off_rounded : Icons.auto_stories_rounded,
-                color: accentColor,
-                size: 40,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093), fontSize: 14, height: 1.4),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNoteCard(NoteModel note) {
-    const cardColor = Color(0xFF241C1A);
-    const accentColor = Color(0xFFF2B78A);
-    const borderColor = Color(0xFF4A3830);
-
+  Widget _buildNoteCard(NoteModel note, ChondrobinduThemeColors colors) {
     final tagText = note.tags.isNotEmpty ? note.tags.first : 'General';
 
-    return GestureDetector(
+    return InkWell(
       onTap: () {
         SafeHaptics.lightImpact();
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => NoteEditorScreen(note: note)),
         );
       },
+      borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(16),
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: note.isPinned ? accentColor : borderColor,
-            width: note.isPinned ? 1.2 : 0.8,
+            color: note.isPinned ? colors.secondary : colors.surfaceBorder,
+            width: note.isPinned ? 1.3 : 1,
           ),
         ),
         child: Column(
@@ -1172,31 +1895,34 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: accentColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        tagText,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: accentColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: colors.secondary.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          tagText,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: colors.secondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
                     if (note.isPinned)
-                      const Icon(Icons.push_pin_rounded, color: accentColor, size: 16),
+                      Icon(Icons.push_pin_rounded, color: colors.secondary, size: 15),
                   ],
                 ),
                 const SizedBox(height: 10),
-
                 Text(
                   note.title.isNotEmpty ? note.title : 'Untitled Note',
                   style: GoogleFonts.plusJakartaSans(
-                    color: Colors.white,
+                    color: colors.textPrimary,
                     fontSize: 14.5,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1204,11 +1930,10 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 6),
-
                 Text(
                   note.plainTextContent,
                   style: GoogleFonts.plusJakartaSans(
-                    color: const Color(0xFFABA093),
+                    color: colors.textMuted,
                     fontSize: 12.5,
                     height: 1.35,
                   ),
@@ -1218,35 +1943,413 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.only(top: 8.0),
+              padding: const EdgeInsets.only(top: 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    _formatDate(note.updatedAt),
-                    style: GoogleFonts.jetBrainsMono(color: const Color(0xFFABA093), fontSize: 10.5),
+                    _formatCardDate(note.updatedAt),
+                    style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10),
                   ),
-                  IconButton(
-                    constraints: const BoxConstraints(),
-                    padding: EdgeInsets.zero,
-                    icon: Icon(
-                      note.isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
-                      color: note.isPinned ? accentColor : const Color(0xFFABA093),
-                      size: 16,
-                    ),
-                    tooltip: note.isPinned ? 'Unpin' : 'Pin',
-                    onPressed: () {
+                  InkWell(
+                    onTap: () {
                       final uid = FirebaseAuth.instance.currentUser?.uid;
                       if (uid != null) {
                         ref.read(noteServiceProvider).togglePinNote(uid, note.id, note.isPinned);
                       }
                     },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(
+                        note.isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                        color: note.isPinned ? colors.secondary : colors.textMuted,
+                        size: 16,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyStateCard(
+    BuildContext context,
+    ChondrobinduThemeColors colors, {
+    bool isCompact = false,
+  }) {
+    final search = ref.watch(noteSearchQueryProvider);
+    final tag = ref.watch(selectedNoteTagProvider);
+
+    String message = 'No journal entries yet.\nCapture a study reflection, formula, or brain dump to get started.';
+    if (search.isNotEmpty) {
+      message = 'No entries matching "$search".';
+    } else if (tag == 'Exam Journal') {
+      message = 'No exam reflections recorded yet.\nRecord exam scores with mistakes or tips to view them here.';
+    } else if (tag == 'Study Sessions') {
+      message = 'No study session logs recorded yet.\nFinish a focus timer session to save your topics and reflections.';
+    } else if (tag != 'All') {
+      message = 'No entries found under "$tag".';
+    }
+
+    return Container(
+      padding: EdgeInsets.all(isCompact ? 20 : 32),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.surfaceBorder),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: EdgeInsets.all(isCompact ? 14 : 18),
+              decoration: BoxDecoration(
+                color: colors.recessed,
+                shape: BoxShape.circle,
+                border: Border.all(color: colors.surfaceBorder),
+              ),
+              child: Icon(
+                search.isNotEmpty ? Icons.search_off_rounded : Icons.auto_stories_outlined,
+                color: colors.primary,
+                size: isCompact ? 28 : 36,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              message,
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textMuted,
+                fontSize: isCompact ? 12.5 : 13.5,
+                height: 1.45,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (!isCompact) ...[
+              const SizedBox(height: 18),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colors.primary,
+                  foregroundColor: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF171C24)
+                      : Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => _showReflectionComposerModal(context),
+                icon: const Icon(Icons.add_rounded, size: 17),
+                label: Text(
+                  'New Journal Entry',
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorBanner(ChondrobinduThemeColors colors) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFFF8075).withValues(alpha: 0.4)),
+      ),
+      child: Center(
+        child: Text(
+          'Unable to load journal entries right now.',
+          style: GoogleFonts.plusJakartaSans(color: const Color(0xFFFF8075), fontSize: 13.5),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // TRACK-AWARE REFLECTION COMPOSER MODAL (48px Inputs, Stitch Tokens)
+  // ===========================================================================
+  void _showReflectionComposerModal(BuildContext context) {
+    SafeHaptics.selectionClick();
+    final colors = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleCtrl = TextEditingController();
+    final bodyCtrl = TextEditingController();
+    String selectedCategory = 'Brain Dump';
+    String? selectedTargetId;
+    bool isSaving = false;
+
+    const categories = ['General', 'Brain Dump', 'Formulas', 'Mistake'];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Consumer(
+        builder: (ctx, modalRef, _) {
+          final userProfile = modalRef.watch(userProfileProvider);
+          final isUniversity = userProfile.isUniversityStudent;
+          final rawCourses = modalRef.watch(universityCoursesStreamProvider).valueOrNull ?? [];
+          final streamSubjects = modalRef.watch(activeSyllabusSubjectsStreamProvider).valueOrNull ?? [];
+          final memSubjects = modalRef.watch(syllabusProvider);
+          final targets = _resolveTagTargets(
+            isUniversity: isUniversity,
+            rawCourses: rawCourses,
+            streamSubjects: streamSubjects,
+            memorySubjects: memSubjects,
+          );
+          final effectiveTargetId = targets.any((t) => t.id == selectedTargetId) ? selectedTargetId : null;
+
+          return StatefulBuilder(
+            builder: (ctx, setDialogState) => AlertDialog(
+              backgroundColor: colors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: colors.surfaceBorder),
+              ),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'New Journal Reflection',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const NoteEditorScreen()),
+                      );
+                    },
+                    icon: Icon(Icons.edit_note_rounded, size: 16, color: colors.primary),
+                    label: Text(
+                      'Rich Editor',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.primary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: SizedBox(
+                  width: 460,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Category Pills
+                      Text(
+                        'Entry Category',
+                        style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: categories.map((cat) {
+                          final isSelected = selectedCategory == cat;
+                          return InkWell(
+                            onTap: () => setDialogState(() => selectedCategory = cat),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isSelected ? colors.secondary.withValues(alpha: 0.16) : colors.recessed,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isSelected ? colors.secondary : colors.surfaceBorder,
+                                ),
+                              ),
+                              child: Text(
+                                cat,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: isSelected ? colors.secondary : colors.textPrimary,
+                                  fontSize: 12,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      // Track-Aware Course / Subject Tag Selector
+                      Text(
+                        isUniversity ? 'Link Course (Optional)' : 'Link Subject (Optional)',
+                        style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: colors.recessed,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: colors.surfaceBorder),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String?>(
+                            value: effectiveTargetId,
+                            isExpanded: true,
+                            dropdownColor: colors.surface,
+                            hint: Text(
+                              isUniversity ? 'Select course' : 'Select subject',
+                              style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+                            ),
+                            items: [
+                              DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text(
+                                  isUniversity ? 'No course linked' : 'No subject linked',
+                                  style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+                                ),
+                              ),
+                              ...targets.map((t) {
+                                return DropdownMenuItem<String?>(
+                                  value: t.id,
+                                  child: Text(
+                                    t.label,
+                                    style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              }),
+                            ],
+                            onChanged: (val) => setDialogState(() => selectedTargetId = val),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      // Title Input (48px)
+                      Text(
+                        'Title',
+                        style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
+                      ),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        height: 48,
+                        child: TextField(
+                          controller: titleCtrl,
+                          style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13.5),
+                          decoration: InputDecoration(
+                            hintText: 'e.g., Key takeaways from today’s practice',
+                            hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+                            filled: true,
+                            fillColor: colors.recessed,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: colors.surfaceBorder),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: colors.primary),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      // Reflection Body
+                      Text(
+                        'Reflection / Notes',
+                        style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: bodyCtrl,
+                        maxLines: 5,
+                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13.5, height: 1.45),
+                        decoration: InputDecoration(
+                          hintText: 'Write what clicked, blockers, formulas, or mistakes to review...',
+                          hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
+                          filled: true,
+                          fillColor: colors.recessed,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.all(12),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: colors.surfaceBorder),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: colors.primary),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                  child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    foregroundColor: isDark ? const Color(0xFF171C24) : Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final title = titleCtrl.text.trim();
+                          final body = bodyCtrl.text.trim();
+                          if (title.isEmpty && body.isEmpty) return;
+
+                          setDialogState(() => isSaving = true);
+                          final tags = <String>[
+                            selectedCategory,
+                            if (selectedTargetId != null && selectedTargetId!.isNotEmpty) selectedTargetId!,
+                          ];
+                          final uid = Firebase.apps.isNotEmpty ? (FirebaseAuth.instance.currentUser?.uid ?? '') : '';
+                          if (uid.isNotEmpty) {
+                            await ref.read(noteServiceProvider).addNote(
+                                  uid,
+                                  NoteModel(
+                                    id: '',
+                                    title: title.isNotEmpty ? title : selectedCategory,
+                                    content: body,
+                                    createdAt: DateTime.now(),
+                                    updatedAt: DateTime.now(),
+                                    tags: tags,
+                                  ),
+                                );
+                          }
+                          if (ctx.mounted) Navigator.pop(ctx);
+                        },
+                  child: Text(
+                    isSaving ? 'Saving...' : 'Save Entry',
+                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

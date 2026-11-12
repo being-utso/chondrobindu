@@ -7792,6 +7792,211 @@ void main() {
         expect(find.text('No subjects enrolled in syllabus'), findsOneWidget);
       });
     });
+
+    group('Phase 4 Step 6: Stitch JournalScreen Tests', () {
+      testWidgets('Desktop dual-pane renders Dark Stitch tokens without legacy brown colors', (tester) async {
+        tester.view.physicalSize = const Size(1280, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        const uniProfile = UserProfile(
+          uid: 'u_stitch_1',
+          institutionType: InstitutionType.university,
+          isUniversityStudent: true,
+          primaryTarget: 'CSE',
+          isLoaded: true,
+        );
+        final note = NoteModel(
+          id: 'n_stitch_1',
+          title: 'Thermodynamics Lecture 4',
+          content: 'Entropy increases in isolated systems.',
+          tags: const ['Physics', 'Concept', 'PHY 101'],
+          createdAt: DateTime(2026, 11, 10, 14, 30),
+          updatedAt: DateTime(2026, 11, 10, 14, 30),
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(uniProfile)),
+              notesStreamProvider.overrideWith((ref) => Stream.value([note])),
+              examsStreamProvider.overrideWith((ref) => Stream.value([])),
+              journalStreamProvider.overrideWith((ref) => Stream.value([])),
+              universityCoursesStreamProvider.overrideWith((ref) => Stream.value([
+                {'id': 'PHY101', 'courseCode': 'PHY 101', 'courseName': 'Physics I'},
+              ])),
+              holidaySettingsStreamProvider.overrideWith((ref) => Stream.value(HolidaySettings.defaultSettings)),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: ThemeMode.dark,
+              home: const JournalScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
+        expect(scaffold.backgroundColor, const Color(0xFF171C24));
+
+        // Dual-pane: sidebar + active reader pane
+        expect(find.text('New Entry'), findsOneWidget);
+        expect(find.text('Thermodynamics Lecture 4'), findsWidgets);
+        expect(find.text('SYNCED'), findsOneWidget);
+        expect(find.text('Edit Note'), findsOneWidget);
+
+        // Verify no legacy brown/sepia colors remain in Container decorations
+        final containers = tester.widgetList<Container>(find.byType(Container));
+        for (final c in containers) {
+          final dec = c.decoration;
+          if (dec is BoxDecoration) {
+            expect(dec.color, isNot(const Color(0xFF110D0C)));
+            expect(dec.color, isNot(const Color(0xFF241C1A)));
+            expect(dec.color, isNot(const Color(0xFFF2B78A)));
+          }
+        }
+      });
+
+      testWidgets('Light Stitch theme and authentic empty state render cleanly', (tester) async {
+        tester.view.physicalSize = const Size(1280, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        const hscProfile = UserProfile(
+          uid: 'u_stitch_2',
+          institutionType: InstitutionType.college,
+          isUniversityStudent: false,
+          primaryTarget: 'HSC Candidate',
+          isLoaded: true,
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(hscProfile)),
+              notesStreamProvider.overrideWith((ref) => Stream.value([])),
+              examsStreamProvider.overrideWith((ref) => Stream.value([])),
+              journalStreamProvider.overrideWith((ref) => Stream.value([])),
+              activeSyllabusSubjectsStreamProvider.overrideWith((ref) => Stream.value([])),
+              holidaySettingsStreamProvider.overrideWith((ref) => Stream.value(HolidaySettings.defaultSettings)),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: ThemeMode.light,
+              home: const JournalScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
+        expect(scaffold.backgroundColor, const Color(0xFFEDEAE0));
+        expect(
+          find.text('No journal entries yet.\nCapture a study reflection, formula, or brain dump to get started.'),
+          findsWidgets,
+        );
+      });
+
+      testWidgets('Composer uses Link Course for University and Link Subject for College/HSC', (tester) async {
+        tester.view.physicalSize = const Size(800, 1200);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        const hscProfile = UserProfile(
+          uid: 'u_stitch_2',
+          institutionType: InstitutionType.college,
+          isUniversityStudent: false,
+          primaryTarget: 'HSC Candidate',
+          isLoaded: true,
+        );
+        final notifier = SyllabusNotifier()
+          ..setSubjects(const [
+            Subject(id: 'hsc_chem1', title: 'Chemistry 1st Paper', chapters: []),
+          ]);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(hscProfile)),
+              notesStreamProvider.overrideWith((ref) => Stream.value([])),
+              examsStreamProvider.overrideWith((ref) => Stream.value([])),
+              journalStreamProvider.overrideWith((ref) => Stream.value([])),
+              activeSyllabusSubjectsStreamProvider.overrideWith((ref) => Stream.value([])),
+              syllabusProvider.overrideWith((ref) => notifier),
+              holidaySettingsStreamProvider.overrideWith((ref) => Stream.value(HolidaySettings.defaultSettings)),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.darkTheme,
+              home: const JournalScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('New Entry').first);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Link Subject (Optional)'), findsOneWidget);
+        expect(find.text('Link Course (Optional)'), findsNothing);
+        await tester.tap(find.text('No subject linked'));
+        await tester.pumpAndSettle();
+        expect(find.text('Chemistry 1st Paper').last, findsOneWidget);
+
+        // Close dropdown & modal, then switch to University profile
+        await tester.tap(find.text('Chemistry 1st Paper').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+
+        const uniProfile = UserProfile(
+          uid: 'u_stitch_4',
+          institutionType: InstitutionType.university,
+          isUniversityStudent: true,
+          primaryTarget: 'CSE',
+          isLoaded: true,
+        );
+        await tester.pumpWidget(
+          ProviderScope(
+            key: const ValueKey('uni_composer_scope'),
+            overrides: [
+              userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(uniProfile)),
+              notesStreamProvider.overrideWith((ref) => Stream.value([])),
+              examsStreamProvider.overrideWith((ref) => Stream.value([])),
+              journalStreamProvider.overrideWith((ref) => Stream.value([])),
+              universityCoursesStreamProvider.overrideWith((ref) => Stream.value([
+                {'id': 'CSE204', 'courseCode': 'CSE 204', 'courseName': 'Data Structures'},
+              ])),
+              holidaySettingsStreamProvider.overrideWith((ref) => Stream.value(HolidaySettings.defaultSettings)),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.darkTheme,
+              home: const JournalScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('New Entry').first);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Link Course (Optional)'), findsOneWidget);
+        expect(find.text('Link Subject (Optional)'), findsNothing);
+        await tester.tap(find.text('No course linked'));
+        await tester.pumpAndSettle();
+        expect(find.text('CSE 204 • Data Structures').last, findsOneWidget);
+      });
+    });
   });
 }
 
