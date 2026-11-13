@@ -356,82 +356,116 @@ Future<int> purgeHistoricalSessionDuplicates(String uid) async {
   return totalDeleted;
 }
 
-/// Active Session snapshot model from `users/{uid}/active_session/current`
-class ActiveSessionState {
+/// Active Timer snapshot model from `users/{uid}/active_timer/current`
+class ActiveTimerState {
   final String? sessionId;
   final String? leadClientId;
-  final String status; // "idle" | "running" | "paused"
-  final String mode; // "focus" | "stopwatch" | "break"
+  final String status; // "idle" | "running" | "paused" | "break"
+  final String mode; // "countdown" | "stopwatch"
   final String? courseId;
   final String? courseCode;
   final String? courseTitle;
   final String? topicId;
+  final String? topicTitle;
   final String? topicName;
   final int targetDurationSeconds;
-  final int elapsedBeforePauseSeconds;
-  final int baseElapsedSeconds;
+  final int accumulatedSeconds;
+  final int cycleIndex;
   final bool isFinalized;
   final DateTime? startedAt;
   final DateTime? pausedAt;
   final DateTime? endedAt;
-  final DateTime? lastHeartbeat;
+  final DateTime? updatedAt;
 
-  const ActiveSessionState({
+  const ActiveTimerState({
     this.sessionId,
     this.leadClientId,
     required this.status,
-    this.mode = 'focus',
+    this.mode = 'countdown',
     this.courseId,
     this.courseCode,
     this.courseTitle,
     this.topicId,
+    this.topicTitle,
     this.topicName,
     this.targetDurationSeconds = 1500,
-    this.elapsedBeforePauseSeconds = 0,
-    this.baseElapsedSeconds = 0,
+    this.accumulatedSeconds = 0,
+    this.cycleIndex = 0,
     this.isFinalized = false,
     this.startedAt,
     this.pausedAt,
     this.endedAt,
-    this.lastHeartbeat,
+    this.updatedAt,
   });
 
+  // Backward compatibility getters
   int get targetSeconds => targetDurationSeconds;
-  int get elapsedSeconds => baseElapsedSeconds > 0 ? baseElapsedSeconds : elapsedBeforePauseSeconds;
-  bool get isRunning => status == 'running' && !isFinalized;
-  bool get isPaused => status == 'paused' && !isFinalized;
-  bool get isIdle => status == 'idle' || isFinalized;
+  int get elapsedBeforePauseSeconds => accumulatedSeconds;
+  int get baseElapsedSeconds => accumulatedSeconds;
+  int get elapsedSeconds => accumulatedSeconds;
+  DateTime? get lastHeartbeat => updatedAt;
 
-  factory ActiveSessionState.fromMap(Map<String, dynamic> data) {
+  bool get isRunning => (status == 'running' || (status == 'break' && startedAt != null)) && !isFinalized;
+  bool get isPaused => (status == 'paused' || (status == 'break' && startedAt == null)) && !isFinalized;
+  bool get isIdle => status == 'idle' || isFinalized;
+  bool get isBreak => status == 'break' || mode == 'break';
+  bool get isStopwatch => mode == 'stopwatch';
+  bool get isCountdown => mode == 'countdown' || mode == 'focus' || mode == 'target';
+
+  /// Deterministic elapsed seconds calculation based on authoritative UTC timestamp
+  int calculateElapsedSeconds({DateTime? now}) {
+    final currentNow = (now ?? DateTime.now()).toUtc();
+    if (startedAt != null) {
+      final delta = currentNow.difference(startedAt!.toUtc()).inSeconds;
+      return accumulatedSeconds + (delta > 0 ? delta : 0);
+    }
+    return accumulatedSeconds;
+  }
+
+  /// Deterministic remaining countdown seconds
+  int calculateRemainingSeconds({DateTime? now}) {
+    final elapsed = calculateElapsedSeconds(now: now);
+    final remaining = targetDurationSeconds - elapsed;
+    return remaining > 0 ? remaining : 0;
+  }
+
+  factory ActiveTimerState.fromMap(Map<String, dynamic> data) {
     DateTime? parseTimestamp(dynamic val) {
       if (val == null) return null;
-      if (val is Timestamp) return val.toDate();
-      if (val is String) return DateTime.tryParse(val);
+      if (val is Timestamp) return val.toDate().toUtc();
+      if (val is String) return DateTime.tryParse(val)?.toUtc();
       return null;
     }
 
-    final rawTarget = data['targetSeconds'] ?? data['targetDurationSeconds'];
-    final rawElapsed = data['baseElapsedSeconds'] ?? data['elapsedBeforePauseSeconds'] ?? data['elapsedSeconds'];
+    final rawTarget = data['targetDurationSeconds'] ?? data['targetSeconds'];
+    final rawElapsed = data['accumulatedSeconds'] ??
+        data['baseElapsedSeconds'] ??
+        data['elapsedBeforePauseSeconds'] ??
+        data['elapsedSeconds'];
     final baseElapsed = (rawElapsed as num?)?.toInt() ?? 0;
 
-    return ActiveSessionState(
+    final rawMode = (data['mode'] as String?)?.toLowerCase() ?? 'countdown';
+    final normalizedMode = rawMode == 'stopwatch' ? 'stopwatch' : 'countdown';
+
+    return ActiveTimerState(
       sessionId: data['sessionId'] as String? ?? data['id'] as String?,
       leadClientId: data['leadClientId'] as String?,
       status: (data['status'] as String?)?.toLowerCase() ?? 'idle',
-      mode: (data['mode'] as String?)?.toLowerCase() ?? 'focus',
+      mode: normalizedMode,
       courseId: data['courseId'] as String?,
       courseCode: data['courseCode'] as String?,
-      courseTitle: data['courseTitle'] as String?,
+      courseTitle: data['courseTitle'] as String? ?? data['courseCode'] as String?,
       topicId: data['topicId'] as String?,
-      topicName: data['topicName'] as String?,
+      topicTitle: data['topicTitle'] as String? ?? data['topicName'] as String?,
+      topicName: data['topicName'] as String? ?? data['topicTitle'] as String?,
       targetDurationSeconds: (rawTarget as num?)?.toInt() ?? 1500,
-      elapsedBeforePauseSeconds: baseElapsed,
-      baseElapsedSeconds: baseElapsed,
+      accumulatedSeconds: baseElapsed,
+      cycleIndex: (data['cycleIndex'] as num?)?.toInt() ?? 0,
       isFinalized: data['isFinalized'] == true,
       startedAt: parseTimestamp(data['startedAt']),
       pausedAt: parseTimestamp(data['pausedAt']),
       endedAt: parseTimestamp(data['endedAt']),
-      lastHeartbeat: parseTimestamp(data['lastHeartbeat']),
+      updatedAt: parseTimestamp(data['updatedAt'] ?? data['lastHeartbeat']),
     );
   }
 
@@ -443,29 +477,37 @@ class ActiveSessionState {
       'mode': mode,
       'courseId': courseId,
       'courseCode': courseCode,
-      'courseTitle': courseTitle,
+      'courseTitle': courseTitle ?? courseCode,
       'topicId': topicId,
-      'topicName': topicName,
-      'targetSeconds': targetDurationSeconds,
+      'topicTitle': topicTitle ?? topicName,
+      'topicName': topicName ?? topicTitle,
       'targetDurationSeconds': targetDurationSeconds,
-      'baseElapsedSeconds': baseElapsedSeconds,
-      'elapsedSeconds': baseElapsedSeconds,
-      'elapsedBeforePauseSeconds': baseElapsedSeconds,
+      'accumulatedSeconds': accumulatedSeconds,
+      'cycleIndex': cycleIndex,
       'isFinalized': isFinalized,
       'startedAt': startedAt != null ? Timestamp.fromDate(startedAt!) : null,
       'pausedAt': pausedAt != null ? Timestamp.fromDate(pausedAt!) : null,
       'endedAt': endedAt != null ? Timestamp.fromDate(endedAt!) : null,
-      'lastHeartbeat': lastHeartbeat != null ? Timestamp.fromDate(lastHeartbeat!) : null,
+      'updatedAt': FieldValue.serverTimestamp(),
+      // Backwards compatibility fields:
+      'targetSeconds': targetDurationSeconds,
+      'baseElapsedSeconds': accumulatedSeconds,
+      'elapsedSeconds': accumulatedSeconds,
+      'elapsedBeforePauseSeconds': accumulatedSeconds,
+      'lastHeartbeat': FieldValue.serverTimestamp(),
     };
   }
 
   @override
   String toString() =>
-      'ActiveSessionState(sessionId: $sessionId, leader: $leadClientId, status: $status, mode: $mode, elapsedBeforePause: $elapsedBeforePauseSeconds, startedAt: $startedAt)';
+      'ActiveTimerState(status: $status, mode: $mode, accumulated: $accumulatedSeconds, startedAt: $startedAt, cycle: $cycleIndex)';
 }
 
+/// Backward compatibility alias
+typedef ActiveSessionState = ActiveTimerState;
+
 /// TimerService manages:
-/// 1. Real-time cross-device active session sync via `users/{uid}/active_session/current`
+/// 1. Real-time cross-device active timer sync via `users/{uid}/active_timer/current`
 /// 2. Session completion persistence to `users/{uid}/study_sessions` and `users/{uid}/focus_sessions`
 /// 3. In-memory concurrency mutex and deterministic idempotent document keys
 /// 4. User aggregate statistics updates (`totalFocusSeconds`, `lastStudyDate`, `streakDays`)
@@ -498,44 +540,49 @@ class TimerService {
     }
   }
 
-  DocumentReference<Map<String, dynamic>>? _activeSessionDoc(String uid) {
+  DocumentReference<Map<String, dynamic>>? _activeTimerDoc(String uid) {
     final db = firestore;
     if (db == null || uid.isEmpty) return null;
-    return db.collection('users').doc(uid).collection('active_session').doc('current');
+    return db.collection('users').doc(uid).collection('active_timer').doc('current');
   }
 
-  /// Real-time stream of the active session state from Firestore
-  Stream<ActiveSessionState> watchActiveSession(String uid) {
-    final docRef = _activeSessionDoc(uid);
+  /// Real-time stream of the active timer state from `users/{uid}/active_timer/current`
+  Stream<ActiveTimerState> watchActiveTimer(String uid) {
+    final docRef = _activeTimerDoc(uid);
     if (docRef == null) {
-      return Stream.value(const ActiveSessionState(status: 'idle'));
+      return Stream.value(const ActiveTimerState(status: 'idle'));
     }
 
     return docRef.snapshots().map((snapshot) {
       if (!snapshot.exists || snapshot.data() == null) {
-        return const ActiveSessionState(status: 'idle');
+        return const ActiveTimerState(status: 'idle');
       }
-      return ActiveSessionState.fromMap(snapshot.data()!);
+      return ActiveTimerState.fromMap(snapshot.data()!);
     }).handleError((err) {
-      debugPrint('Error streaming active_session: $err');
-      return const ActiveSessionState(status: 'idle');
+      debugPrint('Error streaming active_timer: $err');
+      return const ActiveTimerState(status: 'idle');
     });
   }
+
+  /// Backward compatibility alias
+  Stream<ActiveTimerState> watchActiveSession(String uid) => watchActiveTimer(uid);
 
   /// Writes START state transition to Firestore with idempotent sessionId and leadClientId
   Future<void> startActiveSession({
     required String uid,
-    required String mode, // 'focus' | 'stopwatch' | 'break'
+    required String mode, // 'countdown' | 'stopwatch' | 'break' (or 'focus')
     String? sessionId,
     String? leadClientId,
     String? courseId,
     String? courseCode,
     String? courseTitle,
     String? topicId,
+    String? topicTitle,
     String? topicName,
     int targetDurationSeconds = 1500,
+    int cycleIndex = 0,
   }) async {
-    final docRef = _activeSessionDoc(uid);
+    final docRef = _activeTimerDoc(uid);
     if (docRef == null) return;
 
     final sId = (sessionId != null && sessionId.isNotEmpty)
@@ -545,31 +592,43 @@ class TimerService {
         ? leadClientId
         : ClientIdentity.instanceId;
 
+    final isBreak = mode == 'break';
+    final resolvedStatus = isBreak ? 'break' : 'running';
+    final resolvedMode = mode == 'stopwatch' ? 'stopwatch' : 'countdown';
+    final resolvedCourseTitle = courseTitle ?? courseCode ?? 'General Study';
+    final resolvedCourseCode = courseCode ?? 'General Study';
+    final resolvedTopic = topicTitle ?? topicName ?? '';
+
     try {
       await docRef.set({
+        'status': resolvedStatus,
+        'mode': resolvedMode,
+        'startedAt': FieldValue.serverTimestamp(),
+        'accumulatedSeconds': 0,
+        'targetDurationSeconds': targetDurationSeconds,
+        'courseId': courseId ?? '',
+        'courseCode': resolvedCourseCode,
+        'courseTitle': resolvedCourseTitle,
+        'topicId': topicId ?? '',
+        'topicTitle': resolvedTopic,
+        'topicName': resolvedTopic,
+        'cycleIndex': cycleIndex,
         'sessionId': sId,
         'leadClientId': clientId,
-        'courseId': courseId ?? '',
-        'courseCode': courseCode ?? 'General Study',
-        'courseTitle': courseTitle ?? courseCode ?? 'General Study',
-        'topicId': topicId ?? '',
-        'topicName': topicName ?? '',
-        'status': 'running',
-        'mode': mode,
-        'startedAt': FieldValue.serverTimestamp(),
+        'isFinalized': false,
+        'updatedAt': FieldValue.serverTimestamp(),
+        // Backwards compatibility fields:
         'targetSeconds': targetDurationSeconds,
-        'targetDurationSeconds': targetDurationSeconds,
         'baseElapsedSeconds': 0,
         'elapsedSeconds': 0,
         'elapsedBeforePauseSeconds': 0,
-        'isFinalized': false,
         'pausedAt': null,
         'endedAt': null,
         'lastHeartbeat': FieldValue.serverTimestamp(),
       });
-      debugPrint('Active session STARTED in Firestore for user $uid (sessionId: $sId, leader: $clientId, mode: $mode)');
+      debugPrint('Active timer STARTED in Firestore for user $uid (mode: $resolvedMode, target: ${targetDurationSeconds}s, cycle: $cycleIndex)');
     } catch (e) {
-      debugPrint('Error starting active session: $e');
+      debugPrint('Error starting active timer: $e');
     }
   }
 
@@ -578,79 +637,101 @@ class TimerService {
     required String uid,
     required int currentElapsedSeconds,
   }) async {
-    final docRef = _activeSessionDoc(uid);
+    final docRef = _activeTimerDoc(uid);
     if (docRef == null) return;
 
     try {
       await docRef.set({
         'status': 'paused',
+        'accumulatedSeconds': currentElapsedSeconds,
+        'startedAt': null,
+        'updatedAt': FieldValue.serverTimestamp(),
+        // Backwards compatibility fields:
         'baseElapsedSeconds': currentElapsedSeconds,
         'elapsedSeconds': currentElapsedSeconds,
         'elapsedBeforePauseSeconds': currentElapsedSeconds,
         'pausedAt': FieldValue.serverTimestamp(),
         'lastHeartbeat': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      debugPrint('Active session PAUSED in Firestore for user $uid (elapsed: ${currentElapsedSeconds}s)');
+      debugPrint('Active timer PAUSED in Firestore for user $uid (accumulated: ${currentElapsedSeconds}s)');
     } catch (e) {
-      debugPrint('Error pausing active session: $e');
+      debugPrint('Error pausing active timer: $e');
     }
   }
 
-  /// Writes RESUME state transition to Firestore
-  Future<void> resumeActiveSession(String uid) async {
-    final docRef = _activeSessionDoc(uid);
+  /// Writes RESUME state transition to Firestore preserving accumulatedSeconds
+  Future<void> resumeActiveSession({
+    required String uid,
+    int? accumulatedSeconds,
+    bool isBreak = false,
+  }) async {
+    final docRef = _activeTimerDoc(uid);
     if (docRef == null) return;
 
     try {
-      await docRef.set({
-        'status': 'running',
+      final updateData = <String, dynamic>{
+        'status': isBreak ? 'break' : 'running',
         'startedAt': FieldValue.serverTimestamp(),
         'pausedAt': null,
+        'isFinalized': false,
+        'updatedAt': FieldValue.serverTimestamp(),
         'lastHeartbeat': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-      debugPrint('Active session RESUMED in Firestore for user $uid');
+      };
+      if (accumulatedSeconds != null) {
+        updateData['accumulatedSeconds'] = accumulatedSeconds;
+        updateData['baseElapsedSeconds'] = accumulatedSeconds;
+        updateData['elapsedSeconds'] = accumulatedSeconds;
+        updateData['elapsedBeforePauseSeconds'] = accumulatedSeconds;
+      }
+      await docRef.set(updateData, SetOptions(merge: true));
+      debugPrint('Active timer RESUMED in Firestore for user $uid (accumulated: $accumulatedSeconds)');
     } catch (e) {
-      debugPrint('Error resuming active session: $e');
+      debugPrint('Error resuming active timer: $e');
     }
   }
 
-  /// Resets active session document to status 'idle' and marks finalized
+  /// Resets active timer document to status 'idle' and marks finalized
   Future<void> resetActiveSession(String uid) async {
-    final docRef = _activeSessionDoc(uid);
+    final docRef = _activeTimerDoc(uid);
     if (docRef == null) return;
 
     try {
       await docRef.set({
-        'sessionId': null,
-        'leadClientId': null,
         'status': 'idle',
-        'mode': 'focus',
+        'mode': 'countdown',
+        'startedAt': null,
+        'accumulatedSeconds': 0,
+        'targetDurationSeconds': 0,
         'courseId': null,
         'courseCode': null,
         'courseTitle': null,
         'topicId': null,
+        'topicTitle': null,
         'topicName': null,
+        'cycleIndex': 0,
+        'sessionId': null,
+        'leadClientId': null,
+        'isFinalized': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+        // Backwards compatibility fields:
         'targetSeconds': 0,
-        'targetDurationSeconds': 0,
         'baseElapsedSeconds': 0,
         'elapsedSeconds': 0,
         'elapsedBeforePauseSeconds': 0,
-        'isFinalized': true,
-        'startedAt': null,
         'pausedAt': null,
         'endedAt': null,
         'lastHeartbeat': FieldValue.serverTimestamp(),
       });
-      debugPrint('Active session reset to IDLE in Firestore for user $uid');
+      debugPrint('Active timer reset to IDLE in Firestore for user $uid');
     } catch (e) {
-      debugPrint('Error resetting active session: $e');
+      debugPrint('Error resetting active timer: $e');
     }
   }
 
-  /// Persists completed session to `study_sessions`, updates user stats, and resets active session.
+  /// Persists completed session to `study_sessions`, updates user stats, and resets active timer.
   ///
   /// CRITICAL ARCHITECTURAL SAFEGUARDS:
-  /// 1. Single Persistence Leader via Atomic Firestore Transaction on `users/{uid}/active_session/current`:
+  /// 1. Single Persistence Leader via Atomic Firestore Transaction on `users/{uid}/active_timer/current`:
   ///    Ensures that when both Android and Web attempt to stop/complete at the same time,
   ///    only ONE client wins the transaction and executes the write.
   /// 2. Deterministic Idempotent Document Key: uses `.doc(finalSessionId).set(..., SetOptions(merge: true))`
@@ -686,9 +767,10 @@ class TimerService {
         return false;
       }
 
-      final docRef = _activeSessionDoc(uid);
+      final docRef = _activeTimerDoc(uid);
       if (docRef == null) return false;
 
+      bool sessionAlreadyHandled = false;
       bool transactionCommitted = false;
       int committedDurationSeconds = finalElapsedSeconds;
       String committedSessionId = sessionId ?? '';
@@ -698,13 +780,15 @@ class TimerService {
           final snapshot = await transaction.get(docRef);
 
           if (!snapshot.exists || snapshot.data() == null) {
-            // No active session doc in Firestore; skip transaction and allow fallback write
+            // No active timer doc in Firestore; skip transaction and allow fallback write
             return;
           }
 
           final data = snapshot.data()!;
-          if (data['isFinalized'] == true || data['status'] == 'idle') {
-            debugPrint('Transaction: Session already finalized by another leader client, skipping duplicate write');
+          final status = (data['status'] as String?)?.toLowerCase() ?? 'idle';
+          if (data['isFinalized'] == true || status == 'idle') {
+            debugPrint('Transaction: Session already finalized/idle by another client, skipping duplicate write');
+            sessionAlreadyHandled = true;
             return; // Already processed by the other device
           }
 
@@ -712,7 +796,10 @@ class TimerService {
           transaction.update(docRef, {
             'isFinalized': true,
             'status': 'idle',
+            'startedAt': null,
+            'accumulatedSeconds': 0,
             'endedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
             'lastHeartbeat': FieldValue.serverTimestamp(),
           });
 
@@ -725,14 +812,17 @@ class TimerService {
 
           // Calculate final duration:
           int finalCalculatedSeconds = finalElapsedSeconds;
-          DateTime resolvedStartTime = sessionStartTime;
+          DateTime resolvedStartTime = sessionStartTime.toUtc();
+          final rawAccumulated = (data['accumulatedSeconds'] as num?)?.toInt() ??
+              (data['baseElapsedSeconds'] as num?)?.toInt() ??
+              0;
           final startedAtRaw = data['startedAt'];
           if (startedAtRaw is Timestamp) {
-            resolvedStartTime = startedAtRaw.toDate();
-            final diff = DateTime.now().difference(resolvedStartTime).inSeconds;
-            if (diff > 0 && finalCalculatedSeconds <= 0) {
-              finalCalculatedSeconds = diff;
-            }
+            resolvedStartTime = startedAtRaw.toDate().toUtc();
+            final diff = DateTime.now().toUtc().difference(resolvedStartTime).inSeconds;
+            finalCalculatedSeconds = rawAccumulated + (diff > 0 ? diff : 0);
+          } else if (rawAccumulated > 0 && finalCalculatedSeconds <= 0) {
+            finalCalculatedSeconds = rawAccumulated;
           }
           if (finalCalculatedSeconds < 60) {
             finalCalculatedSeconds = finalElapsedSeconds >= 60 ? finalElapsedSeconds : 60;
@@ -764,7 +854,7 @@ class TimerService {
             'courseTitle': resolvedCourseTitle,
             'cleanTitle': cleanTitle,
             'topicId': data['topicId'] ?? topicId ?? '',
-            'topicName': data['topicName'] ?? topicName ?? '',
+            'topicName': data['topicTitle'] ?? data['topicName'] ?? topicName ?? '',
             'durationSeconds': finalCalculatedSeconds,
             'durationMinutes': mins,
             'isCompletedCycle': isCompletedCycle ?? (finalCalculatedSeconds >= 1440),
@@ -794,7 +884,7 @@ class TimerService {
             'courseTitle': resolvedCourseTitle,
             'cleanTitle': cleanTitle,
             'topicId': data['topicId'] ?? topicId ?? '',
-            'topicName': data['topicName'] ?? topicName ?? '',
+            'topicName': data['topicTitle'] ?? data['topicName'] ?? topicName ?? '',
             'durationSeconds': finalCalculatedSeconds,
             'durationMinutes': mins,
             'startTime': data['startedAt'] ?? Timestamp.fromDate(resolvedStartTime),
@@ -808,6 +898,11 @@ class TimerService {
         });
       } catch (txErr) {
         debugPrint('Transaction execution warning: $txErr');
+      }
+
+      if (sessionAlreadyHandled) {
+        debugPrint('TimerService: Confirmed session was already finalized by other device, skipping local duplicate write.');
+        return true;
       }
 
       if (!transactionCommitted) {

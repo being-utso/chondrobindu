@@ -62,6 +62,7 @@ class TimerState {
   final int baseSubjectElapsedSeconds;
   final SessionMetadata? sessionMetadata;
   final DateTime? lastTickTime;
+  final int cycleIndex;
 
   const TimerState({
     required this.mode,
@@ -86,15 +87,16 @@ class TimerState {
     int? baseSubjectElapsedSeconds,
     this.sessionMetadata,
     this.lastTickTime,
+    this.cycleIndex = 0,
   })  : baseElapsedSeconds = baseElapsedSeconds ?? elapsedSeconds,
         baseOvertimeSeconds = baseOvertimeSeconds ?? overtimeSeconds,
         baseBreakElapsedSeconds = baseBreakElapsedSeconds ?? breakElapsedSeconds,
         baseSubjectElapsedSeconds = baseSubjectElapsedSeconds ?? currentSubjectElapsedSeconds;
 
-  /// Running wall-clock delta since current uninterrupted run started
+  /// Running wall-clock delta since current uninterrupted run started (UTC-safe)
   int get runningDelta {
     if (status != TimerStatus.running || startedAt == null) return 0;
-    final delta = DateTime.now().difference(startedAt!).inSeconds;
+    final delta = DateTime.now().toUtc().difference(startedAt!.toUtc()).inSeconds;
     return delta > 0 ? delta : 0;
   }
 
@@ -267,6 +269,7 @@ class TimerState {
     int? baseSubjectElapsedSeconds,
     SessionMetadata? sessionMetadata,
     DateTime? lastTickTime,
+    int? cycleIndex,
   }) {
     return TimerState(
       mode: mode ?? this.mode,
@@ -287,6 +290,7 @@ class TimerState {
       baseSubjectElapsedSeconds: baseSubjectElapsedSeconds ?? currentSubjectElapsedSeconds ?? this.baseSubjectElapsedSeconds,
       sessionMetadata: sessionMetadata ?? this.sessionMetadata,
       lastTickTime: lastTickTime ?? this.lastTickTime,
+      cycleIndex: cycleIndex ?? this.cycleIndex,
     );
   }
 }
@@ -310,7 +314,6 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
   final TimerService _timerService;
   StreamSubscription<ActiveSessionState>? _activeSessionSub;
   StreamSubscription<User?>? _authSub;
-  bool _isLocallyInitiated = false;
   bool _isCompletingSession = false;
 
   Timer? _ticker;
@@ -388,24 +391,26 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
     final auth = _auth;
     if (auth == null) return;
     try {
+      _authSub?.cancel();
       _authSub = auth.authStateChanges().listen((user) {
         _activeSessionSub?.cancel();
         if (user != null && user.uid.isNotEmpty) {
-          _activeSessionSub = _timerService.watchActiveSession(user.uid).listen(
+          _activeSessionSub = _timerService.watchActiveTimer(user.uid).listen(
             _onRemoteActiveSessionUpdate,
-            onError: (err) => debugPrint('Error in active_session sync: $err'),
+            onError: (err) => debugPrint('Error in active_timer sync: $err'),
           );
         }
       });
       final currentUid = auth.currentUser?.uid;
       if (currentUid != null && currentUid.isNotEmpty) {
-        _activeSessionSub = _timerService.watchActiveSession(currentUid).listen(
+        _activeSessionSub?.cancel();
+        _activeSessionSub = _timerService.watchActiveTimer(currentUid).listen(
           _onRemoteActiveSessionUpdate,
-          onError: (err) => debugPrint('Error in active_session sync: $err'),
+          onError: (err) => debugPrint('Error in active_timer sync: $err'),
         );
       }
     } catch (e) {
-      debugPrint('Error initializing active session sync: $e');
+      debugPrint('Error initializing active timer sync: $e');
     }
   }
 
@@ -422,33 +427,37 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
     state = state.copyWith(clearSelectedTopic: true);
   }
 
-  void _onRemoteActiveSessionUpdate(ActiveSessionState remoteSession) {
-    if (_isLocallyInitiated) {
-      _isLocallyInitiated = false;
-      return;
-    }
-
+  void _onRemoteActiveSessionUpdate(ActiveTimerState remoteSession) {
     if (remoteSession.isRunning) {
-      // Authoritative wall-clock: Do NOT compound or add snapshot delta to baseElapsedSeconds!
-      final remoteStartedAt = remoteSession.startedAt ?? DateTime.now();
-      final remoteBaseElapsed = remoteSession.baseElapsedSeconds;
+      // Authoritative wall-clock UTC anchor & accumulated seconds
+      final remoteStartedAt = remoteSession.startedAt ?? DateTime.now().toUtc();
+      final remoteAccumulated = remoteSession.accumulatedSeconds;
 
-      final isStopwatch = remoteSession.mode == 'stopwatch';
-      final isBreak = remoteSession.mode == 'break';
+      final isStopwatch = remoteSession.isStopwatch;
+      final isBreak = remoteSession.isBreak;
+      final target = remoteSession.targetDurationSeconds > 0
+          ? remoteSession.targetDurationSeconds
+          : state.targetSeconds;
+
+      // Deterministic total elapsed calculation
+      final totalElapsed = remoteSession.calculateElapsedSeconds();
 
       if (isBreak) {
-        final breakDur = remoteSession.targetDurationSeconds > 0 ? remoteSession.targetDurationSeconds : 300;
+        final breakDur = remoteSession.targetDurationSeconds > 0
+            ? remoteSession.targetDurationSeconds
+            : 300;
         state = state.copyWith(
           mode: TimerMode.breakTime,
           status: TimerStatus.running,
           focusMode: FocusTimerMode.breakRunning,
           breakDurationSeconds: breakDur,
-          baseBreakElapsedSeconds: remoteBaseElapsed,
+          baseBreakElapsedSeconds: remoteAccumulated,
           startedAt: remoteStartedAt,
           activeSessionId: remoteSession.sessionId,
-          selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
+          selectedSubject: remoteSession.courseTitle ?? remoteSession.courseCode ?? state.selectedSubject,
           selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
           selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
+          cycleIndex: remoteSession.cycleIndex,
         );
       } else if (isStopwatch) {
         state = state.copyWith(
@@ -456,27 +465,30 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
           timerType: TimerType.stopwatch,
           status: TimerStatus.running,
           focusMode: FocusTimerMode.focusRunning,
-          baseElapsedSeconds: remoteBaseElapsed,
+          baseElapsedSeconds: remoteAccumulated,
           startedAt: remoteStartedAt,
           activeSessionId: remoteSession.sessionId,
-          selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
+          selectedSubject: remoteSession.courseTitle ?? remoteSession.courseCode ?? state.selectedSubject,
           selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
           selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
+          cycleIndex: remoteSession.cycleIndex,
         );
       } else {
-        final target = remoteSession.targetDurationSeconds > 0 ? remoteSession.targetDurationSeconds : state.targetSeconds;
         state = state.copyWith(
           mode: TimerMode.focus,
           timerType: TimerType.target,
           status: TimerStatus.running,
-          focusMode: (remoteBaseElapsed >= target) ? FocusTimerMode.overtimeRunning : FocusTimerMode.focusRunning,
+          focusMode: (totalElapsed >= target)
+              ? FocusTimerMode.overtimeRunning
+              : FocusTimerMode.focusRunning,
           targetSeconds: target,
-          baseElapsedSeconds: remoteBaseElapsed,
+          baseElapsedSeconds: remoteAccumulated,
           startedAt: remoteStartedAt,
           activeSessionId: remoteSession.sessionId,
-          selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
+          selectedSubject: remoteSession.courseTitle ?? remoteSession.courseCode ?? state.selectedSubject,
           selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
           selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
+          cycleIndex: remoteSession.cycleIndex,
         );
       }
 
@@ -487,21 +499,25 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
       _stopLocalTicker();
       _disableWakelock();
 
-      final remoteBaseElapsed = remoteSession.baseElapsedSeconds;
-      final isStopwatch = remoteSession.mode == 'stopwatch';
-      final isBreak = remoteSession.mode == 'break';
+      final remoteAccumulated = remoteSession.accumulatedSeconds;
+      final isStopwatch = remoteSession.isStopwatch;
+      final isBreak = remoteSession.isBreak;
+      final target = remoteSession.targetDurationSeconds > 0
+          ? remoteSession.targetDurationSeconds
+          : state.targetSeconds;
 
       if (isBreak) {
         state = state.copyWith(
           mode: TimerMode.breakTime,
           status: TimerStatus.paused,
           focusMode: FocusTimerMode.breakPaused,
-          baseBreakElapsedSeconds: remoteBaseElapsed,
+          baseBreakElapsedSeconds: remoteAccumulated,
           clearStartedAt: true,
           activeSessionId: remoteSession.sessionId,
-          selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
+          selectedSubject: remoteSession.courseTitle ?? remoteSession.courseCode ?? state.selectedSubject,
           selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
           selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
+          cycleIndex: remoteSession.cycleIndex,
         );
       } else if (isStopwatch) {
         state = state.copyWith(
@@ -509,27 +525,30 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
           timerType: TimerType.stopwatch,
           status: TimerStatus.paused,
           focusMode: FocusTimerMode.focusPaused,
-          baseElapsedSeconds: remoteBaseElapsed,
+          baseElapsedSeconds: remoteAccumulated,
           clearStartedAt: true,
           activeSessionId: remoteSession.sessionId,
-          selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
+          selectedSubject: remoteSession.courseTitle ?? remoteSession.courseCode ?? state.selectedSubject,
           selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
           selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
+          cycleIndex: remoteSession.cycleIndex,
         );
       } else {
-        final target = remoteSession.targetDurationSeconds > 0 ? remoteSession.targetDurationSeconds : state.targetSeconds;
         state = state.copyWith(
           mode: TimerMode.focus,
           timerType: TimerType.target,
           status: TimerStatus.paused,
-          focusMode: (remoteBaseElapsed >= target) ? FocusTimerMode.overtimeRunning : FocusTimerMode.focusPaused,
+          focusMode: (remoteAccumulated >= target)
+              ? FocusTimerMode.overtimeRunning
+              : FocusTimerMode.focusPaused,
           targetSeconds: target,
-          baseElapsedSeconds: remoteBaseElapsed,
+          baseElapsedSeconds: remoteAccumulated,
           clearStartedAt: true,
           activeSessionId: remoteSession.sessionId,
-          selectedSubject: remoteSession.courseCode ?? state.selectedSubject,
+          selectedSubject: remoteSession.courseTitle ?? remoteSession.courseCode ?? state.selectedSubject,
           selectedCourseId: remoteSession.courseId ?? state.selectedCourseId,
           selectedTopicId: remoteSession.topicId ?? state.selectedTopicId,
+          cycleIndex: remoteSession.cycleIndex,
         );
       }
       _notificationService.showTimerNotification(
@@ -561,6 +580,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
           selectedCourseId: state.selectedCourseId,
           selectedTopicId: state.selectedTopicId,
           currentSubjectElapsedSeconds: 0,
+          cycleIndex: remoteSession.cycleIndex,
         );
       }
     }
@@ -802,8 +822,10 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
         ? ClientIdentity.newSessionId()
         : (state.activeSessionId ?? ClientIdentity.newSessionId());
 
+    final nowUtc = DateTime.now().toUtc();
+
     if (isInitial) {
-      _sessionStartTime = DateTime.now();
+      _sessionStartTime = nowUtc;
       final breakDur = calculateBreakMinutes(state.targetSeconds) * 60;
       state = state.copyWith(
         mode: TimerMode.focus,
@@ -812,7 +834,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
         baseElapsedSeconds: 0,
         baseBreakElapsedSeconds: 0,
         baseSubjectElapsedSeconds: 0,
-        startedAt: _sessionStartTime,
+        startedAt: nowUtc,
         overtimeSeconds: 0,
         breakDurationSeconds: breakDur,
         breakElapsedSeconds: 0,
@@ -823,8 +845,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
     } else {
       // RESUMING:
       // Crucial: Reset anchor point so past time is only in baseElapsedSeconds!
-      final resumeNow = DateTime.now();
-      _sessionStartTime ??= resumeNow.subtract(Duration(seconds: state.currentElapsedSeconds));
+      _sessionStartTime ??= nowUtc.subtract(Duration(seconds: state.currentElapsedSeconds));
       final newFocusMode = state.isBreak
           ? FocusTimerMode.breakRunning
           : (state.overtimeSeconds > 0
@@ -833,7 +854,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
       state = state.copyWith(
         status: TimerStatus.running,
         focusMode: newFocusMode,
-        startedAt: resumeNow,
+        startedAt: nowUtc,
         activeSessionId: currentSessionId,
       );
     }
@@ -854,22 +875,27 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
 
     // Cross-Device Sync State Transition to Firestore
     if (uid.isNotEmpty) {
-      _isLocallyInitiated = true;
       if (isInitial) {
         unawaited(_timerService.startActiveSession(
           uid: uid,
           sessionId: currentSessionId,
           leadClientId: ClientIdentity.instanceId,
-          mode: state.isBreak ? 'break' : (state.timerType == TimerType.stopwatch ? 'stopwatch' : 'focus'),
+          mode: state.isBreak ? 'break' : (state.timerType == TimerType.stopwatch ? 'stopwatch' : 'countdown'),
           courseId: state.selectedCourseId,
           courseCode: state.selectedSubject,
+          courseTitle: state.selectedSubject,
           topicId: state.selectedTopicId,
           targetDurationSeconds: state.isBreak
               ? state.breakDurationSeconds
               : (state.timerType == TimerType.stopwatch ? 0 : state.targetSeconds),
+          cycleIndex: state.cycleIndex,
         ));
       } else {
-        unawaited(_timerService.resumeActiveSession(uid));
+        unawaited(_timerService.resumeActiveSession(
+          uid: uid,
+          accumulatedSeconds: state.isBreak ? state.breakElapsedSeconds : state.currentElapsedSeconds,
+          isBreak: state.isBreak,
+        ));
       }
     }
   }
@@ -879,7 +905,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
     if (state.status != TimerStatus.running || additionalSeconds <= 0) return;
 
     if (state.isBreak) {
-      final curStarted = state.startedAt ?? DateTime.now();
+      final curStarted = state.startedAt ?? DateTime.now().toUtc();
       state = state.copyWith(
         startedAt: curStarted.subtract(Duration(seconds: additionalSeconds)),
       );
@@ -888,7 +914,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
     }
 
     _sessionStartTime = _sessionStartTime?.subtract(Duration(seconds: additionalSeconds));
-    final curStarted = state.startedAt ?? DateTime.now();
+    final curStarted = state.startedAt ?? DateTime.now().toUtc();
     state = state.copyWith(
       startedAt: curStarted.subtract(Duration(seconds: additionalSeconds)),
     );
@@ -996,10 +1022,9 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
       // Cross-Device Sync State Transition: PAUSE
       final uid = _auth?.currentUser?.uid ?? '';
       if (uid.isNotEmpty) {
-        _isLocallyInitiated = true;
         unawaited(_timerService.pauseActiveSession(
           uid: uid,
-          currentElapsedSeconds: state.totalLoggedSeconds,
+          currentElapsedSeconds: state.isBreak ? currentBreakElapsed : currentElapsed,
         ));
       }
     }
@@ -1046,7 +1071,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
   }
 
   /// Persists session to Firestore users/{uid}/study_sessions and focus_sessions,
-  /// updates user aggregate stats, and resets active_session to 'idle'
+  /// updates user aggregate stats, and resets active timer to 'idle'
   Future<bool> completeSession({
     String? courseId,
     String? courseCode,
@@ -1068,8 +1093,8 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
 
       final uid = _auth?.currentUser?.uid ?? '';
       final elapsed = finalElapsedSeconds ?? state.totalLoggedSeconds;
-      final start = sessionStartTime ?? _sessionStartTime ?? DateTime.now().subtract(Duration(seconds: elapsed));
-      final sessionMode = mode ?? (state.timerType == TimerType.stopwatch ? 'stopwatch' : 'focus');
+      final start = sessionStartTime ?? _sessionStartTime ?? DateTime.now().toUtc().subtract(Duration(seconds: elapsed));
+      final sessionMode = mode ?? (state.timerType == TimerType.stopwatch ? 'stopwatch' : 'countdown');
 
       if (uid.isEmpty) return false;
 
@@ -1078,7 +1103,6 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
               ? (elapsed >= state.targetSeconds - 5)
               : (elapsed >= 1500));
 
-      _isLocallyInitiated = true;
       final success = await _timerService.completeSession(
         uid: uid,
         sessionId: state.activeSessionId,
@@ -1118,7 +1142,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
           : state.earnedBreakSeconds.clamp(60, 7200);
     }
 
-    final breakNow = DateTime.now();
+    final breakNow = DateTime.now().toUtc();
     state = state.copyWith(
       mode: TimerMode.breakTime,
       focusMode: FocusTimerMode.breakRunning,
@@ -1145,14 +1169,15 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
 
     final uid = _auth?.currentUser?.uid ?? '';
     if (uid.isNotEmpty) {
-      _isLocallyInitiated = true;
       unawaited(_timerService.startActiveSession(
         uid: uid,
         mode: 'break',
         courseId: state.selectedCourseId,
         courseCode: state.selectedSubject,
+        courseTitle: state.selectedSubject,
         topicId: state.selectedTopicId,
         targetDurationSeconds: earnedBreak,
+        cycleIndex: state.cycleIndex,
       ));
     }
   }
@@ -1164,7 +1189,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
       courseId: meta.courseId,
       courseCode: meta.courseCode,
       finalElapsedSeconds: meta.totalDurationSeconds,
-      mode: state.timerType == TimerType.stopwatch ? 'stopwatch' : 'focus',
+      mode: state.timerType == TimerType.stopwatch ? 'stopwatch' : 'countdown',
       sessionStartTime: meta.sessionStartTime,
     );
     return meta.durationMinutes;
@@ -1183,7 +1208,6 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
 
     final uid = _auth?.currentUser?.uid ?? '';
     if (uid.isNotEmpty) {
-      _isLocallyInitiated = true;
       unawaited(_timerService.resetActiveSession(uid));
     }
 
@@ -1200,6 +1224,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
       selectedCourseId: state.selectedCourseId,
       selectedTopicId: state.selectedTopicId,
       baseSubjectElapsedSeconds: 0,
+      cycleIndex: state.cycleIndex,
     );
   }
 
@@ -1221,7 +1246,6 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
 
     final uid = _auth?.currentUser?.uid ?? '';
     if (uid.isNotEmpty) {
-      _isLocallyInitiated = true;
       unawaited(_timerService.resetActiveSession(uid));
     }
 
@@ -1238,6 +1262,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
       selectedCourseId: state.selectedCourseId,
       selectedTopicId: state.selectedTopicId,
       baseSubjectElapsedSeconds: 0,
+      cycleIndex: state.cycleIndex,
     );
   }
 
@@ -1254,7 +1279,6 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
 
     final uid = _auth?.currentUser?.uid ?? '';
     if (uid.isNotEmpty) {
-      _isLocallyInitiated = true;
       unawaited(_timerService.resetActiveSession(uid));
     }
 
@@ -1271,6 +1295,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
       selectedCourseId: state.selectedCourseId,
       selectedTopicId: state.selectedTopicId,
       baseSubjectElapsedSeconds: 0,
+      cycleIndex: state.cycleIndex,
     );
   }
 
