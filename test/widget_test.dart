@@ -7846,7 +7846,7 @@ void main() {
         // Dual-pane: sidebar + active reader pane
         expect(find.text('New Entry'), findsOneWidget);
         expect(find.text('Thermodynamics Lecture 4'), findsWidgets);
-        expect(find.text('SYNCED'), findsOneWidget);
+        expect(find.text('Auto-saved • SYNCED'), findsOneWidget);
         expect(find.text('Edit Note'), findsOneWidget);
 
         // Verify no legacy brown/sepia colors remain in Container decorations
@@ -7953,10 +7953,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Chemistry 1st Paper').last, findsOneWidget);
 
-        // Close dropdown & modal, then switch to University profile
+        // Tap item to link it
         await tester.tap(find.text('Chemistry 1st Paper').last);
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Cancel'));
         await tester.pumpAndSettle();
 
         const uniProfile = UserProfile(
