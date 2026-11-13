@@ -2095,11 +2095,11 @@ class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           ),
 
         // Routine Slot Cards Stack
-        if (slots.isEmpty && !isClassSuppressed)
+        if (slots.isEmpty)
           _buildEmptyRoutineFeedCard(
             isUniversity: isUniversity,
             message:
-                'No classes scheduled for ${DateFormat('EEEE').format(_selectedDate)} — add a ${isUniversity ? 'class' : 'subject'} slot or import your routine.',
+                'No classes scheduled for ${DateFormat('EEEE').format(_selectedDate)}${isHoliday ? ' (Official Holiday / Weekend)' : ''} — add a ${isUniversity ? 'class' : 'subject'} slot or import your routine.',
             colors: colors,
           )
         else
