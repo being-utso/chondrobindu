@@ -446,11 +446,15 @@ class ActiveTimerState {
 
     final rawMode = (data['mode'] as String?)?.toLowerCase() ?? 'countdown';
     final normalizedMode = rawMode == 'stopwatch' ? 'stopwatch' : 'countdown';
+    final rawStatus = (data['status'] as String?)?.toLowerCase() ?? 'idle';
+    final isRunningOrBreak = rawStatus == 'running' || rawStatus == 'break';
+    final parsedStart = parseTimestamp(data['startedAt']);
+    final effectiveStart = parsedStart ?? (isRunningOrBreak ? DateTime.now().toUtc() : null);
 
     return ActiveTimerState(
       sessionId: data['sessionId'] as String? ?? data['id'] as String?,
       leadClientId: data['leadClientId'] as String?,
-      status: (data['status'] as String?)?.toLowerCase() ?? 'idle',
+      status: rawStatus,
       mode: normalizedMode,
       courseId: data['courseId'] as String?,
       courseCode: data['courseCode'] as String?,
@@ -462,7 +466,7 @@ class ActiveTimerState {
       accumulatedSeconds: baseElapsed,
       cycleIndex: (data['cycleIndex'] as num?)?.toInt() ?? 0,
       isFinalized: data['isFinalized'] == true,
-      startedAt: parseTimestamp(data['startedAt']),
+      startedAt: effectiveStart,
       pausedAt: parseTimestamp(data['pausedAt']),
       endedAt: parseTimestamp(data['endedAt']),
       updatedAt: parseTimestamp(data['updatedAt'] ?? data['lastHeartbeat']),
@@ -555,11 +559,14 @@ class TimerService {
 
     return docRef.snapshots().map((snapshot) {
       if (!snapshot.exists || snapshot.data() == null) {
+        debugPrint('[TIMER_SYNC] Snapshot does not exist or data is null -> idle');
         return const ActiveTimerState(status: 'idle');
       }
-      return ActiveTimerState.fromMap(snapshot.data()!);
+      final data = snapshot.data()!;
+      debugPrint('[TIMER_SYNC] Received snapshot: status=${data['status']}, startedAt=${data['startedAt']}, target=${data['targetDurationSeconds']}');
+      return ActiveTimerState.fromMap(data);
     }).handleError((err) {
-      debugPrint('Error streaming active_timer: $err');
+      debugPrint('[TIMER_SYNC_ERROR] Error streaming active_timer: $err');
       return const ActiveTimerState(status: 'idle');
     });
   }

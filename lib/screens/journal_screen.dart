@@ -78,7 +78,13 @@ class NoteFeedItem implements JournalFeedItem {
   String get title => note.title;
 
   @override
-  String get snippet => note.plainTextContent;
+  String get snippet {
+    final raw = note.plainTextContent;
+    return raw
+        .replaceAll(RegExp(r'[*#_`~]'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
 
   @override
   List<String> get tags => note.tags;
@@ -168,30 +174,12 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
   List<String> _linkedCoursesOrSubjects = [];
   List<Map<String, dynamic>> _checklistItems = [];
   List<Map<String, dynamic>> _priorityItems = [];
+  bool _showFormulaBox = false;
 
   bool _isAutoSaved = true;
   String _autoSavedLabel = 'Auto-saved';
   bool _mobileShowStudio = false;
   Timer? _autoSaveTimer;
-
-  static const String _defaultTemplate = '''1. What clicked today?
-Mastered core concept mechanics and verified derivations during afternoon study prep.
-
-2. Blockers / Formulas to review:
-FORMULA REFERENCE // KEY RELATIONS:
-V(t) = L · (di/dt) | Superposition applies strictly to linear bilateral networks
-
-- [ ] Re-derive equivalent impedance for the complex load before next lecture.
-- [x] Verify sign convention for active dependent sources.
-
-3. Open Brain Dump & Fleeting Inquiries:
-- Simulator throws singular matrix warning when ground is shared across the operational amplifier sub-circuit.
-- Mental stamina was notably higher during morning Pomodoro sets compared to post-3 PM slump.
-
-TOMORROW'S TACTICAL PRIORITIES:
-- [x] Submit Git commit before midnight
-- [ ] Bring printed circuit diagram
-- [ ] Reserve 25m Focus Block''';
 
   @override
   void initState() {
@@ -232,9 +220,10 @@ TOMORROW'S TACTICAL PRIORITIES:
     _activeDate = DateTime.now();
     _selectedState = 'Deep Flow';
     _linkedCoursesOrSubjects = [];
-    _titleController.text = 'Post-Lecture Reflection & Concept Notes';
-    _bodyController.text = _defaultTemplate;
-    _parseBodyIntoStructuredSections(_defaultTemplate);
+    _titleController.text = '';
+    _bodyController.text = '';
+    _showFormulaBox = false;
+    _parseBodyIntoStructuredSections('');
     _isAutoSaved = true;
   }
 
@@ -247,9 +236,10 @@ TOMORROW'S TACTICAL PRIORITIES:
       _activeDate = DateTime.now();
       _selectedState = 'Deep Flow';
       _linkedCoursesOrSubjects = [];
-      _titleController.text = 'New Reflection Entry';
-      _bodyController.text = _defaultTemplate;
-      _parseBodyIntoStructuredSections(_defaultTemplate);
+      _titleController.text = '';
+      _bodyController.text = '';
+      _showFormulaBox = false;
+      _parseBodyIntoStructuredSections('');
       _isAutoSaved = true;
       _mobileShowStudio = true;
     });
@@ -257,17 +247,21 @@ TOMORROW'S TACTICAL PRIORITIES:
   }
 
   void _parseBodyIntoStructuredSections(String content) {
-    _checklistItems = [
-      {'text': 'Re-derive equivalent impedance for the complex load before next lecture.', 'done': false},
-      {'text': 'Verify sign convention for active dependent sources.', 'done': true},
-    ];
-    _priorityItems = [
-      {'text': 'Submit Git commit before midnight', 'done': true},
-      {'text': 'Bring printed circuit diagram', 'done': false},
-      {'text': 'Reserve 25m Focus Block', 'done': false},
-    ];
+    _checklistItems = [];
+    _priorityItems = [];
 
-    if (content.contains('1. What clicked today?') || content.contains('2. Blockers')) {
+    if (content.trim().isEmpty) {
+      _section1Controller.text = '';
+      _section2FormulaController.text = '';
+      _section3Controller.text = '';
+      _showFormulaBox = false;
+      return;
+    }
+
+    if (content.contains('1. What clicked today?') ||
+        content.contains('2. Blockers') ||
+        content.contains('3. Open Brain Dump') ||
+        content.contains('TOMORROW\'S TACTICAL PRIORITIES')) {
       final lines = content.split('\n');
       final s1 = StringBuffer();
       final s2 = StringBuffer();
@@ -284,31 +278,47 @@ TOMORROW'S TACTICAL PRIORITIES:
         } else if (line.contains('3. Open Brain Dump')) {
           section = 3;
           continue;
+        } else if (line.contains('TOMORROW\'S TACTICAL PRIORITIES')) {
+          section = 4;
+          continue;
         }
 
         if (section == 1) {
           s1.writeln(line);
         } else if (section == 2) {
-          if (!line.startsWith('- [ ]') && !line.startsWith('- [x]')) {
+          final trimmed = line.trim();
+          if (trimmed.startsWith('- [ ]') || trimmed.startsWith('- [x]')) {
+            final isDone = trimmed.startsWith('- [x]');
+            final text = trimmed.substring(5).trim();
+            if (text.isNotEmpty) {
+              _checklistItems.add({'text': text, 'done': isDone});
+            }
+          } else if (!trimmed.startsWith('FORMULA REFERENCE')) {
             s2.writeln(line);
           }
         } else if (section == 3) {
           s3.writeln(line);
+        } else if (section == 4) {
+          final trimmed = line.trim();
+          if (trimmed.startsWith('- [ ]') || trimmed.startsWith('- [x]')) {
+            final isDone = trimmed.startsWith('- [x]');
+            final text = trimmed.substring(5).trim();
+            if (text.isNotEmpty) {
+              _priorityItems.add({'text': text, 'done': isDone});
+            }
+          }
         }
       }
 
-      _section1Controller.text = s1.toString().trim().isNotEmpty
-          ? s1.toString().trim()
-          : 'Mastered core concept mechanics and verified derivations during afternoon study prep.';
-      _section2FormulaController.text = s2.toString().trim().isNotEmpty
-          ? s2.toString().trim()
-          : 'V(t) = L · (di/dt) | Superposition applies strictly to linear bilateral networks';
-      _section3Controller.text = s3.toString().trim().isNotEmpty
-          ? s3.toString().trim()
-          : '- Simulator throws singular matrix warning when ground is shared across the operational amplifier sub-circuit.\n- Mental stamina was notably higher during morning Pomodoro sets compared to post-3 PM slump.';
+      _section1Controller.text = s1.toString().trim();
+      final fText = s2.toString().trim();
+      _section2FormulaController.text = fText;
+      _showFormulaBox = fText.isNotEmpty;
+      _section3Controller.text = s3.toString().trim();
     } else {
-      _section1Controller.text = content;
-      _section2FormulaController.text = 'V(t) = L · (di/dt) | Superposition applies strictly to linear bilateral networks';
+      _section1Controller.text = content.trim();
+      _section2FormulaController.text = '';
+      _showFormulaBox = false;
       _section3Controller.text = '';
     }
   }
@@ -324,23 +334,51 @@ TOMORROW'S TACTICAL PRIORITIES:
 
   void _onSectionChanged() {
     final buffer = StringBuffer();
-    buffer.writeln('1. What clicked today?');
-    buffer.writeln(_section1Controller.text.trim());
-    buffer.writeln();
-    buffer.writeln('2. Blockers / Formulas to review:');
-    buffer.writeln('FORMULA REFERENCE // KEY RELATIONS:');
-    buffer.writeln(_section2FormulaController.text.trim());
-    buffer.writeln();
-    for (final item in _checklistItems) {
-      buffer.writeln('- [${item['done'] == true ? 'x' : ' '}] ${item['text']}');
+    final s1 = _section1Controller.text.trim();
+    final s2 = _section2FormulaController.text.trim();
+    final s3 = _section3Controller.text.trim();
+
+    final hasStructure = s1.isNotEmpty ||
+        s2.isNotEmpty ||
+        s3.isNotEmpty ||
+        _checklistItems.isNotEmpty ||
+        _priorityItems.isNotEmpty;
+
+    if (!hasStructure) {
+      _bodyController.text = '';
+      _onFieldChanged();
+      return;
     }
-    buffer.writeln();
-    buffer.writeln('3. Open Brain Dump & Fleeting Inquiries:');
-    buffer.writeln(_section3Controller.text.trim());
-    buffer.writeln();
-    buffer.writeln('TOMORROW\'S TACTICAL PRIORITIES:');
-    for (final p in _priorityItems) {
-      buffer.writeln('- [${p['done'] == true ? 'x' : ' '}] ${p['text']}');
+
+    if (s1.isNotEmpty) {
+      buffer.writeln('1. What clicked today?');
+      buffer.writeln(s1);
+      buffer.writeln();
+    }
+
+    if (s2.isNotEmpty || _checklistItems.isNotEmpty) {
+      buffer.writeln('2. Blockers / Formulas to review:');
+      if (s2.isNotEmpty) {
+        buffer.writeln('FORMULA REFERENCE // KEY RELATIONS:');
+        buffer.writeln(s2);
+      }
+      for (final item in _checklistItems) {
+        buffer.writeln('- [${item['done'] == true ? 'x' : ' '}] ${item['text']}');
+      }
+      buffer.writeln();
+    }
+
+    if (s3.isNotEmpty) {
+      buffer.writeln('3. Open Brain Dump & Fleeting Inquiries:');
+      buffer.writeln(s3);
+      buffer.writeln();
+    }
+
+    if (_priorityItems.isNotEmpty) {
+      buffer.writeln('TOMORROW\'S TACTICAL PRIORITIES:');
+      for (final p in _priorityItems) {
+        buffer.writeln('- [${p['done'] == true ? 'x' : ' '}] ${p['text']}');
+      }
     }
 
     _bodyController.text = buffer.toString().trim();
@@ -367,10 +405,8 @@ TOMORROW'S TACTICAL PRIORITIES:
 
     final title = _titleController.text.trim().isNotEmpty
         ? _titleController.text.trim()
-        : 'Untitled Reflection';
-    final content = _bodyController.text.trim().isNotEmpty
-        ? _bodyController.text.trim()
-        : _defaultTemplate;
+        : 'Untitled Entry';
+    final content = _bodyController.text.trim();
 
     final tags = <String>{
       _selectedState,
@@ -416,9 +452,7 @@ TOMORROW'S TACTICAL PRIORITIES:
     if (item is NoteFeedItem) {
       _activeNoteId = item.note.id;
       _titleController.text = item.note.title;
-      _bodyController.text = item.note.plainTextContent.isNotEmpty
-          ? item.note.plainTextContent
-          : _defaultTemplate;
+      _bodyController.text = item.note.plainTextContent;
       _parseBodyIntoStructuredSections(_bodyController.text);
 
       _selectedState = 'Deep Flow';
@@ -460,7 +494,7 @@ TOMORROW'S TACTICAL PRIORITIES:
       _linkedCoursesOrSubjects = [
         if (item.entry.subjectOrCourseId.isNotEmpty) item.entry.subjectOrCourseId,
       ];
-      _bodyController.text = item.entry.content.isNotEmpty ? item.entry.content : _defaultTemplate;
+      _bodyController.text = item.entry.content;
       _parseBodyIntoStructuredSections(_bodyController.text);
     }
 
@@ -1169,7 +1203,7 @@ TOMORROW'S TACTICAL PRIORITIES:
         child: Text(
           '$label ($count)',
           style: GoogleFonts.jetBrainsMono(
-            fontSize: 10.5,
+            fontSize: 11,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
             color: isSelected
                 ? (isDark ? const Color(0xFFEDEAE0) : const Color(0xFF171C24))
@@ -1827,7 +1861,7 @@ TOMORROW'S TACTICAL PRIORITIES:
           decoration: InputDecoration(
             border: InputBorder.none,
             isDense: true,
-            hintText: 'Post-Lecture Reflection & Concept Notes',
+            hintText: 'Untitled Entry...',
             hintStyle: GoogleFonts.plusJakartaSans(
               fontSize: 26,
               fontWeight: FontWeight.w800,
@@ -1863,7 +1897,7 @@ TOMORROW'S TACTICAL PRIORITIES:
     final remMins = focusMins % 60;
     final focusTimeText = (focusMins > 0)
         ? '${focusHours}h ${remMins}m'
-        : '3h 45m';
+        : '0m';
 
     // Completed subtopics count
     int completedSubtopics = 0;
@@ -1877,7 +1911,7 @@ TOMORROW'S TACTICAL PRIORITIES:
         }
       }
     } catch (_) {}
-    final subtopicsText = completedSubtopics > 0 ? '$completedSubtopics Subtopics' : '4 Subtopics';
+    final subtopicsText = completedSubtopics > 0 ? '$completedSubtopics Subtopics' : '0 Subtopics';
 
     // Assessments / Routine slots count with Firebase guard
     Assessment? matchingAssessment;
@@ -1900,7 +1934,7 @@ TOMORROW'S TACTICAL PRIORITIES:
         ? '${matchingAssessment.title}: ${DateFormat('hh:mm a').format(matchingAssessment.date!)}'
         : (daySlotsCount > 0
             ? 'Routine: $daySlotsCount Classes'
-            : 'CT 4: 10:00 AM');
+            : 'No scheduled events');
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -2085,7 +2119,7 @@ TOMORROW'S TACTICAL PRIORITIES:
             decoration: InputDecoration(
               isDense: true,
               border: InputBorder.none,
-              hintText: 'What key concepts, proofs, or principles finally clicked today?',
+              hintText: 'What clicked today? Key takeaways, eureka moments, or lecture summaries...',
               hintStyle: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 color: colors.textMuted,
@@ -2096,25 +2130,62 @@ TOMORROW'S TACTICAL PRIORITIES:
         const SizedBox(height: 24),
 
         // SECTION 2: Blockers / Formulas to review:
-        Row(
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 6,
           children: [
-            Container(
-              width: 4,
-              height: 18,
-              decoration: BoxDecoration(
-                color: const Color(0xFFC88256),
-                borderRadius: BorderRadius.circular(2),
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 4,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFC88256),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '2. Blockers / Formulas to review:',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: colors.textPrimary,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Text(
-              '2. Blockers / Formulas to review:',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: colors.textPrimary,
+            if (!_showFormulaBox && _section2FormulaController.text.isEmpty)
+              InkWell(
+                onTap: () {
+                  SafeHaptics.lightImpact();
+                  setState(() {
+                    _showFormulaBox = true;
+                  });
+                },
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, size: 14, color: colors.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Formula Box',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: colors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -2123,102 +2194,153 @@ TOMORROW'S TACTICAL PRIORITIES:
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Monospace Formula Reference Box
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0D1219) : const Color(0xFFEDEAE0),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: colors.surfaceBorder),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'FORMULA REFERENCE // AC CIRCUIT DYNAMICS',
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.6,
-                            color: colors.primary,
+              if (_showFormulaBox || _section2FormulaController.text.isNotEmpty) ...[
+                // Monospace Formula Reference Box
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0D1219) : const Color(0xFFEDEAE0),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: colors.surfaceBorder),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'FORMULA REFERENCE // KEY RELATIONS',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.6,
+                              color: colors.primary,
+                            ),
                           ),
+                          Row(
+                            children: [
+                              Icon(Icons.functions, size: 16, color: colors.primary),
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: () {
+                                  SafeHaptics.lightImpact();
+                                  setState(() {
+                                    _section2FormulaController.clear();
+                                    _showFormulaBox = false;
+                                  });
+                                  _onSectionChanged();
+                                },
+                                child: Icon(Icons.close, size: 14, color: colors.textMuted),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _section2FormulaController,
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: colors.textPrimary,
                         ),
-                        Icon(Icons.functions, size: 16, color: colors.primary),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _section2FormulaController,
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: colors.textPrimary,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          border: InputBorder.none,
+                          hintText: 'Key formulas, blocker derivations, or core equations...',
+                          hintStyle: GoogleFonts.jetBrainsMono(
+                            fontSize: 12.5,
+                            color: colors.textMuted,
+                          ),
+                          contentPadding: EdgeInsets.zero,
+                        ),
                       ),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Note: Never ignore initial inductive current i(0⁻) during instantaneous switch openings at t = 0.',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 11,
-                        color: colors.textMuted,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
+              ],
 
-              // Interactive Action Checklist
-              Column(
-                children: _checklistItems.asMap().entries.map((entry) {
-                  final item = entry.value;
-                  final isDone = item['done'] == true;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: Checkbox(
-                            value: isDone,
-                            onChanged: (val) {
+              // Interactive Action Checklist (if any exist)
+              if (_checklistItems.isNotEmpty)
+                Column(
+                  children: _checklistItems.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final item = entry.value;
+                    final isDone = item['done'] == true;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: Checkbox(
+                              value: isDone,
+                              onChanged: (val) {
+                                SafeHaptics.lightImpact();
+                                setState(() {
+                                  item['done'] = val ?? false;
+                                });
+                                _onSectionChanged();
+                              },
+                              activeColor: const Color(0xFF304864),
+                              checkColor: const Color(0xFF85D8A6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              side: BorderSide(color: colors.surfaceBorder),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              item['text'].toString(),
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 14,
+                                color: isDone ? colors.textMuted : colors.textPrimary,
+                                decoration: isDone ? TextDecoration.lineThrough : null,
+                              ),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () {
                               SafeHaptics.lightImpact();
                               setState(() {
-                                item['done'] = val ?? false;
+                                _checklistItems.removeAt(idx);
                               });
                               _onSectionChanged();
                             },
-                            activeColor: const Color(0xFF304864),
-                            checkColor: const Color(0xFF85D8A6),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                            side: BorderSide(color: colors.surfaceBorder),
+                            child: Icon(Icons.close, size: 14, color: colors.textMuted),
                           ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+
+              // Button to add an action checklist item
+              InkWell(
+                onTap: () => _promptAddChecklistItem(context, colors),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, size: 16, color: colors.primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Add Action Item',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: colors.primary,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            item['text'].toString(),
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 14,
-                              color: isDone ? colors.textMuted : colors.textPrimary,
-                              decoration: isDone ? TextDecoration.lineThrough : null,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -2264,7 +2386,7 @@ TOMORROW'S TACTICAL PRIORITIES:
                 decoration: InputDecoration(
                   isDense: true,
                   border: InputBorder.none,
-                  hintText: 'Record fleeting thoughts, edge case questions, or mental observations...',
+                  hintText: 'Open thoughts, fleeting inquiries, or ideas...',
                   hintStyle: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     color: colors.textMuted,
@@ -2273,74 +2395,198 @@ TOMORROW'S TACTICAL PRIORITIES:
               ),
               const SizedBox(height: 12),
 
-              // Tomorrow's Tactical Priorities Card
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF13171E) : const Color(0xFFEDEAE0),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: colors.surfaceBorder),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'TOMORROW\'S TACTICAL PRIORITIES',
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
-                        color: colors.primary,
+              // Tomorrow's Tactical Priorities Card (if any exist)
+              if (_priorityItems.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF13171E) : const Color(0xFFEDEAE0),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: colors.surfaceBorder),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'TOMORROW\'S TACTICAL PRIORITIES',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                          color: colors.primary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    ..._priorityItems.asMap().entries.map((entry) {
-                      final item = entry.value;
-                      final isDone = item['done'] == true;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: Checkbox(
-                                value: isDone,
-                                onChanged: (val) {
+                      const SizedBox(height: 8),
+                      ..._priorityItems.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final item = entry.value;
+                        final isDone = item['done'] == true;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: Checkbox(
+                                  value: isDone,
+                                  onChanged: (val) {
+                                    SafeHaptics.lightImpact();
+                                    setState(() {
+                                      item['done'] = val ?? false;
+                                    });
+                                    _onSectionChanged();
+                                  },
+                                  activeColor: const Color(0xFF304864),
+                                  checkColor: const Color(0xFF85D8A6),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                  side: BorderSide(color: colors.surfaceBorder),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  item['text'].toString(),
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 13,
+                                    color: isDone ? colors.textMuted : colors.textPrimary,
+                                    decoration: isDone ? TextDecoration.lineThrough : null,
+                                  ),
+                                ),
+                              ),
+                              InkWell(
+                                onTap: () {
                                   SafeHaptics.lightImpact();
                                   setState(() {
-                                    item['done'] = val ?? false;
+                                    _priorityItems.removeAt(idx);
                                   });
                                   _onSectionChanged();
                                 },
-                                activeColor: const Color(0xFF304864),
-                                checkColor: const Color(0xFF85D8A6),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                                side: BorderSide(color: colors.surfaceBorder),
+                                child: Icon(Icons.close, size: 14, color: colors.textMuted),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                item['text'].toString(),
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 13,
-                                  color: isDone ? colors.textMuted : colors.textPrimary,
-                                  decoration: isDone ? TextDecoration.lineThrough : null,
-                                ),
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+
+              // Button to add a tactical priority item
+              InkWell(
+                onTap: () => _promptAddPriorityItem(context, colors),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, size: 16, color: colors.primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Add Tactical Priority',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: colors.primary,
                         ),
-                      );
-                    }),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  void _promptAddChecklistItem(BuildContext context, ChondrobinduThemeColors colors) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        title: Text(
+          'Add Action Item',
+          style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w700, color: colors.textPrimary),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: GoogleFonts.plusJakartaSans(fontSize: 14, color: colors.textPrimary),
+          decoration: InputDecoration(
+            hintText: 'Action or blocker review task...',
+            hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: TextStyle(color: colors.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: colors.primary, foregroundColor: const Color(0xFF171C24)),
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isNotEmpty) {
+                setState(() {
+                  _checklistItems.add({'text': text, 'done': false});
+                });
+                _onSectionChanged();
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _promptAddPriorityItem(BuildContext context, ChondrobinduThemeColors colors) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        title: Text(
+          'Add Tactical Priority',
+          style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w700, color: colors.textPrimary),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: GoogleFonts.plusJakartaSans(fontSize: 14, color: colors.textPrimary),
+          decoration: InputDecoration(
+            hintText: 'e.g. Complete chapter exercises...',
+            hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: TextStyle(color: colors.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: colors.primary, foregroundColor: const Color(0xFF171C24)),
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isNotEmpty) {
+                setState(() {
+                  _priorityItems.add({'text': text, 'done': false});
+                });
+                _onSectionChanged();
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
     );
   }
 

@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/session_metadata.dart';
+import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../services/timer_service.dart';
 import '../utils/client_identity.dart';
@@ -304,6 +305,11 @@ final timerProvider = StateNotifierProvider<TimerNotifier, TimerState>((ref) {
     notifier.syncSubject(next);
   });
 
+  ref.listen<AsyncValue<User?>>(authStateChangesProvider, (_, next) {
+    final user = next.asData?.value;
+    notifier.onAuthStateChanged(user);
+  });
+
   return notifier;
 });
 
@@ -395,22 +401,39 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
       _authSub = auth.authStateChanges().listen((user) {
         _activeSessionSub?.cancel();
         if (user != null && user.uid.isNotEmpty) {
+          debugPrint('[TIMER_SYNC] authStateChanges emitted uid=${user.uid}');
           _activeSessionSub = _timerService.watchActiveTimer(user.uid).listen(
             _onRemoteActiveSessionUpdate,
-            onError: (err) => debugPrint('Error in active_timer sync: $err'),
+            onError: (err) => debugPrint('[TIMER_SYNC_ERROR] Error in active_timer sync: $err'),
           );
         }
       });
       final currentUid = auth.currentUser?.uid;
       if (currentUid != null && currentUid.isNotEmpty) {
+        debugPrint('[TIMER_SYNC] Initializing active timer sync for currentUser uid=$currentUid');
         _activeSessionSub?.cancel();
         _activeSessionSub = _timerService.watchActiveTimer(currentUid).listen(
           _onRemoteActiveSessionUpdate,
-          onError: (err) => debugPrint('Error in active_timer sync: $err'),
+          onError: (err) => debugPrint('[TIMER_SYNC_ERROR] Error in active_timer sync: $err'),
         );
       }
     } catch (e) {
-      debugPrint('Error initializing active timer sync: $e');
+      debugPrint('[TIMER_SYNC_ERROR] Error initializing active timer sync: $e');
+    }
+  }
+
+  void onAuthStateChanged(User? user) {
+    if (user != null && user.uid.isNotEmpty) {
+      debugPrint('[TIMER_SYNC] onAuthStateChanged attached listener for uid=${user.uid}');
+      _activeSessionSub?.cancel();
+      _activeSessionSub = _timerService.watchActiveTimer(user.uid).listen(
+        _onRemoteActiveSessionUpdate,
+        onError: (err) => debugPrint('[TIMER_SYNC_ERROR] Error in active_timer sync: $err'),
+      );
+    } else {
+      debugPrint('[TIMER_SYNC] onAuthStateChanged user signed out or null');
+      _activeSessionSub?.cancel();
+      _activeSessionSub = null;
     }
   }
 
@@ -428,6 +451,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
   }
 
   void _onRemoteActiveSessionUpdate(ActiveTimerState remoteSession) {
+    debugPrint('[TIMER_SYNC] _onRemoteActiveSessionUpdate: status=${remoteSession.status}, isRunning=${remoteSession.isRunning}, isPaused=${remoteSession.isPaused}, elapsed=${remoteSession.calculateElapsedSeconds()}');
     if (remoteSession.isRunning) {
       // Authoritative wall-clock UTC anchor & accumulated seconds
       final remoteStartedAt = remoteSession.startedAt ?? DateTime.now().toUtc();

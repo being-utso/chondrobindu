@@ -201,5 +201,24 @@ void main() {
 
       notifier.dispose();
     });
+
+    test('Pending FieldValue.serverTimestamp() with null startedAt defaults safely without crashing or resetting to idle', () {
+      final mapData = {
+        'status': 'running',
+        'mode': 'countdown',
+        'startedAt': null, // Pending local write before server timestamp resolves
+        'accumulatedSeconds': 45,
+        'targetDurationSeconds': 1500,
+      };
+
+      final state = ActiveTimerState.fromMap(mapData);
+      expect(state.status, 'running');
+      expect(state.isRunning, true);
+      expect(state.isIdle, false);
+      expect(state.accumulatedSeconds, 45);
+      expect(state.startedAt, isNotNull);
+      final diff = DateTime.now().toUtc().difference(state.startedAt!).inSeconds.abs();
+      expect(diff <= 2, true);
+    });
   });
 }

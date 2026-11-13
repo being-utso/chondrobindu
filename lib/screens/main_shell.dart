@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
 import '../providers/nav_provider.dart';
+import '../providers/timer_provider.dart';
 import '../widgets/desktop_nav_bar.dart';
 import 'courses_screen.dart';
 import 'home_screen.dart';
@@ -83,6 +84,7 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(timerProvider);
     final colors = AppColors.of(context);
     // Keep synchronized with Riverpod navigationIndexProvider for external triggers (e.g. "Start Focus →")
     final navIndex = ref.watch(navigationIndexProvider);

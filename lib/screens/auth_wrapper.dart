@@ -4,8 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../providers/timer_provider.dart';
 import '../services/auth_service.dart';
-import '../services/timer_service.dart';
 import '../services/tour_service.dart';
 import '../widgets/app_loading_screen.dart';
 import '../widgets/app_preloader.dart';
@@ -88,6 +88,9 @@ class AuthWrapper extends ConsumerWidget {
 
         // Asynchronously purge any historical session duplicates in Firestore
         unawaited(purgeHistoricalSessionDuplicates(user.uid));
+
+        // Authenticated & verified user -> Warm up global timerProvider sync across session
+        ref.watch(timerProvider);
 
         // Authenticated & verified user -> Route to Main Navigation
         return const MainNavigationScreen();

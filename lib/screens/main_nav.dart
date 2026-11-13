@@ -10,6 +10,7 @@ import '../core/theme/app_spacing.dart';
 import '../providers/nav_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/timer_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/tour_service.dart';
 import '../utils/safe_haptics.dart';
@@ -41,6 +42,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(timerProvider);
     final profile = ref.watch(userProfileProvider);
     User? currentUser;
     try {
