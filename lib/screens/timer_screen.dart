@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -555,27 +556,34 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: colors.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: colors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(Icons.adjust_rounded, color: colors.primary, size: 16),
                     ),
-                    child: Icon(Icons.adjust_rounded, color: colors.primary, size: 16),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Target Context',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: colors.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Target Context',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
@@ -1310,8 +1318,10 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           // Mode Toggle & Duration Presets Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               // Pill Toggle: [ Focus ] vs [ Stopwatch ]
               Container(
@@ -1356,24 +1366,21 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
 
           const SizedBox(height: 24),
 
-          // 290px Hero Circular Gauge & Monospace Display
-          SizedBox(
-            width: 290,
-            height: 290,
-            child: CustomPaint(
-              painter: TimerDialPainter(
-                progress: dialProgress,
-                isStopwatch: isStopwatch,
-                primaryColor: isBreak ? colors.success : colors.secondary,
-                trackColor: colors.surfaceBorder,
-                dialFillColor: colors.recessed.withValues(alpha: 0.35),
-                borderColor: colors.surfaceBorder,
-                glowColor: isBreak
-                    ? colors.success.withValues(alpha: 0.45)
-                    : colors.secondary.withValues(alpha: 0.45),
-                strokeWidth: 9.0,
-              ),
-              child: Center(
+          // 290px Hero Circular Gauge & Monospace Display (Localized Leaf Widget)
+          TimerDialRing(
+            timerState: timerState,
+            size: 290,
+            isStopwatch: isStopwatch,
+            primaryColor: isBreak ? colors.success : colors.secondary,
+            trackColor: colors.surfaceBorder,
+            dialFillColor: colors.recessed.withValues(alpha: 0.35),
+            borderColor: colors.surfaceBorder,
+            glowColor: isBreak
+                ? colors.success.withValues(alpha: 0.45)
+                : colors.secondary.withValues(alpha: 0.45),
+            strokeWidth: 9.0,
+            builder: (context, currentTimerState) {
+              return Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1381,11 +1388,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                     Text(
                       isBreak
                           ? 'EARNED REST // BREAK'
-                          : (timerState.isOvertime
+                          : (currentTimerState.isOvertime
                               ? 'DEEP OVERTIME // ZONE'
                               : 'DEEP FOCUS // BLOCK 0${(todaySessionsCount % 5) + 1}'),
                       style: GoogleFonts.jetBrainsMono(
-                        color: isBreak ? colors.success : (timerState.isOvertime ? colors.secondary : colors.textMuted),
+                        color: isBreak ? colors.success : (currentTimerState.isOvertime ? colors.secondary : colors.textMuted),
                         fontSize: 10.5,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.2,
@@ -1395,11 +1402,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
 
                     // Massive Digital Readout in JetBrains Mono
                     Text(
-                      timerState.formattedTime,
+                      currentTimerState.formattedTime,
                       style: GoogleFonts.jetBrainsMono(
                         color: isBreak
                             ? colors.success
-                            : (timerState.isOvertime ? colors.secondary : colors.textPrimary),
+                            : (currentTimerState.isOvertime ? colors.secondary : colors.textPrimary),
                         fontSize: 50,
                         fontWeight: FontWeight.w600,
                         letterSpacing: -1.5,
@@ -1434,7 +1441,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                               child: AutoScrollMarqueeText(
                                 text: isBreak
                                     ? 'Break'
-                                    : (timerState.isOvertime
+                                    : (currentTimerState.isOvertime
                                         ? 'Overtime • Recording study time'
                                         : '${selectedCourse?.code ?? currentSubject} • ${selectedTopicTitle ?? 'Focus Session'}'),
                                 style: GoogleFonts.plusJakartaSans(
@@ -1458,8 +1465,8 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                     ),
                   ],
                 ),
-              ),
-            ),
+              );
+            },
           ),
 
           const SizedBox(height: 24),
@@ -1615,10 +1622,13 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
               color: colors.recessed,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.verified_user_rounded, size: 14, color: colors.success),
                     const SizedBox(width: 6),
@@ -1769,27 +1779,34 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: colors.secondary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: colors.secondary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(Icons.query_stats_rounded, color: colors.secondary, size: 16),
                     ),
-                    child: Icon(Icons.query_stats_rounded, color: colors.secondary, size: 16),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Session Matrix',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: colors.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Session Matrix',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               IconButton(
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
@@ -1812,7 +1829,18 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                 if (timerState.timerType == TimerType.stopwatch) ...[
                   _summaryRow('Mode', 'Continuous Count-up'),
                   const SizedBox(height: 6),
-                  _summaryRow('Elapsed Time', timerState.formattedTime),
+                  _summaryRow(
+                    'Elapsed Time',
+                    timerState.formattedTime,
+                    valueWidget: TimerCountdownText(
+                      timerState: timerState,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   _summaryRow('Status', timerState.status == TimerStatus.running ? 'Focusing' : 'Paused'),
                 ] else ...[
@@ -1829,8 +1857,10 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           const SizedBox(height: 20),
 
           // Today's Deep Work Output
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 "TODAY'S DEEP WORK OUTPUT",
@@ -1889,8 +1919,10 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           const SizedBox(height: 12),
 
           // Segmented Cycle Tracker (Configurable)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               InkWell(
                 onTap: _showTargetCyclesDialog,
@@ -1898,6 +1930,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2.0),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         '$cycleCount / $targetCycles cycles completed',
@@ -1945,8 +1978,10 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
           const SizedBox(height: 20),
 
           // Today's Ledger (Recent Completed Sessions)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 "TODAY'S LEDGER",
@@ -2171,22 +2206,27 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
     );
   }
 
-  Widget _summaryRow(String label, String value) {
+  Widget _summaryRow(String label, String value, {Widget? valueWidget}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12.5),
-        ),
-        Text(
-          value,
-          style: GoogleFonts.jetBrainsMono(
-            color: colors.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+        Flexible(
+          child: Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12.5),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
+        const SizedBox(width: 8),
+        valueWidget ??
+            Text(
+              value,
+              style: GoogleFonts.jetBrainsMono(
+                color: colors.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
       ],
     );
   }
@@ -2212,12 +2252,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
   ) {
     final isStopwatch = timerState.timerType == TimerType.stopwatch;
     final elapsedSec = timerState.elapsedSeconds;
-    final stopwatchProgress = (elapsedSec % 1800) / 1800.0;
     final int completedCycles = elapsedSec ~/ 1800;
-
-    final dialProgress = isStopwatch
-        ? (timerState.status == TimerStatus.initial ? 0.0 : stopwatchProgress)
-        : (isBreak ? 1.0 : timerState.progressRatio);
 
     final todaySessionsAsync = ref.watch(todayStudySessionsStreamProvider);
     final todaySessions = todaySessionsAsync.value ?? [];
@@ -2593,38 +2628,35 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                             builder: (context, child) {
                               return Transform.scale(
                                 scale: isRunning ? _scaleAnimation.value : 1.0,
-                                child: SizedBox(
-                                  width: 240,
-                                  height: 240,
-                                  child: CustomPaint(
-                                    painter: TimerDialPainter(
-                                      progress: dialProgress,
-                                      isStopwatch: isStopwatch,
-                                      primaryColor: isBreak ? colors.success : colors.secondary,
-                                      trackColor: colors.surfaceBorder,
-                                      dialFillColor: colors.surface,
-                                      borderColor: colors.surfaceBorder,
-                                      glowColor: isRunning
-                                          ? (isBreak
-                                              ? colors.success.withValues(alpha: _glowAnimation.value)
-                                              : colors.secondary.withValues(alpha: _glowAnimation.value))
-                                          : null,
-                                      strokeWidth: 8.5,
-                                    ),
-                                    child: Center(
+                                child: TimerDialRing(
+                                  timerState: timerState,
+                                  size: 240,
+                                  isStopwatch: isStopwatch,
+                                  primaryColor: isBreak ? colors.success : colors.secondary,
+                                  trackColor: colors.surfaceBorder,
+                                  dialFillColor: colors.surface,
+                                  borderColor: colors.surfaceBorder,
+                                  glowColor: isRunning
+                                      ? (isBreak
+                                          ? colors.success.withValues(alpha: _glowAnimation.value)
+                                          : colors.secondary.withValues(alpha: _glowAnimation.value))
+                                      : null,
+                                  strokeWidth: 8.5,
+                                  builder: (context, currentTimerState) {
+                                    return Center(
                                       child: Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Text(
                                             isBreak
                                                 ? 'BREAK'
-                                                : (timerState.isOvertime
+                                                : (currentTimerState.isOvertime
                                                     ? 'OVERTIME'
                                                     : 'INTERVAL BLOCK 0${(cycleCount % 5) + 1}'),
                                             style: GoogleFonts.jetBrainsMono(
                                               color: isBreak
                                                   ? colors.success
-                                                  : (timerState.isOvertime ? colors.secondary : colors.textMuted),
+                                                  : (currentTimerState.isOvertime ? colors.secondary : colors.textMuted),
                                               fontSize: 10,
                                               fontWeight: FontWeight.bold,
                                               letterSpacing: 0.8,
@@ -2632,11 +2664,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            timerState.formattedTime,
+                                            currentTimerState.formattedTime,
                                             style: GoogleFonts.jetBrainsMono(
                                               color: isBreak
                                                   ? colors.success
-                                                  : (timerState.isOvertime ? colors.secondary : colors.textPrimary),
+                                                  : (currentTimerState.isOvertime ? colors.secondary : colors.textPrimary),
                                               fontSize: isBreak ? 32 : 38,
                                               fontWeight: FontWeight.bold,
                                               letterSpacing: -1.0,
@@ -2669,7 +2701,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                                                     child: AutoScrollMarqueeText(
                                                       text: isBreak
                                                           ? 'Break'
-                                                          : (timerState.isOvertime
+                                                          : (currentTimerState.isOvertime
                                                               ? 'Overtime • Recording study time'
                                                               : '${selectedCourse?.code ?? currentSubject} • ${selectedTopicTitle ?? 'Focus Session'}'),
                                                       style: GoogleFonts.plusJakartaSans(
@@ -2687,13 +2719,13 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                                           Text(
                                             isBreak
                                                 ? 'Earned Rest'
-                                                : (timerState.isOvertime
+                                                : (currentTimerState.isOvertime
                                                     ? 'Overtime • Deep Focus'
                                                     : (isStopwatch
                                                         ? (completedCycles == 0
                                                             ? 'Cycle 1 (0–30m)'
                                                             : 'Cycle ${completedCycles + 1} • ${completedCycles * 30}m+ completed')
-                                                        : 'Target: ${timerState.targetMinutes} min')),
+                                                        : 'Target: ${currentTimerState.targetMinutes} min')),
                                             style: GoogleFonts.jetBrainsMono(
                                               color: colors.textMuted,
                                               fontSize: 10.5,
@@ -2701,8 +2733,8 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                                           ),
                                         ],
                                       ),
-                                    ),
-                                  ),
+                                    );
+                                  },
                                 ),
                               );
                             },
@@ -2746,8 +2778,9 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: colors.success.withValues(alpha: 0.3)),
                         ),
-                        child: Text(
-                          'Break: ${timerState.formattedTime}',
+                        child: TimerCountdownText(
+                          timerState: timerState,
+                          textBuilder: (s) => 'Break: ${s.formattedTime}',
                           style: GoogleFonts.jetBrainsMono(
                             color: colors.success,
                             fontSize: 11.5,
@@ -3172,8 +3205,8 @@ class _TimerScreenState extends ConsumerState<TimerScreen>
                           scale: isRunning ? _scaleAnimation.value : 1.0,
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
-                            child: Text(
-                              timerState.formattedTime,
+                            child: TimerCountdownText(
+                              timerState: timerState,
                               style: GoogleFonts.jetBrainsMono(
                                 color: isBreak ? colors.success : colors.textPrimary,
                                 fontSize: 110,
@@ -3948,5 +3981,167 @@ class TimerDialPainter extends CustomPainter {
         oldDelegate.borderColor != borderColor ||
         oldDelegate.glowColor != glowColor ||
         oldDelegate.strokeWidth != strokeWidth;
+  }
+}
+
+/// Localized leaf widget for circular progress arc dial.
+/// Runs its own 1-second ticker ONLY when timer status is running,
+/// calling local setState() so ONLY the dial canvas and digits repaint without rebuilding TimerScreen.
+class TimerDialRing extends StatefulWidget {
+  final TimerState timerState;
+  final double size;
+  final bool isStopwatch;
+  final Color primaryColor;
+  final Color trackColor;
+  final Color dialFillColor;
+  final Color borderColor;
+  final Color? glowColor;
+  final double strokeWidth;
+  final Widget? child;
+  final Widget Function(BuildContext context, TimerState state)? builder;
+
+  const TimerDialRing({
+    super.key,
+    required this.timerState,
+    required this.size,
+    required this.isStopwatch,
+    required this.primaryColor,
+    required this.trackColor,
+    required this.dialFillColor,
+    required this.borderColor,
+    this.glowColor,
+    required this.strokeWidth,
+    this.child,
+    this.builder,
+  });
+
+  @override
+  State<TimerDialRing> createState() => _TimerDialRingState();
+}
+
+class _TimerDialRingState extends State<TimerDialRing> {
+  Timer? _localTicker;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncTicker();
+  }
+
+  @override
+  void didUpdateWidget(covariant TimerDialRing oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.timerState.status != widget.timerState.status ||
+        oldWidget.timerState.startedAt != widget.timerState.startedAt) {
+      _syncTicker();
+    }
+  }
+
+  void _syncTicker() {
+    if (widget.timerState.status == TimerStatus.running) {
+      _localTicker ??= Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      _localTicker?.cancel();
+      _localTicker = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _localTicker?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final centerContent = widget.builder != null
+        ? widget.builder!(context, widget.timerState)
+        : widget.child;
+
+    return SizedBox(
+      width: widget.size,
+      height: widget.size,
+      child: CustomPaint(
+        painter: TimerDialPainter(
+          progress: widget.timerState.progressRatio,
+          isStopwatch: widget.isStopwatch,
+          primaryColor: widget.primaryColor,
+          trackColor: widget.trackColor,
+          dialFillColor: widget.dialFillColor,
+          borderColor: widget.borderColor,
+          glowColor: widget.glowColor,
+          strokeWidth: widget.strokeWidth,
+        ),
+        child: centerContent,
+      ),
+    );
+  }
+}
+
+/// Localized leaf widget for countdown digits and time displays.
+/// Runs its own 1-second ticker ONLY when timer status is running,
+/// calling local setState() so ONLY the text digits repaint without rebuilding TimerScreen or root trees.
+class TimerCountdownText extends StatefulWidget {
+  final TimerState timerState;
+  final TextStyle style;
+  final String Function(TimerState state)? textBuilder;
+
+  const TimerCountdownText({
+    super.key,
+    required this.timerState,
+    required this.style,
+    this.textBuilder,
+  });
+
+  @override
+  State<TimerCountdownText> createState() => _TimerCountdownTextState();
+}
+
+class _TimerCountdownTextState extends State<TimerCountdownText> {
+  Timer? _localTicker;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncTicker();
+  }
+
+  @override
+  void didUpdateWidget(covariant TimerCountdownText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.timerState.status != widget.timerState.status ||
+        oldWidget.timerState.startedAt != widget.timerState.startedAt) {
+      _syncTicker();
+    }
+  }
+
+  void _syncTicker() {
+    if (widget.timerState.status == TimerStatus.running) {
+      _localTicker ??= Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      _localTicker?.cancel();
+      _localTicker = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _localTicker?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final displayText = widget.textBuilder != null
+        ? widget.textBuilder!(widget.timerState)
+        : widget.timerState.formattedTime;
+    return Text(
+      displayText,
+      style: widget.style,
+    );
   }
 }

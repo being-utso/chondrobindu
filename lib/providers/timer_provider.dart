@@ -322,9 +322,18 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
   StreamSubscription<User?>? _authSub;
   bool _isCompletingSession = false;
 
-  Timer? _ticker;
+  Timer? _overtimeTimer;
   Timer? _abandonedPauseTimer;
   String? _lastBurnoutAlertDate;
+
+  String? _lastRemoteStatus;
+  String? _lastRemoteMode;
+  DateTime? _lastRemoteStartedAt;
+  int? _lastRemoteAccumulated;
+  int? _lastRemoteTarget;
+  String? _lastRemoteCourseId;
+  String? _lastRemoteTopicId;
+  bool? _lastRemoteIsFinalized;
 
   FirebaseFirestore? get _firestore {
     if (_customFirestore != null) return _customFirestore;
@@ -452,6 +461,27 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
 
   void _onRemoteActiveSessionUpdate(ActiveTimerState remoteSession) {
     debugPrint('[TIMER_SYNC] _onRemoteActiveSessionUpdate: status=${remoteSession.status}, isRunning=${remoteSession.isRunning}, isPaused=${remoteSession.isPaused}, elapsed=${remoteSession.calculateElapsedSeconds()}');
+
+    // Deduplication check: ignore duplicate identical remote snapshots
+    if (_lastRemoteStatus == remoteSession.status &&
+        _lastRemoteMode == remoteSession.mode &&
+        _lastRemoteStartedAt == remoteSession.startedAt &&
+        _lastRemoteAccumulated == remoteSession.accumulatedSeconds &&
+        _lastRemoteTarget == remoteSession.targetDurationSeconds &&
+        _lastRemoteCourseId == remoteSession.courseId &&
+        _lastRemoteTopicId == remoteSession.topicId &&
+        _lastRemoteIsFinalized == remoteSession.isFinalized) {
+      return;
+    }
+    _lastRemoteStatus = remoteSession.status;
+    _lastRemoteMode = remoteSession.mode;
+    _lastRemoteStartedAt = remoteSession.startedAt;
+    _lastRemoteAccumulated = remoteSession.accumulatedSeconds;
+    _lastRemoteTarget = remoteSession.targetDurationSeconds;
+    _lastRemoteCourseId = remoteSession.courseId;
+    _lastRemoteTopicId = remoteSession.topicId;
+    _lastRemoteIsFinalized = remoteSession.isFinalized;
+
     if (remoteSession.isRunning) {
       // Authoritative wall-clock UTC anchor & accumulated seconds
       final remoteStartedAt = remoteSession.startedAt ?? DateTime.now().toUtc();
@@ -610,16 +640,43 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
     }
   }
 
-  void _startLocalTicker() {
-    _ticker?.cancel();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
-      _onTick();
+  void _scheduleOvertimeTransition() {
+    _overtimeTimer?.cancel();
+    _overtimeTimer = null;
+
+    if (state.status != TimerStatus.running) return;
+    if (state.isBreak || state.timerType != TimerType.target) return;
+
+    final remaining = state.targetSeconds - state.currentElapsedSeconds;
+    if (remaining <= 0) {
+      if (state.focusMode != FocusTimerMode.overtimeRunning) {
+        state = state.copyWith(focusMode: FocusTimerMode.overtimeRunning);
+      }
+      return;
+    }
+
+    _overtimeTimer = Timer(Duration(seconds: remaining), () {
+      if (state.status == TimerStatus.running &&
+          state.timerType == TimerType.target &&
+          !state.isBreak) {
+        state = state.copyWith(focusMode: FocusTimerMode.overtimeRunning);
+        _notificationService.showTimerNotification(
+          timeRemaining: state.formattedTime,
+          subject: '${state.selectedSubject} (Overtime)',
+          isRunning: true,
+          isBreakMode: false,
+        );
+      }
     });
   }
 
+  void _startLocalTicker() {
+    _scheduleOvertimeTransition();
+  }
+
   void _stopLocalTicker() {
-    _ticker?.cancel();
-    _ticker = null;
+    _overtimeTimer?.cancel();
+    _overtimeTimer = null;
   }
 
   /// Sets target duration in minutes and resets timer state to focus countdown
@@ -944,10 +1001,11 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
     );
 
     _onTick();
+    _scheduleOvertimeTransition();
   }
 
   /// Finite State Machine Tick execution:
-  /// Uses pure wall-clock truth. Does NOT increment an accumulator counter!
+  /// Uses pure wall-clock truth. Does NOT mutate state every second to prevent root rebuild loops.
   void _onTick() {
     if (state.status != TimerStatus.running) return;
 
@@ -962,19 +1020,9 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
       }
     }
 
-    state = state.copyWith(
-      lastTickTime: DateTime.now(),
-      focusMode: currentFocusMode,
-    );
-
-    _notificationService.showTimerNotification(
-      timeRemaining: state.formattedTime,
-      subject: state.isBreak
-          ? 'Break Time ☕'
-          : (state.isOvertime ? '${state.selectedSubject} (Overtime)' : state.selectedSubject),
-      isRunning: true,
-      isBreakMode: state.isBreak,
-    );
+    if (currentFocusMode != state.focusMode) {
+      state = state.copyWith(focusMode: currentFocusMode);
+    }
   }
 
   /// Skip break and immediately transition to Extra Time countup or idle
@@ -1109,7 +1157,7 @@ class TimerNotifier extends StateNotifier<TimerState> with WidgetsBindingObserve
     if (_isCompletingSession) return false;
     _isCompletingSession = true;
     try {
-      _ticker?.cancel();
+      _stopLocalTicker();
       _abandonedPauseTimer?.cancel();
       _abandonedPauseTimer = null;
       _notificationService.cancelAbandonedPauseNudge();

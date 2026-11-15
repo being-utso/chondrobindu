@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chondrobindu/providers/timer_provider.dart';
+import 'package:chondrobindu/screens/timer_screen.dart';
 
 void main() {
   group('Cross-Platform Focus Timer Sync Tests', () {
@@ -219,6 +221,65 @@ void main() {
       expect(state.startedAt, isNotNull);
       final diff = DateTime.now().toUtc().difference(state.startedAt!).inSeconds.abs();
       expect(diff <= 2, true);
+    });
+
+    test('TimerNotifier does NOT emit state changes or notifyListeners on 1-second ticks while running', () async {
+      final notifier = TimerNotifier();
+      int notificationCount = 0;
+      notifier.addListener((_) {
+        notificationCount++;
+      });
+
+      // Initial state notified 1 time upon addListener
+      expect(notificationCount, 1);
+
+      // Start timer
+      notifier.startTimer();
+      expect(notifier.state.status, TimerStatus.running);
+      expect(notificationCount, 2);
+
+      // Wait 2.2 seconds - NO continuous 1-second ticker notifications should occur on the root notifier!
+      await Future.delayed(const Duration(milliseconds: 2200));
+      expect(notificationCount, 2, reason: 'Root TimerNotifier must not trigger notifyListeners() every second');
+
+      notifier.pauseTimer();
+      expect(notificationCount, 3);
+
+      notifier.dispose();
+    });
+
+    testWidgets('TimerCountdownText renders cleanly and disposes local ticker without rebuilding parent tree', (tester) async {
+      int parentBuildCount = 0;
+      final runningState = TimerState(
+        status: TimerStatus.running,
+        mode: TimerMode.focus,
+        startedAt: DateTime.now().toUtc(),
+        targetSeconds: 1500,
+        baseElapsedSeconds: 0,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              parentBuildCount++;
+              return Scaffold(
+                body: TimerCountdownText(
+                  timerState: runningState,
+                  style: const TextStyle(fontSize: 20),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+
+      expect(parentBuildCount, 1);
+      expect(find.text('25:00'), findsOneWidget);
+
+      // Unmount widget to verify clean disposal of local ticker
+      await tester.pumpWidget(const SizedBox());
+      expect(parentBuildCount, 1);
     });
   });
 }

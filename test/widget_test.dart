@@ -7236,7 +7236,7 @@ void main() {
       });
 
       testWidgets('MainShell switches active screens via DesktopNavBar', (tester) async {
-        tester.view.physicalSize = const Size(1200, 900);
+        tester.view.physicalSize = const Size(1600, 900);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(() => tester.view.resetPhysicalSize());
 
@@ -7270,10 +7270,10 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(PlannerScreen), findsOneWidget);
 
-        // Tap Insights tab
-        await tester.tap(find.text('Insights'));
+        // Tap Journal tab
+        await tester.tap(find.text('Journal'));
         await tester.pumpAndSettle();
-        expect(find.byType(InsightsScreen), findsOneWidget);
+        expect(find.byType(JournalScreen), findsOneWidget);
       });
 
       testWidgets('Soundscapes asset paths are valid and loadable', (tester) async {

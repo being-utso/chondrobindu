@@ -13,7 +13,6 @@ import 'services/notification_service.dart';
 import 'services/tour_service.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/theme_provider.dart';
-import 'providers/timer_provider.dart';
 
 /// Configures Firebase Auth persistence with graceful web fallbacks for Safari/WebKit
 Future<void> configureAuthPersistence() async {
@@ -96,7 +95,6 @@ class ChondrobinduApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(timerProvider);
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp(

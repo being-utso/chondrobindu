@@ -89,8 +89,8 @@ class AuthWrapper extends ConsumerWidget {
         // Asynchronously purge any historical session duplicates in Firestore
         unawaited(purgeHistoricalSessionDuplicates(user.uid));
 
-        // Authenticated & verified user -> Warm up global timerProvider sync across session
-        ref.watch(timerProvider);
+        // Authenticated & verified user -> Warm up global timerProvider sync across session without rebuilding AuthWrapper
+        ref.read(timerProvider);
 
         // Authenticated & verified user -> Route to Main Navigation
         return const MainNavigationScreen();

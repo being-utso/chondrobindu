@@ -605,7 +605,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
     final journalAsync = ref.watch(journalStreamProvider);
 
     // Active university courses & holiday settings
-    final coursesList = ref.watch(universityCoursesStreamProvider).value ?? [];
+    final coursesList = ref.watch(universityCoursesStreamProvider).valueOrNull ?? [];
     final activeCourseIds = <String>{};
     final activeCourseNames = <String>{};
     for (final c in coursesList) {
@@ -616,10 +616,10 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
       if (code.isNotEmpty) activeCourseNames.add(code);
       if (name.isNotEmpty) activeCourseNames.add(name);
     }
-    final holidaySettings = ref.watch(holidaySettingsStreamProvider).value ?? HolidaySettings.defaultSettings;
+    final holidaySettings = ref.watch(holidaySettingsStreamProvider).valueOrNull ?? HolidaySettings.defaultSettings;
 
     // 1. Process standard notes
-    final rawNotes = notesAsync.value ?? [];
+    final rawNotes = notesAsync.valueOrNull ?? [];
     final seenIds = <String>{};
     final uniqueNotes = rawNotes.where((n) => n.id.isNotEmpty ? seenIds.add(n.id) : true).toList();
     final standardNotes = uniqueNotes
@@ -627,12 +627,12 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
         .toList();
 
     // 2. Process completed exams with journal entries
-    final completedExamsWithJournal = (examsAsync.value ?? [])
+    final completedExamsWithJournal = (examsAsync.valueOrNull ?? [])
         .where((e) => e.isCompleted && e.journalEntries.isNotEmpty)
         .toList();
 
     // 3. Process study session journal logs
-    final studySessionEntries = (journalAsync.value ?? [])
+    final studySessionEntries = (journalAsync.valueOrNull ?? [])
         .where((entry) => entry.isStudySession)
         .toList();
 
@@ -1749,7 +1749,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
     bool isUniversity,
     List<Map<String, dynamic>> rawCourses,
   ) {
-    final streamSubjects = ref.read(activeSyllabusSubjectsStreamProvider).value ?? [];
+    final streamSubjects = ref.read(activeSyllabusSubjectsStreamProvider).valueOrNull ?? [];
     final memorySubjects = ref.read(syllabusProvider);
 
     final options = _resolveTagTargets(
