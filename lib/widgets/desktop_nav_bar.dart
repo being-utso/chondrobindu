@@ -86,7 +86,7 @@ class _DesktopNavBarState extends ConsumerState<DesktopNavBar> {
     final photoUrl = profile.photoUrl.isNotEmpty ? profile.photoUrl : profile.profileImageUrl;
 
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final isCompactDesktop = screenWidth <= 1200;
+    final isCompactDesktop = screenWidth < 1100;
 
     return Focus(
       autofocus: true,
