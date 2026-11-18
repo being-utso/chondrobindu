@@ -1,10 +1,12 @@
 import 'dart:math' as math;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart' show isSameDay;
 
+import '../models/routine_models.dart' show HolidaySettings;
 import '../models/study_session_model.dart';
 import '../providers/firestore_providers.dart';
 import '../providers/journal_provider.dart';
@@ -14,10 +16,43 @@ import '../services/exam_service.dart';
 import '../services/timer_service.dart' show deduplicateSessions;
 import '../theme/app_theme.dart';
 import '../utils/safe_haptics.dart';
+import 'journal_screen.dart' show holidaySettingsStreamProvider;
 import 'term_performance_screen.dart';
 
 /// Period selector for analytics and study sessions
 enum InsightPeriod { day, week, month, trend }
+
+/// Computes track-aware date range minimum boundary (minDate).
+DateTime computeMinDate({
+  required bool isUniversity,
+  DateTime? semesterStart,
+  DateTime? userCreatedAt,
+  DateTime? firebaseCreationTime,
+}) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+
+  if (isUniversity && semesterStart != null) {
+    final semStart = DateTime(semesterStart.year, semesterStart.month, semesterStart.day);
+    if (!semStart.isAfter(today)) {
+      return semStart;
+    }
+  }
+
+  DateTime? creation = userCreatedAt;
+  if (creation == null || creation.year < 2000) {
+    creation = firebaseCreationTime;
+  }
+
+  if (creation != null) {
+    final creationDate = DateTime(creation.year, creation.month, creation.day);
+    if (!creationDate.isAfter(today)) {
+      return creationDate;
+    }
+  }
+
+  return today.subtract(const Duration(days: 90));
+}
 
 /// Safe division and ratio calculation helper guarding strictly against NaN,
 /// division by zero, and infinite values.
@@ -44,11 +79,74 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
   String _desktopCategoryTab = 'Overview';
   InsightPeriod _selectedPeriod = InsightPeriod.week;
   DateTime _currentAnchorDate = DateTime.now();
+  DateTime? _customTrendStart;
+  DateTime? _customTrendEnd;
+
+  DateTime get _minDate {
+    final profile = ref.watch(liveUserProfileProvider).value ?? ref.watch(userProfileProvider);
+    final isUni = profile?.isUniversityStudent == true || profile?.institutionType == InstitutionType.university;
+    final holidaySettings = ref.watch(holidaySettingsStreamProvider).valueOrNull;
+
+    DateTime? firebaseCreation;
+    try {
+      firebaseCreation = FirebaseAuth.instance.currentUser?.metadata.creationTime;
+    } catch (_) {
+      firebaseCreation = null;
+    }
+
+    return computeMinDate(
+      isUniversity: isUni,
+      semesterStart: holidaySettings?.semesterStart,
+      userCreatedAt: profile?.createdAt,
+      firebaseCreationTime: firebaseCreation,
+    );
+  }
+
+  DateTime get _maxDate {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  bool get _canStepBack {
+    final minD = _minDate;
+    switch (_selectedPeriod) {
+      case InsightPeriod.day:
+        final prev = _currentAnchorDate.subtract(const Duration(days: 1));
+        return !prev.isBefore(minD);
+      case InsightPeriod.week:
+        final prevSat = _rangeStart.subtract(const Duration(days: 7));
+        return !prevSat.isBefore(minD) || prevSat.add(const Duration(days: 6)).isAfter(minD);
+      case InsightPeriod.month:
+        final prevMonth = DateTime(_currentAnchorDate.year, _currentAnchorDate.month - 1, 1);
+        final minMonth = DateTime(minD.year, minD.month, 1);
+        return !prevMonth.isBefore(minMonth);
+      case InsightPeriod.trend:
+        return _rangeStart.isAfter(minD);
+    }
+  }
+
+  bool get _canStepForward {
+    final maxD = _maxDate;
+    switch (_selectedPeriod) {
+      case InsightPeriod.day:
+        final next = _currentAnchorDate.add(const Duration(days: 1));
+        return !next.isAfter(maxD);
+      case InsightPeriod.week:
+        return _rangeStart.add(const Duration(days: 7)).isBefore(maxD) || isSameDay(_rangeStart.add(const Duration(days: 7)), maxD);
+      case InsightPeriod.month:
+        final nextMonth = DateTime(_currentAnchorDate.year, _currentAnchorDate.month + 1, 1);
+        final maxMonth = DateTime(maxD.year, maxD.month, 1);
+        return !nextMonth.isAfter(maxMonth);
+      case InsightPeriod.trend:
+        return _rangeEnd.isBefore(maxD) && !isSameDay(_rangeEnd, maxD);
+    }
+  }
 
   DateTime get _rangeStart {
     switch (_selectedPeriod) {
       case InsightPeriod.day:
-        return DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day);
+        final d = DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day);
+        return d.isBefore(_minDate) ? _minDate : d;
       case InsightPeriod.week:
         // Bangladesh academic week starts on Saturday (ISO weekday 6)
         final daysFromSaturday = (_currentAnchorDate.weekday % 7 + 1) % 7;
@@ -57,8 +155,13 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       case InsightPeriod.month:
         return DateTime(_currentAnchorDate.year, _currentAnchorDate.month, 1);
       case InsightPeriod.trend:
+        if (_customTrendStart != null) {
+          final s = DateTime(_customTrendStart!.year, _customTrendStart!.month, _customTrendStart!.day);
+          return s.isBefore(_minDate) ? _minDate : s;
+        }
         final end = DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day, 23, 59, 59);
-        return end.subtract(const Duration(days: 29)).copyWith(hour: 0, minute: 0, second: 0, millisecond: 0);
+        final start = end.subtract(const Duration(days: 29)).copyWith(hour: 0, minute: 0, second: 0, millisecond: 0);
+        return start.isBefore(_minDate) ? _minDate : start;
     }
   }
 
@@ -72,6 +175,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         return DateTime(_currentAnchorDate.year, _currentAnchorDate.month + 1, 1)
             .subtract(const Duration(milliseconds: 1));
       case InsightPeriod.trend:
+        if (_customTrendEnd != null) {
+          final e = DateTime(_customTrendEnd!.year, _customTrendEnd!.month, _customTrendEnd!.day, 23, 59, 59);
+          return e.isAfter(_maxDate) ? _maxDate.add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1)) : e;
+        }
         return DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day, 23, 59, 59);
     }
   }
@@ -83,7 +190,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       case InsightPeriod.week:
         final start = _rangeStart;
         final end = _rangeEnd;
-        if (start.month == end.month) {
+        if (start.month == end.month && start.year == end.year) {
           return '${start.day} – ${end.day} ${DateFormat('MMM yyyy').format(end)}';
         }
         return '${DateFormat('d MMM').format(start)} – ${DateFormat('d MMM yyyy').format(end)}';
@@ -92,25 +199,46 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       case InsightPeriod.trend:
         final start = _rangeStart;
         final end = _rangeEnd;
+        if (start.month == end.month && start.year == end.year) {
+          return '${start.day} – ${end.day} ${DateFormat('MMM yyyy').format(end)}';
+        }
         return '${DateFormat('d MMM').format(start)} – ${DateFormat('d MMM yyyy').format(end)}';
     }
   }
 
   void _stepDateRange(int direction) {
+    if (direction < 0 && !_canStepBack) return;
+    if (direction > 0 && !_canStepForward) return;
     SafeHaptics.selectionClick();
     setState(() {
       switch (_selectedPeriod) {
         case InsightPeriod.day:
-          _currentAnchorDate = _currentAnchorDate.add(Duration(days: direction));
+          final next = _currentAnchorDate.add(Duration(days: direction));
+          if (!next.isBefore(_minDate) && !next.isAfter(_maxDate)) {
+            _currentAnchorDate = next;
+          }
           break;
         case InsightPeriod.week:
           _currentAnchorDate = _currentAnchorDate.add(Duration(days: 7 * direction));
+          if (_currentAnchorDate.isAfter(_maxDate)) {
+            _currentAnchorDate = _maxDate;
+          }
           break;
         case InsightPeriod.month:
-          _currentAnchorDate = DateTime(_currentAnchorDate.year, _currentAnchorDate.month + direction, _currentAnchorDate.day);
+          final next = DateTime(_currentAnchorDate.year, _currentAnchorDate.month + direction, 1);
+          final maxMonth = DateTime(_maxDate.year, _maxDate.month, 1);
+          final minMonth = DateTime(_minDate.year, _minDate.month, 1);
+          if (!next.isBefore(minMonth) && !next.isAfter(maxMonth)) {
+            _currentAnchorDate = next;
+          }
           break;
         case InsightPeriod.trend:
-          _currentAnchorDate = _currentAnchorDate.add(Duration(days: 30 * direction));
+          _customTrendStart = null;
+          _customTrendEnd = null;
+          final next = _currentAnchorDate.add(Duration(days: 30 * direction));
+          if (!next.isBefore(_minDate) && !next.isAfter(_maxDate)) {
+            _currentAnchorDate = next;
+          }
           break;
       }
     });
@@ -341,6 +469,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final enrolledCourses = coursesAsync.value ?? [];
     final attendanceAsync = ref.watch(attendanceRecordsStreamProvider);
     final attendanceRecords = attendanceAsync.value ?? [];
+    final holidaySettings = ref.watch(holidaySettingsStreamProvider).valueOrNull;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -353,7 +482,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 1. Context Status Pill & Sync Indicator
-                _buildDesktopStatusHeader(colors, profile, isUni),
+                _buildDesktopStatusHeader(colors, profile, isUni, holidaySettings),
 
                 const SizedBox(height: 16),
 
@@ -367,34 +496,60 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   const SizedBox(height: 24),
                   _buildDesktopCircadianRhythmCard(colors, sessions),
                   const SizedBox(height: 24),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 6,
-                        child: _buildDesktopWeeklyHistogram(colors, sessions),
-                      ),
-                      const SizedBox(width: 24),
-                      Expanded(
-                        flex: 6,
-                        child: _buildDesktopStudyRigorMatrixCard(colors, recentSessions, attendanceRecords, isUni, weeksCount: 12),
-                      ),
-                    ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (constraints.maxWidth < 960) {
+                        return Column(
+                          children: [
+                            _buildDesktopWeeklyHistogram(colors, sessions),
+                            const SizedBox(height: 24),
+                            _buildDesktopStudyRigorMatrixCard(colors, recentSessions, attendanceRecords, isUni, weeksCount: 12),
+                          ],
+                        );
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 6,
+                            child: _buildDesktopWeeklyHistogram(colors, sessions),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            flex: 6,
+                            child: _buildDesktopStudyRigorMatrixCard(colors, recentSessions, attendanceRecords, isUni, weeksCount: 12),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ] else if (effectiveCategoryTab == 'Subjects') ...[
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 5,
-                        child: _buildDesktopSubjectDistribution(colors, sessions, enrolledCourses, isUni),
-                      ),
-                      const SizedBox(width: 24),
-                      Expanded(
-                        flex: 7,
-                        child: _buildDesktopSubjectDeepDive(colors, sessions, enrolledCourses, isUni),
-                      ),
-                    ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (constraints.maxWidth < 960) {
+                        return Column(
+                          children: [
+                            _buildDesktopSubjectDistribution(colors, sessions, enrolledCourses, isUni),
+                            const SizedBox(height: 24),
+                            _buildDesktopSubjectDeepDive(colors, sessions, enrolledCourses, isUni),
+                          ],
+                        );
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 5,
+                            child: _buildDesktopSubjectDistribution(colors, sessions, enrolledCourses, isUni),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            flex: 7,
+                            child: _buildDesktopSubjectDeepDive(colors, sessions, enrolledCourses, isUni),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ] else if (effectiveCategoryTab == 'Performance') ...[
                   _buildExamPerformanceDeltas(ref, colors.surface, colors.secondary),
@@ -408,38 +563,60 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
                   const SizedBox(height: 24),
 
-                  // Middle Charts Row (60% Weekly / 40% Subject Donut)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 6,
-                        child: _buildDesktopWeeklyHistogram(colors, sessions),
-                      ),
-                      const SizedBox(width: 24),
-                      Expanded(
-                        flex: 4,
-                        child: _buildDesktopSubjectDistribution(colors, sessions, enrolledCourses, isUni),
-                      ),
-                    ],
-                  ),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isNarrowDesktop = constraints.maxWidth < 960;
+                      if (isNarrowDesktop) {
+                        return Column(
+                          children: [
+                            _buildDesktopWeeklyHistogram(colors, sessions),
+                            const SizedBox(height: 24),
+                            _buildDesktopSubjectDistribution(colors, sessions, enrolledCourses, isUni),
+                            const SizedBox(height: 24),
+                            _buildDesktopCircadianRhythmCard(colors, sessions),
+                            const SizedBox(height: 24),
+                            _buildDesktopStudyRigorMatrixCard(colors, recentSessions, attendanceRecords, isUni, weeksCount: 12),
+                          ],
+                        );
+                      }
+                      return Column(
+                        children: [
+                          // Middle Charts Row (60% Weekly / 40% Subject Donut)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 6,
+                                child: _buildDesktopWeeklyHistogram(colors, sessions),
+                              ),
+                              const SizedBox(width: 24),
+                              Expanded(
+                                flex: 4,
+                                child: _buildDesktopSubjectDistribution(colors, sessions, enrolledCourses, isUni),
+                              ),
+                            ],
+                          ),
 
-                  const SizedBox(height: 24),
+                          const SizedBox(height: 24),
 
-                  // Bottom Timeline & Heatmap Row (60% Circadian / 40% Rigor Matrix)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 6,
-                        child: _buildDesktopCircadianRhythmCard(colors, sessions),
-                      ),
-                      const SizedBox(width: 24),
-                      Expanded(
-                        flex: 4,
-                        child: _buildDesktopStudyRigorMatrixCard(colors, recentSessions, attendanceRecords, isUni, weeksCount: 12),
-                      ),
-                    ],
+                          // Bottom Timeline & Heatmap Row (60% Circadian / 40% Rigor Matrix)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 6,
+                                child: _buildDesktopCircadianRhythmCard(colors, sessions),
+                              ),
+                              const SizedBox(width: 24),
+                              Expanded(
+                                flex: 4,
+                                child: _buildDesktopStudyRigorMatrixCard(colors, recentSessions, attendanceRecords, isUni, weeksCount: 12),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
 
@@ -455,10 +632,26 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     );
   }
 
-  Widget _buildDesktopStatusHeader(ChondrobinduThemeColors colors, dynamic profile, bool isUni) {
+  Widget _buildDesktopStatusHeader(
+    ChondrobinduThemeColors colors,
+    dynamic profile,
+    bool isUni,
+    HolidaySettings? holidaySettings,
+  ) {
     String trackStr = 'UNIVERSITY TRACK';
     String termStr = profile?.term?.isNotEmpty == true ? 'TERM ${profile.term}' : 'TERM 24.2';
-    if (!isUni) {
+    String? weekStr;
+
+    if (isUni) {
+      if (holidaySettings?.semesterStart != null) {
+        final start = holidaySettings!.semesterStart!;
+        final diffDays = _currentAnchorDate.difference(DateTime(start.year, start.month, start.day)).inDays;
+        if (diffDays >= 0) {
+          final weekNum = (diffDays ~/ 7) + 1;
+          weekStr = 'WEEK ${weekNum.toString().padLeft(2, '0')} METRICS';
+        }
+      }
+    } else {
       if (profile?.institutionType == InstitutionType.college || profile?.isCollegeStudent == true) {
         trackStr = 'COLLEGE TRACK';
         termStr = 'HSC 2026';
@@ -467,6 +660,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         termStr = 'ENGINEERING TARGET';
       }
     }
+
+    final String pillText = weekStr != null
+        ? '$trackStr • $termStr • $weekStr'
+        : (isUni ? '$trackStr • $termStr • METRICS' : '$trackStr • $termStr');
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -491,7 +688,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                '$trackStr • $termStr • WEEK 04 METRICS',
+                pillText,
                 style: GoogleFonts.jetBrainsMono(
                   color: colors.primary,
                   fontSize: 11,
@@ -649,28 +846,39 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.chevron_left_rounded, size: 18),
-                      color: colors.textMuted,
+                      color: _canStepBack ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                      onPressed: () => _stepDateRange(-1),
+                      onPressed: _canStepBack ? () => _stepDateRange(-1) : null,
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text(
-                        _dateRangeLabel,
-                        style: GoogleFonts.jetBrainsMono(
-                          color: colors.textPrimary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                    InkWell(
+                      onTap: () => _openPeriodPickerModal(context),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.calendar_month_rounded, size: 14, color: colors.secondary),
+                            const SizedBox(width: 6),
+                            Text(
+                              _dateRangeLabel,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: colors.textPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.chevron_right_rounded, size: 18),
-                      color: colors.textMuted,
+                      color: _canStepForward ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                      onPressed: () => _stepDateRange(1),
+                      onPressed: _canStepForward ? () => _stepDateRange(1) : null,
                     ),
                   ],
                 ),
@@ -745,61 +953,85 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final int streakDays = profile?.streakDays ?? 0;
     final String streakSubtitle = '$streakDays-day streak active';
 
-    return Row(
-      children: [
-        Expanded(
-          child: _kpiCard(
-            colors: colors,
-            title: 'TOTAL FOCUS TIME',
-            value: focusTimeStr,
-            badge: streakSubtitle,
-            badgeColor: colors.secondary,
-            icon: Icons.local_fire_department_rounded,
-            iconColor: colors.secondary,
-            iconBg: colors.secondary.withValues(alpha: 0.15),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _kpiCard(
-            colors: colors,
-            title: 'SESSIONS',
-            value: sessionCountStr,
-            badge: sessionSubtitle,
-            badgeColor: sessions.isNotEmpty ? colors.success : colors.textMuted,
-            icon: Icons.adjust_rounded,
-            iconColor: colors.success,
-            iconBg: colors.success.withValues(alpha: 0.15),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _kpiCard(
-            colors: colors,
-            title: 'MAX SINGLE SESSION',
-            value: maxSessionStr,
-            badge: longestCourse,
-            badgeColor: colors.primary,
-            icon: Icons.bolt_rounded,
-            iconColor: colors.primary,
-            iconBg: colors.primary.withValues(alpha: 0.15),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _kpiCard(
-            colors: colors,
-            title: 'AVG DAILY FOCUS',
-            value: avgDailyStr,
-            badge: '$targetPct% of 1.0h daily target',
-            badgeColor: colors.textMuted,
-            icon: Icons.schedule_rounded,
-            iconColor: colors.primary,
-            iconBg: colors.recessed,
-            progressFactor: safeRatio(avgDailySec, 3600.0),
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 960;
+        final kpi1 = _kpiCard(
+          colors: colors,
+          title: 'TOTAL FOCUS TIME',
+          value: focusTimeStr,
+          badge: streakSubtitle,
+          badgeColor: colors.secondary,
+          icon: Icons.local_fire_department_rounded,
+          iconColor: colors.secondary,
+          iconBg: colors.secondary.withValues(alpha: 0.15),
+        );
+        final kpi2 = _kpiCard(
+          colors: colors,
+          title: 'SESSIONS',
+          value: sessionCountStr,
+          badge: sessionSubtitle,
+          badgeColor: sessions.isNotEmpty ? colors.success : colors.textMuted,
+          icon: Icons.adjust_rounded,
+          iconColor: colors.success,
+          iconBg: colors.success.withValues(alpha: 0.15),
+        );
+        final kpi3 = _kpiCard(
+          colors: colors,
+          title: 'MAX SINGLE SESSION',
+          value: maxSessionStr,
+          badge: longestCourse,
+          badgeColor: colors.primary,
+          icon: Icons.bolt_rounded,
+          iconColor: colors.primary,
+          iconBg: colors.primary.withValues(alpha: 0.15),
+        );
+        final kpi4 = _kpiCard(
+          colors: colors,
+          title: 'AVG DAILY FOCUS',
+          value: avgDailyStr,
+          badge: '$targetPct% of 1.0h daily target',
+          badgeColor: colors.textMuted,
+          icon: Icons.schedule_rounded,
+          iconColor: colors.primary,
+          iconBg: colors.recessed,
+          progressFactor: safeRatio(avgDailySec, 3600.0),
+        );
+
+        if (isNarrow) {
+          return Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(child: kpi1),
+                  const SizedBox(width: 16),
+                  Expanded(child: kpi2),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(child: kpi3),
+                  const SizedBox(width: 16),
+                  Expanded(child: kpi4),
+                ],
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: kpi1),
+            const SizedBox(width: 16),
+            Expanded(child: kpi2),
+            const SizedBox(width: 16),
+            Expanded(child: kpi3),
+            const SizedBox(width: 16),
+            Expanded(child: kpi4),
+          ],
+        );
+      },
     );
   }
 
@@ -1295,128 +1527,128 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               ),
             )
           else
-            Row(
-              children: [
-                SizedBox(
-                  width: 160,
-                  height: 160,
-                  child: Stack(
-                    alignment: Alignment.center,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isStacked = constraints.maxWidth < 380;
+                if (isStacked) {
+                  return Column(
                     children: [
-                      CustomPaint(
-                        size: const Size(160, 160),
-                        painter: _DonutChartPainter(
-                          values: allocationList.map((e) => (e['seconds'] as int).toDouble()).toList(),
-                          colors: allocationList.map((e) => e['color'] as Color).toList(),
-                          trackColor: colors.recessed,
-                          strokeWidth: 16,
-                        ),
-                      ),
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            focusTimeStr,
-                            style: GoogleFonts.jetBrainsMono(
-                              color: colors.textPrimary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'TOTAL FOCUS',
-                            style: GoogleFonts.jetBrainsMono(
-                              color: colors.textMuted,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(width: 24),
-
-                Expanded(
-                  child: Column(
-                    children: allocationList.take(4).map((item) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10.0),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: colors.recessed,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: colors.surfaceBorder),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: item['color'] as Color,
-                                  shape: BoxShape.circle,
+                      SizedBox(
+                        height: 160,
+                        child: Center(
+                          child: SizedBox(
+                            width: 150,
+                            height: 150,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                CustomPaint(
+                                  size: const Size(150, 150),
+                                  painter: _DonutChartPainter(
+                                    values: allocationList.map((e) => (e['seconds'] as int).toDouble()).toList(),
+                                    colors: allocationList.map((e) => e['color'] as Color).toList(),
+                                    trackColor: colors.recessed,
+                                    strokeWidth: 15,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      item['code'] as String,
-                                      style: GoogleFonts.plusJakartaSans(
+                                      focusTimeStr,
+                                      style: GoogleFonts.jetBrainsMono(
                                         color: colors.textPrimary,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w800,
                                       ),
                                     ),
+                                    const SizedBox(height: 2),
                                     Text(
-                                      item['title'] as String,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.plusJakartaSans(
+                                      'TOTAL FOCUS',
+                                      style: GoogleFonts.jetBrainsMono(
                                         color: colors.textMuted,
-                                        fontSize: 10.5,
+                                        fontSize: 8.5,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 1.0,
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    '${item['pct']}%',
-                                    style: GoogleFonts.jetBrainsMono(
-                                      color: item['color'] as Color,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  Text(
-                                    item['hoursStr'] as String,
-                                    style: GoogleFonts.jetBrainsMono(
-                                      color: colors.textMuted,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      );
-                    }).toList(),
+                      ),
+                      const SizedBox(height: 14),
+                      Column(
+                        children: allocationList.take(4).map((item) {
+                          return _buildCourseLegendItem(colors, item);
+                        }).toList(),
+                      ),
+                    ],
+                  );
+                }
+
+                return SizedBox(
+                  height: 220,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 160,
+                        height: 160,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CustomPaint(
+                              size: const Size(160, 160),
+                              painter: _DonutChartPainter(
+                                values: allocationList.map((e) => (e['seconds'] as int).toDouble()).toList(),
+                                colors: allocationList.map((e) => e['color'] as Color).toList(),
+                                trackColor: colors.recessed,
+                                strokeWidth: 16,
+                              ),
+                            ),
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  focusTimeStr,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: colors.textPrimary,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'TOTAL FOCUS',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: colors.textMuted,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            children: allocationList.take(4).map((item) {
+                              return _buildCourseLegendItem(colors, item);
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                );
+              },
             ),
 
           const SizedBox(height: 12),
@@ -1846,8 +2078,11 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
           const SizedBox(height: 14),
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               Text(
                 'Weeks W01 – W12',
@@ -1857,6 +2092,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 ),
               ),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text('Less', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10)),
                   const SizedBox(width: 6),
@@ -2014,6 +2250,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
     final coursesAsync = ref.watch(coursesStreamProvider);
     final enrolledCourses = coursesAsync.value ?? [];
+    final holidaySettings = ref.watch(holidaySettingsStreamProvider).valueOrNull;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -2024,7 +2261,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildMobileStatusPill(colors, profile, isUni),
+              _buildMobileStatusPill(colors, profile, isUni, holidaySettings),
 
               const SizedBox(height: 12),
 
@@ -2085,10 +2322,26 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     );
   }
 
-  Widget _buildMobileStatusPill(ChondrobinduThemeColors colors, dynamic profile, bool isUni) {
+  Widget _buildMobileStatusPill(
+    ChondrobinduThemeColors colors,
+    dynamic profile,
+    bool isUni,
+    HolidaySettings? holidaySettings,
+  ) {
     String trackStr = 'UNIVERSITY TRACK';
     String termStr = profile?.term?.isNotEmpty == true ? 'TERM ${profile.term}' : 'TERM 24.2';
-    if (!isUni) {
+    String? weekStr;
+
+    if (isUni) {
+      if (holidaySettings?.semesterStart != null) {
+        final start = holidaySettings!.semesterStart!;
+        final diffDays = _currentAnchorDate.difference(DateTime(start.year, start.month, start.day)).inDays;
+        if (diffDays >= 0) {
+          final weekNum = (diffDays ~/ 7) + 1;
+          weekStr = 'WEEK ${weekNum.toString().padLeft(2, '0')}';
+        }
+      }
+    } else {
       if (profile?.institutionType == InstitutionType.college || profile?.isCollegeStudent == true) {
         trackStr = 'COLLEGE TRACK';
         termStr = 'HSC 2026';
@@ -2097,6 +2350,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         termStr = 'ENGINEERING';
       }
     }
+
+    final String pillText = weekStr != null
+        ? '$trackStr • $termStr • $weekStr'
+        : '$trackStr • $termStr';
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2123,7 +2380,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    '$trackStr • $termStr • WEEK 04',
+                    pillText,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.jetBrainsMono(
@@ -2257,29 +2514,45 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             children: [
               IconButton(
                 icon: const Icon(Icons.chevron_left_rounded, size: 20),
-                color: colors.textMuted,
+                color: _canStepBack ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                onPressed: () => _stepDateRange(-1),
+                onPressed: _canStepBack ? () => _stepDateRange(-1) : null,
               ),
               Flexible(
-                child: Text(
-                  _dateRangeLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.jetBrainsMono(
-                    color: colors.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                child: InkWell(
+                  onTap: () => _openPeriodPickerModal(context),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.calendar_month_rounded, size: 14, color: colors.secondary),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            _dateRangeLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
               IconButton(
                 icon: const Icon(Icons.chevron_right_rounded, size: 20),
-                color: colors.textMuted,
+                color: _canStepForward ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                onPressed: () => _stepDateRange(1),
+                onPressed: _canStepForward ? () => _stepDateRange(1) : null,
               ),
             ],
           ),
@@ -2709,73 +2982,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           // Stacked Course Breakdown Cards
           Column(
             children: allocationList.take(4).map((item) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: colors.recessed,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: colors.surfaceBorder),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: item['color'] as Color,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item['code'] as String,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: colors.textPrimary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Text(
-                            item['title'] as String,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: colors.textMuted,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '${item['pct']}%',
-                          style: GoogleFonts.jetBrainsMono(
-                            color: item['color'] as Color,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          item['hoursStr'] as String,
-                          style: GoogleFonts.jetBrainsMono(
-                            color: colors.textMuted,
-                            fontSize: 9.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
+              return _buildCourseLegendItem(colors, item);
             }).toList(),
           ),
         ],
@@ -3986,6 +4193,1037 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       if (val != null) return Color(0xFF000000 | val);
     }
     return null;
+  }
+
+  void _openPeriodPickerModal(BuildContext context) {
+    SafeHaptics.selectionClick();
+    final colors = AppColors.of(context);
+    final profile = ref.read(liveUserProfileProvider).value ?? ref.read(userProfileProvider);
+    final isUni = profile?.isUniversityStudent == true || profile?.institutionType == InstitutionType.university;
+    final minD = _minDate;
+    final maxD = _maxDate;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return _PeriodPickerModal(
+          colors: colors,
+          period: _selectedPeriod,
+          currentAnchor: _currentAnchorDate,
+          rangeStart: _rangeStart,
+          rangeEnd: _rangeEnd,
+          minDate: minD,
+          maxDate: maxD,
+          isUniversity: isUni,
+          trendStart: _customTrendStart,
+          trendEnd: _customTrendEnd,
+          onDaySelected: (date) {
+            setState(() {
+              _currentAnchorDate = date;
+            });
+          },
+          onWeekSelected: (saturday) {
+            setState(() {
+              _currentAnchorDate = saturday;
+            });
+          },
+          onMonthSelected: (monthDate) {
+            setState(() {
+              _currentAnchorDate = monthDate;
+            });
+          },
+          onTrendRangeSelected: (start, end) {
+            setState(() {
+              _customTrendStart = start;
+              _customTrendEnd = end;
+              _currentAnchorDate = end;
+            });
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildCourseLegendItem(ChondrobinduThemeColors colors, Map<String, dynamic> item) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: colors.recessed,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colors.surfaceBorder),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: item['color'] as Color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item['code'] as String,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    item['title'] as String,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textMuted,
+                      fontSize: 10.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${item['pct']}%',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: item['color'] as Color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  item['hoursStr'] as String,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.textMuted,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TRACK-BOUNDED PERIOD PICKER MODAL (DAY, WEEK, MONTH, TREND)
+// ---------------------------------------------------------------------------
+
+class _PeriodPickerModal extends StatelessWidget {
+  final ChondrobinduThemeColors colors;
+  final InsightPeriod period;
+  final DateTime currentAnchor;
+  final DateTime rangeStart;
+  final DateTime rangeEnd;
+  final DateTime minDate;
+  final DateTime maxDate;
+  final bool isUniversity;
+  final DateTime? trendStart;
+  final DateTime? trendEnd;
+  final ValueChanged<DateTime> onDaySelected;
+  final ValueChanged<DateTime> onWeekSelected;
+  final ValueChanged<DateTime> onMonthSelected;
+  final void Function(DateTime start, DateTime end) onTrendRangeSelected;
+
+  const _PeriodPickerModal({
+    required this.colors,
+    required this.period,
+    required this.currentAnchor,
+    required this.rangeStart,
+    required this.rangeEnd,
+    required this.minDate,
+    required this.maxDate,
+    required this.isUniversity,
+    required this.trendStart,
+    required this.trendEnd,
+    required this.onDaySelected,
+    required this.onWeekSelected,
+    required this.onMonthSelected,
+    required this.onTrendRangeSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    IconData headerIcon;
+    String headerTitle;
+    String headerSubtitle;
+
+    switch (period) {
+      case InsightPeriod.day:
+        headerIcon = Icons.today_rounded;
+        headerTitle = 'Select Study Date';
+        headerSubtitle = 'Bounded: ${DateFormat('d MMM yyyy').format(minDate)} – Today';
+        break;
+      case InsightPeriod.week:
+        headerIcon = Icons.calendar_view_week_rounded;
+        headerTitle = 'Select Academic Week';
+        headerSubtitle = 'Bangladesh Academic Week (Sat – Fri)';
+        break;
+      case InsightPeriod.month:
+        headerIcon = Icons.calendar_month_rounded;
+        headerTitle = 'Select Calendar Month';
+        headerSubtitle = 'Academic Year Overview';
+        break;
+      case InsightPeriod.trend:
+        headerIcon = Icons.tune_rounded;
+        headerTitle = 'Telemetry Trend Window';
+        headerSubtitle = 'Filter telemetry across custom timeframe';
+        break;
+    }
+
+    Widget content;
+    switch (period) {
+      case InsightPeriod.day:
+        content = _DayPickerContent(
+          colors: colors,
+          currentAnchor: currentAnchor,
+          minDate: minDate,
+          maxDate: maxDate,
+          onDaySelected: onDaySelected,
+        );
+        break;
+      case InsightPeriod.week:
+        content = _WeekPickerContent(
+          colors: colors,
+          currentRangeStart: rangeStart,
+          minDate: minDate,
+          maxDate: maxDate,
+          onWeekSelected: onWeekSelected,
+        );
+        break;
+      case InsightPeriod.month:
+        content = _MonthPickerContent(
+          colors: colors,
+          currentAnchor: currentAnchor,
+          minDate: minDate,
+          maxDate: maxDate,
+          onMonthSelected: onMonthSelected,
+        );
+        break;
+      case InsightPeriod.trend:
+        content = _TrendPickerContent(
+          colors: colors,
+          minDate: minDate,
+          maxDate: maxDate,
+          isUniversity: isUniversity,
+          trendStart: trendStart,
+          trendEnd: trendEnd,
+          onTrendRangeSelected: onTrendRangeSelected,
+        );
+        break;
+    }
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colors.surfaceBorder),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 28,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: colors.secondary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: colors.secondary.withValues(alpha: 0.3)),
+                          ),
+                          child: Icon(headerIcon, color: colors.secondary, size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                headerTitle,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: colors.textPrimary,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                headerSubtitle,
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: colors.textMuted,
+                                  fontSize: 10.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    color: colors.textMuted,
+                    onPressed: () => Navigator.pop(context),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Divider(color: colors.surfaceBorder, height: 1),
+              const SizedBox(height: 16),
+              content,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DayPickerContent extends StatefulWidget {
+  final ChondrobinduThemeColors colors;
+  final DateTime currentAnchor;
+  final DateTime minDate;
+  final DateTime maxDate;
+  final ValueChanged<DateTime> onDaySelected;
+
+  const _DayPickerContent({
+    required this.colors,
+    required this.currentAnchor,
+    required this.minDate,
+    required this.maxDate,
+    required this.onDaySelected,
+  });
+
+  @override
+  State<_DayPickerContent> createState() => _DayPickerContentState();
+}
+
+class _DayPickerContentState extends State<_DayPickerContent> {
+  late DateTime _browsedMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    _browsedMonth = DateTime(widget.currentAnchor.year, widget.currentAnchor.month, 1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = widget.colors;
+    final daysInMonth = DateTime(_browsedMonth.year, _browsedMonth.month + 1, 0).day;
+    final firstDayOffset = (_browsedMonth.weekday % 7 + 1) % 7;
+
+    final canStepBack = !DateTime(_browsedMonth.year, _browsedMonth.month, 1).isBefore(
+      DateTime(widget.minDate.year, widget.minDate.month, 1),
+    );
+    final canStepForward = !DateTime(_browsedMonth.year, _browsedMonth.month, 1).isAfter(
+      DateTime(widget.maxDate.year, widget.maxDate.month, 1),
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left_rounded, size: 20),
+              color: canStepBack ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
+              onPressed: canStepBack
+                  ? () {
+                      SafeHaptics.selectionClick();
+                      setState(() {
+                        _browsedMonth = DateTime(_browsedMonth.year, _browsedMonth.month - 1, 1);
+                      });
+                    }
+                  : null,
+            ),
+            Text(
+              DateFormat('MMMM yyyy').format(_browsedMonth),
+              style: GoogleFonts.jetBrainsMono(
+                color: colors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right_rounded, size: 20),
+              color: canStepForward ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
+              onPressed: canStepForward
+                  ? () {
+                      SafeHaptics.selectionClick();
+                      setState(() {
+                        _browsedMonth = DateTime(_browsedMonth.year, _browsedMonth.month + 1, 1);
+                      });
+                    }
+                  : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((d) {
+            return SizedBox(
+              width: 36,
+              child: Text(
+                d,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 8),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: firstDayOffset + daysInMonth,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            mainAxisSpacing: 4,
+            crossAxisSpacing: 4,
+            childAspectRatio: 1.0,
+          ),
+          itemBuilder: (context, index) {
+            if (index < firstDayOffset) {
+              return const SizedBox();
+            }
+            final day = index - firstDayOffset + 1;
+            final date = DateTime(_browsedMonth.year, _browsedMonth.month, day);
+            final isBeforeMin = date.isBefore(widget.minDate);
+            final isAfterMax = date.isAfter(widget.maxDate);
+            final isDisabled = isBeforeMin || isAfterMax;
+            final isSelected = isSameDay(date, widget.currentAnchor);
+            final isToday = isSameDay(date, DateTime.now());
+
+            return InkWell(
+              onTap: isDisabled
+                  ? null
+                  : () {
+                      SafeHaptics.selectionClick();
+                      widget.onDaySelected(date);
+                      Navigator.pop(context);
+                    },
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? colors.secondary
+                      : (isToday ? colors.primary.withValues(alpha: 0.15) : Colors.transparent),
+                  borderRadius: BorderRadius.circular(6),
+                  border: isToday && !isSelected
+                      ? Border.all(color: colors.primary.withValues(alpha: 0.6))
+                      : null,
+                ),
+                child: Text(
+                  '$day',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: isSelected
+                        ? const Color(0xFF171C24)
+                        : (isDisabled ? colors.textMuted.withValues(alpha: 0.3) : colors.textPrimary),
+                    fontSize: 12,
+                    fontWeight: isSelected || isToday ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _WeekPickerContent extends StatefulWidget {
+  final ChondrobinduThemeColors colors;
+  final DateTime currentRangeStart;
+  final DateTime minDate;
+  final DateTime maxDate;
+  final ValueChanged<DateTime> onWeekSelected;
+
+  const _WeekPickerContent({
+    required this.colors,
+    required this.currentRangeStart,
+    required this.minDate,
+    required this.maxDate,
+    required this.onWeekSelected,
+  });
+
+  @override
+  State<_WeekPickerContent> createState() => _WeekPickerContentState();
+}
+
+class _WeekPickerContentState extends State<_WeekPickerContent> {
+  late DateTime _browsedMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    _browsedMonth = DateTime(widget.currentRangeStart.year, widget.currentRangeStart.month, 1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = widget.colors;
+    final canStepBack = !DateTime(_browsedMonth.year, _browsedMonth.month, 1).isBefore(
+      DateTime(widget.minDate.year, widget.minDate.month, 1),
+    );
+    final canStepForward = !DateTime(_browsedMonth.year, _browsedMonth.month, 1).isAfter(
+      DateTime(widget.maxDate.year, widget.maxDate.month, 1),
+    );
+
+    final firstDayOfMonth = DateTime(_browsedMonth.year, _browsedMonth.month, 1);
+    final lastDayOfMonth = DateTime(_browsedMonth.year, _browsedMonth.month + 1, 0);
+
+    final firstSaturdayOffset = (firstDayOfMonth.weekday % 7 + 1) % 7;
+    var currentSat = firstDayOfMonth.subtract(Duration(days: firstSaturdayOffset));
+
+    final List<({DateTime start, DateTime end})> weeks = [];
+    while (currentSat.isBefore(lastDayOfMonth) || isSameDay(currentSat, lastDayOfMonth)) {
+      final weekEnd = currentSat.add(const Duration(days: 6));
+      weeks.add((start: currentSat, end: weekEnd));
+      currentSat = currentSat.add(const Duration(days: 7));
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left_rounded, size: 20),
+              color: canStepBack ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
+              onPressed: canStepBack
+                  ? () {
+                      SafeHaptics.selectionClick();
+                      setState(() {
+                        _browsedMonth = DateTime(_browsedMonth.year, _browsedMonth.month - 1, 1);
+                      });
+                    }
+                  : null,
+            ),
+            Text(
+              DateFormat('MMMM yyyy').format(_browsedMonth),
+              style: GoogleFonts.jetBrainsMono(
+                color: colors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right_rounded, size: 20),
+              color: canStepForward ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
+              onPressed: canStepForward
+                  ? () {
+                      SafeHaptics.selectionClick();
+                      setState(() {
+                        _browsedMonth = DateTime(_browsedMonth.year, _browsedMonth.month + 1, 1);
+                      });
+                    }
+                  : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: weeks.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 6),
+          itemBuilder: (context, index) {
+            final w = weeks[index];
+            final isSelected = isSameDay(w.start, widget.currentRangeStart);
+            final isDisabled = w.start.isAfter(widget.maxDate) || w.end.isBefore(widget.minDate);
+            final label = '${DateFormat('d MMM').format(w.start)} – ${DateFormat('d MMM yyyy').format(w.end)}';
+
+            return InkWell(
+              onTap: isDisabled
+                  ? null
+                  : () {
+                      SafeHaptics.selectionClick();
+                      widget.onWeekSelected(w.start);
+                      Navigator.pop(context);
+                    },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? colors.secondary.withValues(alpha: 0.2)
+                      : (isDisabled ? colors.recessed.withValues(alpha: 0.4) : colors.recessed),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSelected ? colors.secondary : colors.surfaceBorder,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          isSelected ? Icons.check_circle_rounded : Icons.calendar_view_week_rounded,
+                          size: 16,
+                          color: isSelected ? colors.secondary : colors.primary,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          label,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: isSelected
+                                ? colors.secondary
+                                : (isDisabled ? colors.textMuted.withValues(alpha: 0.3) : colors.textPrimary),
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (isSelected)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colors.secondary,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'ACTIVE',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: const Color(0xFF171C24),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _MonthPickerContent extends StatefulWidget {
+  final ChondrobinduThemeColors colors;
+  final DateTime currentAnchor;
+  final DateTime minDate;
+  final DateTime maxDate;
+  final ValueChanged<DateTime> onMonthSelected;
+
+  const _MonthPickerContent({
+    required this.colors,
+    required this.currentAnchor,
+    required this.minDate,
+    required this.maxDate,
+    required this.onMonthSelected,
+  });
+
+  @override
+  State<_MonthPickerContent> createState() => _MonthPickerContentState();
+}
+
+class _MonthPickerContentState extends State<_MonthPickerContent> {
+  late int _browsedYear;
+
+  @override
+  void initState() {
+    super.initState();
+    _browsedYear = widget.currentAnchor.year;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = widget.colors;
+    final canStepBack = _browsedYear > widget.minDate.year;
+    final canStepForward = _browsedYear < widget.maxDate.year;
+
+    final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left_rounded, size: 20),
+              color: canStepBack ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
+              onPressed: canStepBack
+                  ? () {
+                      SafeHaptics.selectionClick();
+                      setState(() {
+                        _browsedYear--;
+                      });
+                    }
+                  : null,
+            ),
+            Text(
+              '$_browsedYear',
+              style: GoogleFonts.jetBrainsMono(
+                color: colors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right_rounded, size: 20),
+              color: canStepForward ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
+              onPressed: canStepForward
+                  ? () {
+                      SafeHaptics.selectionClick();
+                      setState(() {
+                        _browsedYear++;
+                      });
+                    }
+                  : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: 12,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 2.2,
+          ),
+          itemBuilder: (context, index) {
+            final monthIndex = index + 1;
+            final monthStart = DateTime(_browsedYear, monthIndex, 1);
+            final monthEnd = DateTime(_browsedYear, monthIndex + 1, 0);
+
+            final isDisabled = monthEnd.isBefore(widget.minDate) || monthStart.isAfter(widget.maxDate);
+            final isSelected = _browsedYear == widget.currentAnchor.year && monthIndex == widget.currentAnchor.month;
+
+            return InkWell(
+              onTap: isDisabled
+                  ? null
+                  : () {
+                      SafeHaptics.selectionClick();
+                      final selected = monthStart.isAfter(widget.maxDate) ? widget.maxDate : monthStart;
+                      widget.onMonthSelected(selected);
+                      Navigator.pop(context);
+                    },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? colors.secondary
+                      : (isDisabled ? colors.recessed.withValues(alpha: 0.4) : colors.recessed),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSelected ? colors.secondary : colors.surfaceBorder,
+                  ),
+                ),
+                child: Text(
+                  monthNames[index],
+                  style: GoogleFonts.jetBrainsMono(
+                    color: isSelected
+                        ? const Color(0xFF171C24)
+                        : (isDisabled ? colors.textMuted.withValues(alpha: 0.3) : colors.textPrimary),
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _TrendPickerContent extends StatefulWidget {
+  final ChondrobinduThemeColors colors;
+  final DateTime minDate;
+  final DateTime maxDate;
+  final bool isUniversity;
+  final DateTime? trendStart;
+  final DateTime? trendEnd;
+  final void Function(DateTime start, DateTime end) onTrendRangeSelected;
+
+  const _TrendPickerContent({
+    required this.colors,
+    required this.minDate,
+    required this.maxDate,
+    required this.isUniversity,
+    required this.trendStart,
+    required this.trendEnd,
+    required this.onTrendRangeSelected,
+  });
+
+  @override
+  State<_TrendPickerContent> createState() => _TrendPickerContentState();
+}
+
+class _TrendPickerContentState extends State<_TrendPickerContent> {
+  late DateTime _startDate;
+  late DateTime _endDate;
+  bool _isCustom = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _endDate = widget.trendEnd ?? widget.maxDate;
+    _startDate = widget.trendStart ?? _endDate.subtract(const Duration(days: 29));
+    if (_startDate.isBefore(widget.minDate)) {
+      _startDate = widget.minDate;
+    }
+  }
+
+  void _applyPreset(int days, {bool sinceStart = false}) {
+    SafeHaptics.selectionClick();
+    DateTime start;
+    if (sinceStart) {
+      start = widget.minDate;
+    } else {
+      start = widget.maxDate.subtract(Duration(days: days - 1));
+      if (start.isBefore(widget.minDate)) {
+        start = widget.minDate;
+      }
+    }
+    widget.onTrendRangeSelected(start, widget.maxDate);
+    Navigator.pop(context);
+  }
+
+  Future<void> _pickDate(bool isStart) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: isStart ? _startDate : _endDate,
+      firstDate: isStart ? widget.minDate : _startDate,
+      lastDate: isStart ? _endDate : widget.maxDate,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+                  primary: widget.colors.secondary,
+                  surface: widget.colors.surface,
+                ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          _startDate = picked;
+        } else {
+          _endDate = picked;
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = widget.colors;
+    final sinceStartLabel = widget.isUniversity ? 'Since Semester Start' : 'Since Joined';
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'QUICK PRESETS',
+          style: GoogleFonts.jetBrainsMono(
+            color: colors.textMuted,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.8,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _presetChip(colors, 'Last 7 Days', () => _applyPreset(7)),
+            _presetChip(colors, 'Last 14 Days', () => _applyPreset(14)),
+            _presetChip(colors, 'Last 30 Days', () => _applyPreset(30)),
+            _presetChip(colors, sinceStartLabel, () => _applyPreset(0, sinceStart: true)),
+            _presetChip(colors, 'Custom Range', () {
+              SafeHaptics.selectionClick();
+              setState(() => _isCustom = true);
+            }, isHighlighted: _isCustom),
+          ],
+        ),
+        if (_isCustom) ...[
+          const SizedBox(height: 20),
+          Divider(color: colors.surfaceBorder, height: 1),
+          const SizedBox(height: 16),
+          Text(
+            'CUSTOM DATE WINDOW',
+            style: GoogleFonts.jetBrainsMono(
+              color: colors.textMuted,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => _pickDate(true),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: colors.recessed,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colors.surfaceBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'START DATE',
+                          style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 9.5),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          DateFormat('d MMM yyyy').format(_startDate),
+                          style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Icon(Icons.arrow_forward_rounded, color: colors.textMuted, size: 16),
+              const SizedBox(width: 10),
+              Expanded(
+                child: InkWell(
+                  onTap: () => _pickDate(false),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: colors.recessed,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colors.surfaceBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'END DATE',
+                          style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 9.5),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          DateFormat('d MMM yyyy').format(_endDate),
+                          style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colors.secondary,
+                foregroundColor: const Color(0xFF171C24),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: () {
+                SafeHaptics.selectionClick();
+                widget.onTrendRangeSelected(_startDate, _endDate);
+                Navigator.pop(context);
+              },
+              icon: const Icon(Icons.check_rounded, size: 18),
+              label: Text(
+                'Apply Custom Window',
+                style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _presetChip(ChondrobinduThemeColors colors, String label, VoidCallback onTap, {bool isHighlighted = false}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isHighlighted ? colors.secondary.withValues(alpha: 0.2) : colors.recessed,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isHighlighted ? colors.secondary : colors.surfaceBorder,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.jetBrainsMono(
+            color: isHighlighted ? colors.secondary : colors.textPrimary,
+            fontSize: 11.5,
+            fontWeight: isHighlighted ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
   }
 }
 
