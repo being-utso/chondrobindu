@@ -1858,20 +1858,27 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.trending_up_rounded, color: Color(0xFFF2B78A), size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Performance Trends',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+              const Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.trending_up_rounded, color: Color(0xFFF2B78A), size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Performance Trends',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Text(
                 '${completedExams.length} Exams Logged',
                 style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
@@ -5324,10 +5331,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       }
     }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Container(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 750;
+        final leftPill = Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: colors.surface,
@@ -5357,8 +5364,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               ),
             ],
           ),
-        ),
-        Row(
+        );
+
+        final rightSync = Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.verified_rounded, size: 16, color: colors.primary),
             const SizedBox(width: 6),
@@ -5372,8 +5381,27 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               ),
             ),
           ],
-        ),
-      ],
+        );
+
+        if (isNarrow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              leftPill,
+              const SizedBox(height: 8),
+              rightSync,
+            ],
+          );
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            leftPill,
+            rightSync,
+          ],
+        );
+      },
     );
   }
 
@@ -5690,6 +5718,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           const SizedBox(height: 12),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.jetBrainsMono(
               color: colors.textPrimary,
               fontSize: 26,
@@ -5697,7 +5727,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          if (progressFactor != null) ...[
+          if (progressFactor != null && !progressFactor.isNaN && !progressFactor.isInfinite) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(2),
               child: LinearProgressIndicator(
@@ -5740,7 +5770,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final double totalWeekHours = totalWeekSec / 3600.0;
     final double variance = totalWeekHours - 7.0;
     final int weekPct = ((totalWeekHours / 7.0) * 100).round().clamp(0, 999);
-    final double maxScale = math.max(3.0, (peakVal * 1.15).ceilToDouble());
+    final double maxScale = math.max(3.0, (peakVal.isNaN ? 0.0 : peakVal * 1.15).ceilToDouble());
+    final safeMaxScale = (maxScale.isNaN || maxScale.isInfinite || maxScale <= 0) ? 3.0 : maxScale;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -5876,7 +5907,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         final double hrs = d['hours'] as double;
                         final String day = d['day'] as String;
                         final bool isPeak = peakVal > 0 && hrs == peakVal;
-                        final double heightFactor = (hrs / maxScale).clamp(0.02, 1.0);
+                        final double heightFactor = (safeMaxScale > 0 && !hrs.isNaN && hrs > 0)
+                            ? (hrs / safeMaxScale).clamp(0.02, 1.0)
+                            : 0.02;
+                        final double safeHeight = (140 * heightFactor).clamp(4.0, 140.0);
 
                         return Column(
                           mainAxisAlignment: MainAxisAlignment.end,
@@ -5892,7 +5926,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                             const SizedBox(height: 6),
                             Container(
                               width: 36,
-                              height: 140 * heightFactor,
+                              height: safeHeight,
                               decoration: BoxDecoration(
                                 color: isPeak ? colors.secondary : colors.primary.withValues(alpha: 0.65),
                                 borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
@@ -6342,6 +6376,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           LayoutBuilder(
             builder: (context, constraints) {
               final width = constraints.maxWidth;
+              if (width <= 0 || width.isNaN || width.isInfinite) {
+                return const SizedBox(height: 48);
+              }
               return Container(
                 height: 48,
                 decoration: BoxDecoration(
@@ -6374,7 +6411,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         final startM = (s.startedAt.hour * 60 + s.startedAt.minute).clamp(0, 1440);
                         final durM = math.max(15, (s.durationSeconds / 60).round());
                         final left = (startM / 1440.0) * width;
-                        final blockWidth = math.max(28.0, (durM / 1440.0) * width);
+                        final safeBlockWidth = math.min(width, math.max(20.0, (durM / 1440.0) * width));
+                        final maxLeft = math.max(0.0, width - safeBlockWidth);
+                        final safeLeft = (left.isNaN || left.isInfinite) ? 0.0 : left.clamp(0.0, maxLeft);
 
                         Color blockColor;
                         if (s.startedAt.hour < 12) {
@@ -6386,8 +6425,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         }
 
                         return Positioned(
-                          left: left.clamp(0.0, width - blockWidth),
-                          width: blockWidth,
+                          left: safeLeft,
+                          width: safeBlockWidth,
                           top: 6,
                           bottom: 6,
                           child: Tooltip(
@@ -6495,11 +6534,11 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final List<List<Map<String, dynamic>>> grid = matrixData['grid'] as List<List<Map<String, dynamic>>>;
     final int activeDays = matrixData['activeDays'] as int;
 
-    String attendanceStr = '91.2% Attendance Correlation';
+    String attendanceStr = isUni ? 'No attendance records yet' : 'No attendance data';
     if (attendanceRecords.isNotEmpty) {
       final attended = attendanceRecords.where((r) => r.isPresent == true).length;
       final pct = (attended / attendanceRecords.length * 100).toStringAsFixed(1);
-      attendanceStr = '$pct% Attendance Correlation';
+      attendanceStr = '$pct% Attendance Logged';
     }
 
     final dayLabels = ['S', 'S', 'M', 'T', 'W', 'T', 'F'];
@@ -6734,30 +6773,69 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: colors.surfaceBorder),
       ),
-      child: Row(
-        children: [
-          Icon(Icons.architecture_rounded, size: 16, color: colors.primary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'ATELIER SPECIFICATION: CHONDROBINDU CORE 2.4 — FORMAL PROOF & REASONING SYSTEM',
-              style: GoogleFonts.jetBrainsMono(
-                color: colors.textMuted,
-                fontSize: 10.5,
-                letterSpacing: 0.5,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 650;
+          if (isNarrow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.architecture_rounded, size: 16, color: colors.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'ATELIER SPECIFICATION: CHONDROBINDU CORE 2.4 — FORMAL PROOF & REASONING SYSTEM',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: colors.textMuted,
+                          fontSize: 10.5,
+                          letterSpacing: 0.5,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'SESSION ENGINE: DETERMINISTIC REAL-TIME SYNC',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.textMuted,
+                    fontSize: 10.5,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Icon(Icons.architecture_rounded, size: 16, color: colors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'ATELIER SPECIFICATION: CHONDROBINDU CORE 2.4 — FORMAL PROOF & REASONING SYSTEM',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.textMuted,
+                    fontSize: 10.5,
+                    letterSpacing: 0.5,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Text(
-            'SESSION ENGINE: DETERMINISTIC REAL-TIME SYNC',
-            style: GoogleFonts.jetBrainsMono(
-              color: colors.textMuted,
-              fontSize: 10.5,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
+              const SizedBox(width: 12),
+              Text(
+                'SESSION ENGINE: DETERMINISTIC REAL-TIME SYNC',
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.textMuted,
+                  fontSize: 10.5,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -7210,7 +7288,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       }
     }
 
-    final double maxScale = math.max(3.0, (peakVal * 1.15).ceilToDouble());
+    final double maxScale = math.max(3.0, (peakVal.isNaN ? 0.0 : peakVal * 1.15).ceilToDouble());
+    final safeMaxScale = (maxScale.isNaN || maxScale.isInfinite || maxScale <= 0) ? 3.0 : maxScale;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -7306,7 +7385,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         final double hrs = d['hours'] as double;
                         final String day = d['day'] as String;
                         final bool isPeak = peakVal > 0 && hrs == peakVal;
-                        final double heightFactor = (hrs / maxScale).clamp(0.02, 1.0);
+                        final double heightFactor = (safeMaxScale > 0 && !hrs.isNaN && hrs > 0)
+                            ? (hrs / safeMaxScale).clamp(0.02, 1.0)
+                            : 0.02;
+                        final double safeHeight = (90 * heightFactor).clamp(4.0, 90.0);
 
                         return Column(
                           mainAxisAlignment: MainAxisAlignment.end,
@@ -7322,7 +7404,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                             const SizedBox(height: 4),
                             Container(
                               width: 22,
-                              height: 90 * heightFactor,
+                              height: safeHeight,
                               decoration: BoxDecoration(
                                 color: isPeak ? colors.secondary : colors.primary.withValues(alpha: 0.65),
                                 borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
@@ -7604,6 +7686,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           LayoutBuilder(
             builder: (context, constraints) {
               final width = constraints.maxWidth;
+              if (width <= 0 || width.isNaN || width.isInfinite) {
+                return const SizedBox(height: 38);
+              }
               return Container(
                 height: 38,
                 decoration: BoxDecoration(
@@ -7626,7 +7711,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         final startM = (s.startedAt.hour * 60 + s.startedAt.minute).clamp(0, 1440);
                         final durM = math.max(15, (s.durationSeconds / 60).round());
                         final left = (startM / 1440.0) * width;
-                        final blockWidth = math.max(22.0, (durM / 1440.0) * width);
+                        final safeBlockWidth = math.min(width, math.max(16.0, (durM / 1440.0) * width));
+                        final maxLeft = math.max(0.0, width - safeBlockWidth);
+                        final safeLeft = (left.isNaN || left.isInfinite) ? 0.0 : left.clamp(0.0, maxLeft);
 
                         Color blockColor;
                         if (s.startedAt.hour < 12) {
@@ -7638,8 +7725,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         }
 
                         return Positioned(
-                          left: left.clamp(0.0, width - blockWidth),
-                          width: blockWidth,
+                          left: safeLeft,
+                          width: safeBlockWidth,
                           top: 4,
                           bottom: 4,
                           child: Container(
@@ -7880,14 +7967,19 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                isUni ? 'Course Focus Breakdown' : 'Subject Focus Breakdown',
-                style: GoogleFonts.plusJakartaSans(
-                  color: colors.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Text(
+                  isUni ? 'Course Focus Breakdown' : 'Subject Focus Breakdown',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: colors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               Text(
                 '${enrolledCourses.length} Enrolled',
                 style: GoogleFonts.jetBrainsMono(
@@ -8008,14 +8100,19 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Assessment Performance Ledger',
-                style: GoogleFonts.plusJakartaSans(
-                  color: colors.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Text(
+                  'Assessment Performance Ledger',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: colors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               Text(
                 '${allExams.length} Total Exams',
                 style: GoogleFonts.jetBrainsMono(
@@ -8072,23 +8169,30 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.plusJakartaSans(
-                  color: colors.textPrimary,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: colors.textPrimary,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-              Text(
-                date,
-                style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5),
-              ),
-            ],
+                Text(
+                  date,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5),
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 12),
           Text(
             score,
             style: GoogleFonts.jetBrainsMono(
@@ -8134,91 +8238,183 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 650) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Target CGPA & Cutoff Planner',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: colors.textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Forecast minimum grades needed across remaining credits to achieve your graduation goal.',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: colors.textMuted,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colors.secondary,
+                            foregroundColor: const Color(0xFF171C24),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            elevation: 0,
+                          ),
+                          onPressed: () {
+                            SafeHaptics.mediumImpact();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => TermPerformanceScreen(
+                                  universityName: uniStr,
+                                  term: termStr,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.calculate_rounded, size: 16),
+                          label: Text(
+                            'Launch Interactive Simulator',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Target CGPA & Cutoff Planner',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: colors.textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Target CGPA & Cutoff Planner',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: colors.textPrimary,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Forecast minimum grades needed across remaining credits to achieve your graduation goal.',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: colors.textMuted,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Forecast minimum grades needed across remaining credits to achieve your graduation goal.',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: colors.textMuted,
-                          fontSize: 12.5,
+                      const SizedBox(width: 16),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colors.secondary,
+                          foregroundColor: const Color(0xFF171C24),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 0,
+                        ),
+                        onPressed: () {
+                          SafeHaptics.mediumImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TermPerformanceScreen(
+                                universityName: uniStr,
+                                term: termStr,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.calculate_rounded, size: 16),
+                        label: Text(
+                          'Launch Interactive Simulator',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700),
                         ),
                       ),
                     ],
-                  ),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colors.secondary,
-                      foregroundColor: const Color(0xFF171C24),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      elevation: 0,
-                    ),
-                    onPressed: () {
-                      SafeHaptics.mediumImpact();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => TermPerformanceScreen(
-                            universityName: uniStr,
-                            term: termStr,
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.calculate_rounded, size: 16),
-                    label: Text(
-                      'Launch Interactive Simulator',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ],
+                  );
+                },
               ),
               const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: _desktopForecasterStatCard(
-                      colors: colors,
-                      label: 'TARGET CGPA',
-                      value: profile.targetGpa > 0 ? profile.targetGpa.toStringAsFixed(2) : '3.80',
-                      subtext: 'Graduation Target',
-                      accent: colors.secondary,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _desktopForecasterStatCard(
-                      colors: colors,
-                      label: 'CURRENT LEVEL & TERM',
-                      value: 'Level $levelStr, Term $termStr',
-                      subtext: deptStr,
-                      accent: colors.success,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _desktopForecasterStatCard(
-                      colors: colors,
-                      label: 'SIMULATION SCALE',
-                      value: '4.00 Max',
-                      subtext: 'Standard University Scale',
-                      accent: colors.primary,
-                    ),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 650) {
+                    return Column(
+                      children: [
+                        _desktopForecasterStatCard(
+                          colors: colors,
+                          label: 'TARGET CGPA',
+                          value: profile.targetGpa > 0 ? profile.targetGpa.toStringAsFixed(2) : '3.80',
+                          subtext: 'Graduation Target',
+                          accent: colors.secondary,
+                        ),
+                        const SizedBox(height: 12),
+                        _desktopForecasterStatCard(
+                          colors: colors,
+                          label: 'CURRENT LEVEL & TERM',
+                          value: 'Level $levelStr, Term $termStr',
+                          subtext: deptStr,
+                          accent: colors.success,
+                        ),
+                        const SizedBox(height: 12),
+                        _desktopForecasterStatCard(
+                          colors: colors,
+                          label: 'SIMULATION SCALE',
+                          value: '4.00 Max',
+                          subtext: 'Standard University Scale',
+                          accent: colors.primary,
+                        ),
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: _desktopForecasterStatCard(
+                          colors: colors,
+                          label: 'TARGET CGPA',
+                          value: profile.targetGpa > 0 ? profile.targetGpa.toStringAsFixed(2) : '3.80',
+                          subtext: 'Graduation Target',
+                          accent: colors.secondary,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _desktopForecasterStatCard(
+                          colors: colors,
+                          label: 'CURRENT LEVEL & TERM',
+                          value: 'Level $levelStr, Term $termStr',
+                          subtext: deptStr,
+                          accent: colors.success,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _desktopForecasterStatCard(
+                          colors: colors,
+                          label: 'SIMULATION SCALE',
+                          value: '4.00 Max',
+                          subtext: 'Standard University Scale',
+                          accent: colors.primary,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -8235,6 +8431,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     required Color accent,
   }) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.recessed,
@@ -8246,6 +8443,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         children: [
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.jetBrainsMono(
               color: colors.textMuted,
               fontSize: 10.5,
@@ -8256,6 +8455,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           const SizedBox(height: 8),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.jetBrainsMono(
               color: accent,
               fontSize: 20,
@@ -8265,6 +8466,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           const SizedBox(height: 4),
           Text(
             subtext,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(
               color: colors.textMuted,
               fontSize: 11.5,
@@ -8308,27 +8511,33 @@ class _DonutChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+    final stroke = strokeWidth > 0 ? strokeWidth : 1.0;
+    final radius = (math.min(size.width, size.height) - stroke) / 2;
+    if (radius <= 0 || radius.isNaN || radius.isInfinite) return;
+
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = (math.min(size.width, size.height) - strokeWidth) / 2;
 
     // Background track
     final trackPaint = Paint()
       ..color = trackColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
+      ..strokeWidth = stroke;
     canvas.drawCircle(center, radius, trackPaint);
 
-    final total = values.fold<double>(0.0, (a, b) => a + b);
-    if (total <= 0) return;
+    final total = values.fold<double>(0.0, (a, b) => a + (b.isNaN || b.isInfinite ? 0.0 : b));
+    if (total <= 0 || total.isNaN || total.isInfinite) return;
 
     double startAngle = -math.pi / 2; // -90 deg (top)
     for (int i = 0; i < values.length; i++) {
-      final sweepAngle = (values[i] / total) * 2 * math.pi;
-      if (sweepAngle <= 0) continue;
+      final val = values[i];
+      if (val.isNaN || val.isInfinite || val <= 0) continue;
+      final sweepAngle = (val / total) * 2 * math.pi;
+      if (sweepAngle <= 0 || sweepAngle.isNaN || sweepAngle.isInfinite) continue;
       final paint = Paint()
         ..color = colors[i % colors.length]
         ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
+        ..strokeWidth = stroke
         ..strokeCap = StrokeCap.butt;
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
