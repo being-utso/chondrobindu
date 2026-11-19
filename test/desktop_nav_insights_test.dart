@@ -6,6 +6,8 @@ import 'package:chondrobindu/widgets/desktop_nav_bar.dart';
 import 'package:chondrobindu/screens/insights_screen.dart';
 import 'package:chondrobindu/providers/user_profile_provider.dart';
 import 'package:chondrobindu/providers/firestore_providers.dart';
+import 'package:chondrobindu/models/study_session_model.dart';
+import 'package:chondrobindu/models/course_model.dart';
 
 class FakeUserProfileNotifier extends StateNotifier<UserProfile> implements UserProfileNotifier {
   FakeUserProfileNotifier(super.state);
@@ -255,6 +257,87 @@ void main() {
       expect(chevronRight, findsOneWidget);
       await tester.tap(chevronRight);
       await tester.pumpAndSettle();
+    });
+
+    testWidgets('renders full desktop Insights layout (7/5 split, charts, circadian rhythm, rigor matrix) with study sessions', (tester) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final now = DateTime.now();
+      final sampleSessions = [
+        StudySession(
+          id: 's1',
+          courseId: 'cse109',
+          courseCode: 'CSE 109',
+          courseTitle: 'Computer Prog',
+          durationSeconds: 3600,
+          startedAt: DateTime(now.year, now.month, now.day, 10, 0),
+          endedAt: DateTime(now.year, now.month, now.day, 11, 0),
+        ),
+        StudySession(
+          id: 's2',
+          courseId: 'math159',
+          courseCode: 'MATH 159',
+          courseTitle: 'Calculus II',
+          durationSeconds: 7200,
+          startedAt: DateTime(now.year, now.month, now.day, 14, 0),
+          endedAt: DateTime(now.year, now.month, now.day, 16, 0),
+        ),
+      ];
+
+      const testProfile = UserProfile(
+        uid: 'uni-scholar-1',
+        email: 'scholar@buet.ac.bd',
+        displayName: 'Shahriyer',
+        institutionType: InstitutionType.university,
+        level: '2',
+        term: '24.2',
+        universityName: 'BUET',
+        department: 'CSE',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(testProfile)),
+            liveUserProfileProvider.overrideWith((ref) => Stream.value(testProfile)),
+            studySessionsRangeStreamProvider.overrideWith((ref, param) => Stream.value(sampleSessions)),
+            recentStudySessionsStreamProvider.overrideWith((ref) => Stream.value(sampleSessions)),
+            coursesStreamProvider.overrideWith((ref) => Stream.value(const [
+              Course(id: 'cse109', code: 'CSE 109', title: 'Computer Prog', credits: 3.0),
+              Course(id: 'math159', code: 'MATH 159', title: 'Calculus II', credits: 3.0),
+            ])),
+            attendanceRecordsStreamProvider.overrideWith((ref) => Stream.value([])),
+            upcomingAssessmentsStreamProvider.overrideWith((ref) => Stream.value([])),
+          ],
+          child: const MaterialApp(
+            home: InsightsScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      // Verify 1:1 Stitch structure
+      expect(find.textContaining('UNIVERSITY TRACK'), findsOneWidget);
+      expect(find.text('TOTAL FOCUS TIME'), findsOneWidget);
+      expect(find.text('3h 0m'), findsNWidgets(2)); // KPI card and Donut center
+      expect(find.text('SESSIONS'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('MAX SINGLE SESSION'), findsOneWidget);
+      expect(find.text('2h 0m'), findsNWidgets(2)); // KPI card and Course legend
+      expect(find.text('AVG DAILY FOCUS'), findsOneWidget);
+
+      // Verify sections
+      expect(find.text('Course Allocation'), findsOneWidget);
+      expect(find.text('Circadian Focus Rhythm'), findsOneWidget);
+      expect(find.text('Study Rigor Matrix'), findsOneWidget);
+      expect(find.text('ATELIER SPECIFICATION: CHONDROBINDU CORE 2.4 — FORMAL PROOF & REASONING SYSTEM'), findsOneWidget);
     });
 
     testWidgets('unmounting DesktopNavBar on breakpoint resize dismisses open popup menu barrier', (tester) async {

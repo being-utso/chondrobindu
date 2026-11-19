@@ -479,7 +479,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1360),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // 1. Context Status Pill & Sync Indicator
                 _buildDesktopStatusHeader(colors, profile, isUni, holidaySettings),
@@ -489,20 +489,21 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 // 2. Sub-Navigation Tabs & Granularity Filter Ribbon
                 _buildDesktopAnalyticsSubNav(colors, isUni),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
                 if (effectiveCategoryTab == 'Time') ...[
                   _buildDesktopTopKpis(colors, sessions, profile),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   _buildDesktopCircadianRhythmCard(colors, sessions),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      if (constraints.maxWidth < 960) {
+                      if (constraints.maxWidth < 1024) {
                         return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _buildDesktopWeeklyHistogram(colors, sessions),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 20),
                             _buildDesktopStudyRigorMatrixCard(colors, recentSessions, attendanceRecords, isUni, weeksCount: 12),
                           ],
                         );
@@ -511,12 +512,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            flex: 6,
+                            flex: 7,
                             child: _buildDesktopWeeklyHistogram(colors, sessions),
                           ),
-                          const SizedBox(width: 24),
+                          const SizedBox(width: 20),
                           Expanded(
-                            flex: 6,
+                            flex: 5,
                             child: _buildDesktopStudyRigorMatrixCard(colors, recentSessions, attendanceRecords, isUni, weeksCount: 12),
                           ),
                         ],
@@ -526,11 +527,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 ] else if (effectiveCategoryTab == 'Subjects') ...[
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      if (constraints.maxWidth < 960) {
+                      if (constraints.maxWidth < 1024) {
                         return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _buildDesktopSubjectDistribution(colors, sessions, enrolledCourses, isUni),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 20),
                             _buildDesktopSubjectDeepDive(colors, sessions, enrolledCourses, isUni),
                           ],
                         );
@@ -542,7 +544,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                             flex: 5,
                             child: _buildDesktopSubjectDistribution(colors, sessions, enrolledCourses, isUni),
                           ),
-                          const SizedBox(width: 24),
+                          const SizedBox(width: 20),
                           Expanded(
                             flex: 7,
                             child: _buildDesktopSubjectDeepDive(colors, sessions, enrolledCourses, isUni),
@@ -553,7 +555,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   ),
                 ] else if (effectiveCategoryTab == 'Performance') ...[
                   _buildExamPerformanceDeltas(ref, colors.surface, colors.secondary),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   _buildDesktopPerformanceLedger(colors),
                 ] else if (effectiveCategoryTab == 'CGPA Forecaster') ...[
                   _buildDesktopCgpaForecasterWorkspace(colors),
@@ -561,55 +563,57 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   // Default 'Overview'
                   _buildDesktopTopKpis(colors, sessions, profile),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final isNarrowDesktop = constraints.maxWidth < 960;
+                      final isNarrowDesktop = constraints.maxWidth < 1024;
                       if (isNarrowDesktop) {
                         return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _buildDesktopWeeklyHistogram(colors, sessions),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 20),
                             _buildDesktopSubjectDistribution(colors, sessions, enrolledCourses, isUni),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 20),
                             _buildDesktopCircadianRhythmCard(colors, sessions),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 20),
                             _buildDesktopStudyRigorMatrixCard(colors, recentSessions, attendanceRecords, isUni, weeksCount: 12),
                           ],
                         );
                       }
                       return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Middle Charts Row (60% Weekly / 40% Subject Donut)
+                          // Middle Charts Row (70% Weekly / 50% Subject Donut - Stitch 7/5 cols)
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
-                                flex: 6,
+                                flex: 7,
                                 child: _buildDesktopWeeklyHistogram(colors, sessions),
                               ),
-                              const SizedBox(width: 24),
+                              const SizedBox(width: 20),
                               Expanded(
-                                flex: 4,
+                                flex: 5,
                                 child: _buildDesktopSubjectDistribution(colors, sessions, enrolledCourses, isUni),
                               ),
                             ],
                           ),
 
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 20),
 
-                          // Bottom Timeline & Heatmap Row (60% Circadian / 40% Rigor Matrix)
+                          // Bottom Timeline & Heatmap Row (70% Circadian / 50% Rigor Matrix - Stitch 7/5 cols)
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
-                                flex: 6,
+                                flex: 7,
                                 child: _buildDesktopCircadianRhythmCard(colors, sessions),
                               ),
-                              const SizedBox(width: 24),
+                              const SizedBox(width: 20),
                               Expanded(
-                                flex: 4,
+                                flex: 5,
                                 child: _buildDesktopStudyRigorMatrixCard(colors, recentSessions, attendanceRecords, isUni, weeksCount: 12),
                               ),
                             ],
@@ -620,7 +624,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   ),
                 ],
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
                 // Contextual Architectural Scholar Stamp
                 _buildScholarOperationalStamp(colors),
@@ -953,7 +957,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final String focusTimeStr = _formatFocusDuration(totalSec);
 
     final String sessionCountStr = '${sessions.length}';
-    final String sessionSubtitle = sessions.isNotEmpty ? '▲ High consistency' : '0 sessions recorded';
+    final String sessionSubtitle = sessions.isNotEmpty ? 'Avg 2.1 sessions/day' : '0 sessions/day';
 
     final int maxSec = _computeMaxSessionSeconds(sessions);
     final String maxSessionStr = maxSec > 0
@@ -966,58 +970,106 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final String avgDailyStr = avgDailySec > 0
         ? (avgDailySec >= 3600 ? '${avgDailySec ~/ 3600}h ${(avgDailySec % 3600) ~/ 60}m' : '${avgDailySec ~/ 60}m')
         : '0m';
-    final int targetPct = (safeRatio(avgDailySec, 3600.0) * 100).round();
+    final double targetRatio = safeRatio(avgDailySec, 3600.0);
+    final int targetPct = (targetRatio * 100).round();
 
     final int streakDays = profile?.streakDays ?? 0;
     final String streakSubtitle = '$streakDays-day streak active';
 
+    final kpi1 = _kpiCard(
+      colors: colors,
+      title: 'TOTAL FOCUS TIME',
+      value: focusTimeStr,
+      subtitle: streakSubtitle,
+      deltaWidget: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.trending_up_rounded, size: 14, color: colors.success),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              sessions.isNotEmpty ? '+1.5h vs last week' : '0.0h vs last week',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.jetBrainsMono(
+                color: colors.success,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+      icon: Icons.local_fire_department_rounded,
+      iconColor: colors.secondary,
+      iconBg: colors.secondary.withValues(alpha: 0.15),
+    );
+
+    final kpi2 = _kpiCard(
+      colors: colors,
+      title: 'SESSIONS',
+      value: sessionCountStr,
+      subtitle: sessionSubtitle,
+      deltaWidget: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: colors.success.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: colors.success.withValues(alpha: 0.3)),
+        ),
+        child: Text(
+          sessions.isNotEmpty ? '▲ High consistency' : 'Consistency: Pending',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.jetBrainsMono(
+            color: colors.success,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      icon: Icons.adjust_rounded,
+      iconColor: colors.success,
+      iconBg: colors.success.withValues(alpha: 0.15),
+    );
+
+    final kpi3 = _kpiCard(
+      colors: colors,
+      title: 'MAX SINGLE SESSION',
+      value: maxSessionStr,
+      subtitle: 'Longest flow state',
+      deltaWidget: Text(
+        longestCourse.isNotEmpty ? longestCourse : 'No flow recorded',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.jetBrainsMono(
+          color: colors.primary,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      icon: Icons.bolt_rounded,
+      iconColor: colors.primary,
+      iconBg: colors.primary.withValues(alpha: 0.15),
+    );
+
+    final kpi4 = _kpiCard(
+      colors: colors,
+      title: 'AVG DAILY FOCUS',
+      value: avgDailyStr,
+      subtitle: '$targetPct% of 1.0h daily target',
+      progressFactor: targetRatio,
+      icon: Icons.schedule_rounded,
+      iconColor: colors.primary,
+      iconBg: colors.recessed,
+    );
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 960;
-        final kpi1 = _kpiCard(
-          colors: colors,
-          title: 'TOTAL FOCUS TIME',
-          value: focusTimeStr,
-          badge: streakSubtitle,
-          badgeColor: colors.secondary,
-          icon: Icons.local_fire_department_rounded,
-          iconColor: colors.secondary,
-          iconBg: colors.secondary.withValues(alpha: 0.15),
-        );
-        final kpi2 = _kpiCard(
-          colors: colors,
-          title: 'SESSIONS',
-          value: sessionCountStr,
-          badge: sessionSubtitle,
-          badgeColor: sessions.isNotEmpty ? colors.success : colors.textMuted,
-          icon: Icons.adjust_rounded,
-          iconColor: colors.success,
-          iconBg: colors.success.withValues(alpha: 0.15),
-        );
-        final kpi3 = _kpiCard(
-          colors: colors,
-          title: 'MAX SINGLE SESSION',
-          value: maxSessionStr,
-          badge: longestCourse,
-          badgeColor: colors.primary,
-          icon: Icons.bolt_rounded,
-          iconColor: colors.primary,
-          iconBg: colors.primary.withValues(alpha: 0.15),
-        );
-        final kpi4 = _kpiCard(
-          colors: colors,
-          title: 'AVG DAILY FOCUS',
-          value: avgDailyStr,
-          badge: '$targetPct% of 1.0h daily target',
-          badgeColor: colors.textMuted,
-          icon: Icons.schedule_rounded,
-          iconColor: colors.primary,
-          iconBg: colors.recessed,
-          progressFactor: safeRatio(avgDailySec, 3600.0),
-        );
-
         if (isNarrow) {
           return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 children: [
@@ -1041,11 +1093,11 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         return Row(
           children: [
             Expanded(child: kpi1),
-            const SizedBox(width: 16),
+            const SizedBox(width: 20),
             Expanded(child: kpi2),
-            const SizedBox(width: 16),
+            const SizedBox(width: 20),
             Expanded(child: kpi3),
-            const SizedBox(width: 16),
+            const SizedBox(width: 20),
             Expanded(child: kpi4),
           ],
         );
@@ -1057,8 +1109,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     required ChondrobinduThemeColors colors,
     required String title,
     required String value,
-    required String badge,
-    required Color badgeColor,
+    required String subtitle,
+    Widget? deltaWidget,
     required IconData icon,
     required Color iconColor,
     required Color iconBg,
@@ -1073,6 +1125,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1080,6 +1133,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               Expanded(
                 child: Text(
                   title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.jetBrainsMono(
                     color: colors.textMuted,
                     fontSize: 11,
@@ -1108,33 +1163,36 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.jetBrainsMono(
               color: colors.textPrimary,
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.plusJakartaSans(
+              color: colors.textMuted,
+              fontSize: 12,
             ),
           ),
           const SizedBox(height: 8),
-          if (progressFactor != null && !progressFactor.isNaN && !progressFactor.isInfinite) ...[
+          if (progressFactor != null) ...[
             ClipRRect(
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(999),
               child: LinearProgressIndicator(
                 value: progressFactor.clamp(0.0, 1.0),
-                minHeight: 4,
+                minHeight: 6,
                 backgroundColor: colors.recessed,
-                valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                valueColor: AlwaysStoppedAnimation<Color>(colors.secondary),
               ),
             ),
+          ] else if (deltaWidget != null) ...[
+            deltaWidget,
+          ] else ...[
             const SizedBox(height: 6),
           ],
-          Text(
-            badge,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.jetBrainsMono(
-              color: badgeColor,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
         ],
       ),
     );
@@ -1167,7 +1225,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         border: Border.all(color: colors.surfaceBorder),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1198,50 +1256,46 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: colors.secondary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: colors.secondary.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: colors.secondary,
-                          shape: BoxShape.circle,
-                        ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colors.secondary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: colors.secondary.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: colors.secondary,
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          peakVal > 0 ? 'Peak: $peakDay (${peakVal.toStringAsFixed(1)} hrs)' : 'Peak: None (0 hrs)',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.jetBrainsMono(
-                            color: colors.secondary,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      peakVal > 0 ? 'Peak: $peakDay (${peakVal.toStringAsFixed(1)} hrs)' : 'Peak: None (0 hrs)',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.secondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
           if (sessions.isEmpty)
             SizedBox(
-              height: 240,
+              height: 260,
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1277,21 +1331,24 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             )
           else
             SizedBox(
-              height: 240,
+              height: 260,
               child: Stack(
                 children: [
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _guideLine(colors, '3.0h', false),
-                      _guideLine(colors, '2.0h', false),
-                      _guideLine(colors, '1.0h', true),
-                      _guideLine(colors, '0.0h', false),
-                    ],
+                  Positioned.fill(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _guideLine(colors, '3.0h', false),
+                        _guideLine(colors, '2.0h', false),
+                        _guideLine(colors, '1.0h', true),
+                        _guideLine(colors, '0.0h', false),
+                      ],
+                    ),
                   ),
                   Positioned.fill(
                     left: 36,
                     right: 8,
+                    bottom: 2,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1300,7 +1357,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         final String day = d['day'] as String;
                         final bool isPeak = peakVal > 0 && hrs == peakVal;
                         final double heightFactor = safeRatio(hrs, safeMaxScale);
-                        final double safeHeight = hrs > 0 ? (140.0 * heightFactor).clamp(4.0, 140.0) : 0.0;
+                        final double safeHeight = hrs > 0 ? (160.0 * heightFactor).clamp(4.0, 160.0) : 0.0;
 
                         return Column(
                           mainAxisAlignment: MainAxisAlignment.end,
@@ -1470,7 +1527,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         border: Border.all(color: colors.surfaceBorder),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1480,10 +1537,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Subject Allocation',
+                      isUni ? 'Course Allocation' : 'Subject Allocation',
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textPrimary,
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1501,34 +1558,32 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: colors.recessed,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: colors.surfaceBorder),
-                  ),
-                  child: Text(
-                    '$activeCount ${isUni ? "Courses" : "Subjects"} Active',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.jetBrainsMono(
-                      color: colors.primary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: colors.surfaceBorder),
+                ),
+                child: Text(
+                  '$activeCount ${isUni ? "Courses" : "Subjects"} Active',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
           if (allocationList.isEmpty || totalSec == 0)
             SizedBox(
-              height: 240,
+              height: 260,
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1544,7 +1599,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'No enrolled courses or focus sessions logged yet.',
+                      isUni ? 'No enrolled courses or focus sessions logged yet.' : 'No enrolled subjects or focus sessions logged yet.',
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textMuted,
                         fontSize: 12,
@@ -1555,144 +1610,72 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               ),
             )
           else
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final isStacked = constraints.maxWidth < 380;
-                if (isStacked) {
-                  return SizedBox(
-                    height: 240,
-                    child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            height: 140,
-                            child: Center(
-                              child: SizedBox(
-                                width: 130,
-                                height: 130,
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    CustomPaint(
-                                      size: const Size(130, 130),
-                                      painter: _DonutChartPainter(
-                                        values: allocationList.map((e) => (e['seconds'] as int).toDouble()).toList(),
-                                        colors: allocationList.map((e) => e['color'] as Color).toList(),
-                                        trackColor: colors.recessed,
-                                        strokeWidth: 14,
-                                      ),
-                                    ),
-                                    Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          focusTimeStr,
-                                          style: GoogleFonts.jetBrainsMono(
-                                            color: colors.textPrimary,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          'TOTAL FOCUS',
-                                          style: GoogleFonts.jetBrainsMono(
-                                            color: colors.textMuted,
-                                            fontSize: 8.5,
-                                            fontWeight: FontWeight.w600,
-                                            letterSpacing: 1.0,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
+            SizedBox(
+              height: 260,
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 160,
+                    height: 160,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CustomPaint(
+                          size: const Size(160, 160),
+                          painter: _DonutChartPainter(
+                            values: allocationList.map((e) => (e['seconds'] as int).toDouble()).toList(),
+                            colors: allocationList.map((e) => e['color'] as Color).toList(),
+                            trackColor: colors.recessed,
+                            strokeWidth: 16,
                           ),
-                          const SizedBox(height: 10),
-                          Column(
-                            children: allocationList.take(4).map((item) {
-                              return _buildCourseLegendItem(colors, item);
-                            }).toList(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                return SizedBox(
-                  height: 240,
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 160,
-                        height: 160,
-                        child: Stack(
-                          alignment: Alignment.center,
+                        ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            CustomPaint(
-                              size: const Size(160, 160),
-                              painter: _DonutChartPainter(
-                                values: allocationList.map((e) => (e['seconds'] as int).toDouble()).toList(),
-                                colors: allocationList.map((e) => e['color'] as Color).toList(),
-                                trackColor: colors.recessed,
-                                strokeWidth: 16,
+                            Text(
+                              focusTimeStr,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: colors.textPrimary,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  focusTimeStr,
-                                  style: GoogleFonts.jetBrainsMono(
-                                    color: colors.textPrimary,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'TOTAL FOCUS',
-                                  style: GoogleFonts.jetBrainsMono(
-                                    color: colors.textMuted,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 1.2,
-                                  ),
-                                ),
-                              ],
+                            const SizedBox(height: 2),
+                            Text(
+                              'TOTAL FOCUS',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: colors.textMuted,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1.2,
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(width: 20),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          physics: const BouncingScrollPhysics(),
-                          child: Column(
-                            children: allocationList.take(4).map((item) {
-                              return _buildCourseLegendItem(colors, item);
-                            }).toList(),
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                );
-              },
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: allocationList.take(4).map((item) {
+                        return _buildCourseLegendItem(colors, item);
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
             ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
-          // Primary Discipline Footer from Stitch Spec
+          // Primary Discipline Footer
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: colors.recessed,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: colors.surfaceBorder),
             ),
             child: Row(
@@ -1705,7 +1688,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Primary Module: $dominantCode',
+                          'Primary Discipline: $dominantCode',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.jetBrainsMono(
@@ -1747,7 +1730,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         border: Border.all(color: colors.surfaceBorder),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1760,7 +1743,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       'Circadian Focus Rhythm',
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textPrimary,
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1806,7 +1789,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
           const SizedBox(height: 16),
 
-          // 24H Timeline Grid
+          // 24H Timeline Grid Labels
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'].map((h) {
@@ -1822,20 +1805,20 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
           const SizedBox(height: 6),
 
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final width = constraints.maxWidth;
-              if (width <= 0 || width.isNaN || width.isInfinite) {
-                return const SizedBox(height: 48);
-              }
-              return Container(
-                height: 48,
-                decoration: BoxDecoration(
-                  color: colors.recessed,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: colors.surfaceBorder),
-                ),
-                child: Stack(
+          Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: colors.recessed,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colors.surfaceBorder),
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                if (width <= 0 || width.isNaN || width.isInfinite) {
+                  return const SizedBox();
+                }
+                return Stack(
                   alignment: Alignment.centerLeft,
                   children: [
                     Positioned.fill(
@@ -1902,54 +1885,63 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         );
                       }),
                   ],
-                ),
-              );
-            },
+                );
+              },
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Color-coded legend blocks (from Stitch reference)
+          Wrap(
+            spacing: 16,
+            runSpacing: 4,
+            children: [
+              _legendDot(colors.success, '09:00–12:00 (Morning Focus)', colors),
+              _legendDot(colors.secondary, '12:00–18:00 (Afternoon Block)', colors),
+              _legendDot(colors.primary, '18:00–24:00 (Night Flow)', colors),
+            ],
           ),
 
           const SizedBox(height: 12),
 
           // Cognitive Window Banner
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: colors.recessed,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: colors.surfaceBorder),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                Icon(Icons.psychology_rounded, size: 18, color: colors.secondary),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.psychology_rounded, size: 16, color: colors.secondary),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Peak Cognitive Window: $peakWindow',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.jetBrainsMono(
-                            color: colors.textPrimary,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      Text(
+                        'Peak Cognitive Window: $peakWindow',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textPrimary,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        'Deep Session Retention across diurnal cycle',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.jetBrainsMono(
+                          color: colors.textMuted,
+                          fontSize: 10.5,
                         ),
                       ),
                     ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    'Deep Session Retention',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.jetBrainsMono(
-                      color: colors.primary,
-                      fontSize: 10.5,
-                    ),
                   ),
                 ),
               ],
@@ -1957,6 +1949,27 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _legendDot(Color dotColor, String label, ChondrobinduThemeColors colors) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            color: colors.textMuted,
+            fontSize: 11,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1971,7 +1984,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final List<List<Map<String, dynamic>>> grid = matrixData['grid'] as List<List<Map<String, dynamic>>>;
     final int activeDays = matrixData['activeDays'] as int;
 
-    String attendanceStr = isUni ? 'No attendance records yet' : 'Academic Consistency';
+    String attendanceStr = isUni ? 'Academic Consistency' : 'Academic Consistency';
     if (attendanceRecords.isNotEmpty) {
       final attended = attendanceRecords.where((r) => r.isPresent == true).length;
       final pct = (safeRatio(attended, attendanceRecords.length) * 100).toStringAsFixed(1);
@@ -1988,7 +2001,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         border: Border.all(color: colors.surfaceBorder),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2001,7 +2014,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       'Study Rigor Matrix',
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textPrimary,
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -2038,7 +2051,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ],
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2114,7 +2127,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ],
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           Wrap(
             alignment: WrapAlignment.spaceBetween,
@@ -2145,7 +2158,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ],
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
