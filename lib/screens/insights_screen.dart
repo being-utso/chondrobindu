@@ -667,7 +667,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isNarrow = constraints.maxWidth < 750;
+        final isNarrow = constraints.maxWidth < 850;
         final leftPill = Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -687,13 +687,17 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                pillText,
-                style: GoogleFonts.jetBrainsMono(
-                  color: colors.primary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
+              Flexible(
+                child: Text(
+                  pillText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
                 ),
               ),
             ],
@@ -705,13 +709,17 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           children: [
             Icon(Icons.verified_rounded, size: 16, color: colors.primary),
             const SizedBox(width: 6),
-            Text(
-              'DATA REFLECTED: ${DateFormat('d MMM yyyy').format(DateTime.now()).toUpperCase()} • SYNCHRONIZED',
-              style: GoogleFonts.jetBrainsMono(
-                color: colors.textMuted,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
+            Flexible(
+              child: Text(
+                'DATA REFLECTED: ${DateFormat('d MMM yyyy').format(DateTime.now()).toUpperCase()} • SYNCHRONIZED',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
           ],
@@ -731,8 +739,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            leftPill,
-            rightSync,
+            Expanded(child: Align(alignment: Alignment.centerLeft, child: leftPill)),
+            const SizedBox(width: 16),
+            Flexible(child: rightSync),
           ],
         );
       },
@@ -851,26 +860,22 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                       onPressed: _canStepBack ? () => _stepDateRange(-1) : null,
                     ),
-                    InkWell(
-                      onTap: () => _openPeriodPickerModal(context),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.calendar_month_rounded, size: 14, color: colors.secondary),
-                            const SizedBox(width: 6),
-                            Text(
-                              _dateRangeLabel,
-                              style: GoogleFonts.jetBrainsMono(
-                                color: colors.textPrimary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.calendar_month_rounded, size: 14, color: colors.secondary),
+                          const SizedBox(width: 6),
+                          Text(
+                            _dateRangeLabel,
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                     IconButton(
@@ -904,25 +909,38 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   scrollDirection: Axis.horizontal,
                   child: periodControls,
                 ),
+                const SizedBox(height: 12),
+                Divider(color: colors.surfaceBorder, height: 1),
+                const SizedBox(height: 12),
+                _buildInlinePeriodPicker(colors, isUni),
               ],
             );
           }
 
-          return Row(
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: colors.recessed,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.surfaceBorder),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: colors.recessed,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: colors.surfaceBorder),
+                      ),
+                      child: subTabsWidget,
+                    ),
                   ),
-                  child: subTabsWidget,
-                ),
+                  const SizedBox(width: 12),
+                  periodControls,
+                ],
               ),
-              const SizedBox(width: 12),
-              periodControls,
+              const SizedBox(height: 12),
+              Divider(color: colors.surfaceBorder, height: 1),
+              const SizedBox(height: 12),
+              _buildInlinePeriodPicker(colors, isUni),
             ],
           );
         },
@@ -1180,34 +1198,40 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: colors.secondary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: colors.secondary.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: colors.secondary,
-                        shape: BoxShape.circle,
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: colors.secondary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: colors.secondary.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: colors.secondary,
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      peakVal > 0 ? 'Peak: $peakDay (${peakVal.toStringAsFixed(1)} hrs)' : 'Peak: None (0 hrs)',
-                      style: GoogleFonts.jetBrainsMono(
-                        color: colors.secondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          peakVal > 0 ? 'Peak: $peakDay (${peakVal.toStringAsFixed(1)} hrs)' : 'Peak: None (0 hrs)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.secondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1217,7 +1241,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
           if (sessions.isEmpty)
             SizedBox(
-              height: 220,
+              height: 240,
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1253,7 +1277,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             )
           else
             SizedBox(
-              height: 220,
+              height: 240,
               child: Stack(
                 children: [
                   Column(
@@ -1477,19 +1501,23 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: colors.recessed,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: colors.surfaceBorder),
-                ),
-                child: Text(
-                  '$activeCount ${isUni ? "Courses" : "Subjects"} Active',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: colors.primary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: colors.recessed,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: colors.surfaceBorder),
+                  ),
+                  child: Text(
+                    '$activeCount ${isUni ? "Courses" : "Subjects"} Active',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -1500,7 +1528,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
           if (allocationList.isEmpty || totalSec == 0)
             SizedBox(
-              height: 220,
+              height: 240,
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1531,66 +1559,72 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               builder: (context, constraints) {
                 final isStacked = constraints.maxWidth < 380;
                 if (isStacked) {
-                  return Column(
-                    children: [
-                      SizedBox(
-                        height: 160,
-                        child: Center(
-                          child: SizedBox(
-                            width: 150,
-                            height: 150,
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                CustomPaint(
-                                  size: const Size(150, 150),
-                                  painter: _DonutChartPainter(
-                                    values: allocationList.map((e) => (e['seconds'] as int).toDouble()).toList(),
-                                    colors: allocationList.map((e) => e['color'] as Color).toList(),
-                                    trackColor: colors.recessed,
-                                    strokeWidth: 15,
-                                  ),
-                                ),
-                                Column(
-                                  mainAxisSize: MainAxisSize.min,
+                  return SizedBox(
+                    height: 240,
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            height: 140,
+                            child: Center(
+                              child: SizedBox(
+                                width: 130,
+                                height: 130,
+                                child: Stack(
+                                  alignment: Alignment.center,
                                   children: [
-                                    Text(
-                                      focusTimeStr,
-                                      style: GoogleFonts.jetBrainsMono(
-                                        color: colors.textPrimary,
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w800,
+                                    CustomPaint(
+                                      size: const Size(130, 130),
+                                      painter: _DonutChartPainter(
+                                        values: allocationList.map((e) => (e['seconds'] as int).toDouble()).toList(),
+                                        colors: allocationList.map((e) => e['color'] as Color).toList(),
+                                        trackColor: colors.recessed,
+                                        strokeWidth: 14,
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'TOTAL FOCUS',
-                                      style: GoogleFonts.jetBrainsMono(
-                                        color: colors.textMuted,
-                                        fontSize: 8.5,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 1.0,
-                                      ),
+                                    Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          focusTimeStr,
+                                          style: GoogleFonts.jetBrainsMono(
+                                            color: colors.textPrimary,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'TOTAL FOCUS',
+                                          style: GoogleFonts.jetBrainsMono(
+                                            color: colors.textMuted,
+                                            fontSize: 8.5,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 1.0,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              ],
+                              ),
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 10),
+                          Column(
+                            children: allocationList.take(4).map((item) {
+                              return _buildCourseLegendItem(colors, item);
+                            }).toList(),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 14),
-                      Column(
-                        children: allocationList.take(4).map((item) {
-                          return _buildCourseLegendItem(colors, item);
-                        }).toList(),
-                      ),
-                    ],
+                    ),
                   );
                 }
 
                 return SizedBox(
-                  height: 220,
+                  height: 240,
                   child: Row(
                     children: [
                       SizedBox(
@@ -1907,11 +1941,15 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'Deep Session Retention',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: colors.primary,
-                    fontSize: 10.5,
+                Flexible(
+                  child: Text(
+                    'Deep Session Retention',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.primary,
+                      fontSize: 10.5,
+                    ),
                   ),
                 ),
               ],
@@ -2269,7 +2307,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
               const SizedBox(height: 12),
 
-              _buildMobilePeriodSelectorAndStepper(colors),
+              _buildMobilePeriodSelectorAndStepper(colors, isUni),
 
               const SizedBox(height: 16),
 
@@ -2450,7 +2488,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     );
   }
 
-  Widget _buildMobilePeriodSelectorAndStepper(ChondrobinduThemeColors colors) {
+  Widget _buildMobilePeriodSelectorAndStepper(ChondrobinduThemeColors colors, bool isUni) {
     final periods = [
       (InsightPeriod.day, 'Day'),
       (InsightPeriod.week, 'Week'),
@@ -2520,30 +2558,26 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 onPressed: _canStepBack ? () => _stepDateRange(-1) : null,
               ),
               Flexible(
-                child: InkWell(
-                  onTap: () => _openPeriodPickerModal(context),
-                  borderRadius: BorderRadius.circular(6),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.calendar_month_rounded, size: 14, color: colors.secondary),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            _dateRangeLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.jetBrainsMono(
-                              color: colors.textPrimary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.calendar_month_rounded, size: 14, color: colors.secondary),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          _dateRangeLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.textPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -2557,6 +2591,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ],
           ),
         ),
+
+        const SizedBox(height: 8),
+
+        _buildInlinePeriodPicker(colors, isUni),
       ],
     );
   }
@@ -4195,43 +4233,83 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     return null;
   }
 
-  void _openPeriodPickerModal(BuildContext context) {
-    SafeHaptics.selectionClick();
-    final colors = AppColors.of(context);
-    final profile = ref.read(liveUserProfileProvider).value ?? ref.read(userProfileProvider);
-    final isUni = profile?.isUniversityStudent == true || profile?.institutionType == InstitutionType.university;
-    final minD = _minDate;
-    final maxD = _maxDate;
+  Widget _buildInlinePeriodPicker(ChondrobinduThemeColors colors, bool isUni) {
+    IconData headerIcon;
+    String headerTitle;
+    String headerSubtitle;
 
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return _PeriodPickerModal(
+    switch (_selectedPeriod) {
+      case InsightPeriod.day:
+        headerIcon = Icons.today_rounded;
+        headerTitle = 'Select Focus Date';
+        headerSubtitle = 'Bounded: ${DateFormat('d MMM yyyy').format(_minDate)} – Today';
+        break;
+      case InsightPeriod.week:
+        headerIcon = Icons.calendar_view_week_rounded;
+        headerTitle = 'Select Academic Week';
+        headerSubtitle = 'Bangladesh Academic Week (Sat – Fri)';
+        break;
+      case InsightPeriod.month:
+        headerIcon = Icons.calendar_month_rounded;
+        headerTitle = 'Select Calendar Month';
+        headerSubtitle = 'Academic Year Overview';
+        break;
+      case InsightPeriod.trend:
+        headerIcon = Icons.tune_rounded;
+        headerTitle = 'Telemetry Trend Window';
+        headerSubtitle = 'Filter telemetry across custom timeframe';
+        break;
+    }
+
+    Widget content;
+    switch (_selectedPeriod) {
+      case InsightPeriod.day:
+        content = _DayPickerContent(
           colors: colors,
-          period: _selectedPeriod,
           currentAnchor: _currentAnchorDate,
-          rangeStart: _rangeStart,
-          rangeEnd: _rangeEnd,
-          minDate: minD,
-          maxDate: maxD,
-          isUniversity: isUni,
-          trendStart: _customTrendStart,
-          trendEnd: _customTrendEnd,
+          minDate: _minDate,
+          maxDate: _maxDate,
           onDaySelected: (date) {
             setState(() {
               _currentAnchorDate = date;
             });
           },
-          onWeekSelected: (saturday) {
+        );
+        break;
+      case InsightPeriod.week:
+        content = _WeekPickerContent(
+          colors: colors,
+          currentRangeStart: _rangeStart,
+          minDate: _minDate,
+          maxDate: _maxDate,
+          onWeekSelected: (start) {
             setState(() {
-              _currentAnchorDate = saturday;
+              _currentAnchorDate = start;
             });
           },
+        );
+        break;
+      case InsightPeriod.month:
+        content = _MonthPickerContent(
+          colors: colors,
+          currentAnchor: _currentAnchorDate,
+          minDate: _minDate,
+          maxDate: _maxDate,
           onMonthSelected: (monthDate) {
             setState(() {
               _currentAnchorDate = monthDate;
             });
           },
+        );
+        break;
+      case InsightPeriod.trend:
+        content = _TrendPickerContent(
+          colors: colors,
+          minDate: _minDate,
+          maxDate: _maxDate,
+          isUniversity: isUni,
+          trendStart: _rangeStart,
+          trendEnd: _rangeEnd,
           onTrendRangeSelected: (start, end) {
             setState(() {
               _customTrendStart = start;
@@ -4240,7 +4318,73 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             });
           },
         );
-      },
+        break;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.recessed,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colors.surfaceBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: colors.secondary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: colors.secondary.withValues(alpha: 0.3)),
+                ),
+                child: Icon(headerIcon, color: colors.secondary, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      headerTitle,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      headerSubtitle,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.textMuted,
+                        fontSize: 10.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Divider(color: colors.surfaceBorder, height: 1),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 580),
+              child: content,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -4318,200 +4462,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// TRACK-BOUNDED PERIOD PICKER MODAL (DAY, WEEK, MONTH, TREND)
+// TRACK-BOUNDED INLINE PERIOD PICKER CONTENT (DAY, WEEK, MONTH, TREND)
 // ---------------------------------------------------------------------------
-
-class _PeriodPickerModal extends StatelessWidget {
-  final ChondrobinduThemeColors colors;
-  final InsightPeriod period;
-  final DateTime currentAnchor;
-  final DateTime rangeStart;
-  final DateTime rangeEnd;
-  final DateTime minDate;
-  final DateTime maxDate;
-  final bool isUniversity;
-  final DateTime? trendStart;
-  final DateTime? trendEnd;
-  final ValueChanged<DateTime> onDaySelected;
-  final ValueChanged<DateTime> onWeekSelected;
-  final ValueChanged<DateTime> onMonthSelected;
-  final void Function(DateTime start, DateTime end) onTrendRangeSelected;
-
-  const _PeriodPickerModal({
-    required this.colors,
-    required this.period,
-    required this.currentAnchor,
-    required this.rangeStart,
-    required this.rangeEnd,
-    required this.minDate,
-    required this.maxDate,
-    required this.isUniversity,
-    required this.trendStart,
-    required this.trendEnd,
-    required this.onDaySelected,
-    required this.onWeekSelected,
-    required this.onMonthSelected,
-    required this.onTrendRangeSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    IconData headerIcon;
-    String headerTitle;
-    String headerSubtitle;
-
-    switch (period) {
-      case InsightPeriod.day:
-        headerIcon = Icons.today_rounded;
-        headerTitle = 'Select Study Date';
-        headerSubtitle = 'Bounded: ${DateFormat('d MMM yyyy').format(minDate)} – Today';
-        break;
-      case InsightPeriod.week:
-        headerIcon = Icons.calendar_view_week_rounded;
-        headerTitle = 'Select Academic Week';
-        headerSubtitle = 'Bangladesh Academic Week (Sat – Fri)';
-        break;
-      case InsightPeriod.month:
-        headerIcon = Icons.calendar_month_rounded;
-        headerTitle = 'Select Calendar Month';
-        headerSubtitle = 'Academic Year Overview';
-        break;
-      case InsightPeriod.trend:
-        headerIcon = Icons.tune_rounded;
-        headerTitle = 'Telemetry Trend Window';
-        headerSubtitle = 'Filter telemetry across custom timeframe';
-        break;
-    }
-
-    Widget content;
-    switch (period) {
-      case InsightPeriod.day:
-        content = _DayPickerContent(
-          colors: colors,
-          currentAnchor: currentAnchor,
-          minDate: minDate,
-          maxDate: maxDate,
-          onDaySelected: onDaySelected,
-        );
-        break;
-      case InsightPeriod.week:
-        content = _WeekPickerContent(
-          colors: colors,
-          currentRangeStart: rangeStart,
-          minDate: minDate,
-          maxDate: maxDate,
-          onWeekSelected: onWeekSelected,
-        );
-        break;
-      case InsightPeriod.month:
-        content = _MonthPickerContent(
-          colors: colors,
-          currentAnchor: currentAnchor,
-          minDate: minDate,
-          maxDate: maxDate,
-          onMonthSelected: onMonthSelected,
-        );
-        break;
-      case InsightPeriod.trend:
-        content = _TrendPickerContent(
-          colors: colors,
-          minDate: minDate,
-          maxDate: maxDate,
-          isUniversity: isUniversity,
-          trendStart: trendStart,
-          trendEnd: trendEnd,
-          onTrendRangeSelected: onTrendRangeSelected,
-        );
-        break;
-    }
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 440),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colors.surfaceBorder),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
-                blurRadius: 28,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: colors.secondary.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: colors.secondary.withValues(alpha: 0.3)),
-                          ),
-                          child: Icon(headerIcon, color: colors.secondary, size: 18),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                headerTitle,
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: colors.textPrimary,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                headerSubtitle,
-                                style: GoogleFonts.jetBrainsMono(
-                                  color: colors.textMuted,
-                                  fontSize: 10.5,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 20),
-                    color: colors.textMuted,
-                    onPressed: () => Navigator.pop(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Divider(color: colors.surfaceBorder, height: 1),
-              const SizedBox(height: 16),
-              content,
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _DayPickerContent extends StatefulWidget {
   final ChondrobinduThemeColors colors;
@@ -4539,6 +4491,14 @@ class _DayPickerContentState extends State<_DayPickerContent> {
   void initState() {
     super.initState();
     _browsedMonth = DateTime(widget.currentAnchor.year, widget.currentAnchor.month, 1);
+  }
+
+  @override
+  void didUpdateWidget(covariant _DayPickerContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!isSameDay(oldWidget.currentAnchor, widget.currentAnchor)) {
+      _browsedMonth = DateTime(widget.currentAnchor.year, widget.currentAnchor.month, 1);
+    }
   }
 
   @override
@@ -4641,7 +4601,6 @@ class _DayPickerContentState extends State<_DayPickerContent> {
                   : () {
                       SafeHaptics.selectionClick();
                       widget.onDaySelected(date);
-                      Navigator.pop(context);
                     },
               borderRadius: BorderRadius.circular(6),
               child: Container(
@@ -4700,6 +4659,14 @@ class _WeekPickerContentState extends State<_WeekPickerContent> {
   void initState() {
     super.initState();
     _browsedMonth = DateTime(widget.currentRangeStart.year, widget.currentRangeStart.month, 1);
+  }
+
+  @override
+  void didUpdateWidget(covariant _WeekPickerContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!isSameDay(oldWidget.currentRangeStart, widget.currentRangeStart)) {
+      _browsedMonth = DateTime(widget.currentRangeStart.year, widget.currentRangeStart.month, 1);
+    }
   }
 
   @override
@@ -4783,7 +4750,6 @@ class _WeekPickerContentState extends State<_WeekPickerContent> {
                   : () {
                       SafeHaptics.selectionClick();
                       widget.onWeekSelected(w.start);
-                      Navigator.pop(context);
                     },
               borderRadius: BorderRadius.circular(8),
               child: Container(
@@ -4800,27 +4766,34 @@ class _WeekPickerContentState extends State<_WeekPickerContent> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Icon(
-                          isSelected ? Icons.check_circle_rounded : Icons.calendar_view_week_rounded,
-                          size: 16,
-                          color: isSelected ? colors.secondary : colors.primary,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          label,
-                          style: GoogleFonts.jetBrainsMono(
-                            color: isSelected
-                                ? colors.secondary
-                                : (isDisabled ? colors.textMuted.withValues(alpha: 0.3) : colors.textPrimary),
-                            fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Icon(
+                            isSelected ? Icons.check_circle_rounded : Icons.calendar_view_week_rounded,
+                            size: 16,
+                            color: isSelected ? colors.secondary : colors.primary,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: isSelected
+                                    ? colors.secondary
+                                    : (isDisabled ? colors.textMuted.withValues(alpha: 0.3) : colors.textPrimary),
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    if (isSelected)
+                    if (isSelected) ...[
+                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
@@ -4836,6 +4809,7 @@ class _WeekPickerContentState extends State<_WeekPickerContent> {
                           ),
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),
@@ -4873,6 +4847,14 @@ class _MonthPickerContentState extends State<_MonthPickerContent> {
   void initState() {
     super.initState();
     _browsedYear = widget.currentAnchor.year;
+  }
+
+  @override
+  void didUpdateWidget(covariant _MonthPickerContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentAnchor.year != widget.currentAnchor.year) {
+      _browsedYear = widget.currentAnchor.year;
+    }
   }
 
   @override
@@ -4949,7 +4931,6 @@ class _MonthPickerContentState extends State<_MonthPickerContent> {
                       SafeHaptics.selectionClick();
                       final selected = monthStart.isAfter(widget.maxDate) ? widget.maxDate : monthStart;
                       widget.onMonthSelected(selected);
-                      Navigator.pop(context);
                     },
               borderRadius: BorderRadius.circular(8),
               child: Container(
@@ -5020,8 +5001,18 @@ class _TrendPickerContentState extends State<_TrendPickerContent> {
     }
   }
 
+  @override
+  void didUpdateWidget(covariant _TrendPickerContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.trendStart != widget.trendStart || oldWidget.trendEnd != widget.trendEnd) {
+      _startDate = widget.trendStart ?? widget.minDate;
+      _endDate = widget.trendEnd ?? widget.maxDate;
+    }
+  }
+
   void _applyPreset(int days, {bool sinceStart = false}) {
     SafeHaptics.selectionClick();
+    setState(() => _isCustom = false);
     DateTime start;
     if (sinceStart) {
       start = widget.minDate;
@@ -5032,7 +5023,6 @@ class _TrendPickerContentState extends State<_TrendPickerContent> {
       }
     }
     widget.onTrendRangeSelected(start, widget.maxDate);
-    Navigator.pop(context);
   }
 
   Future<void> _pickDate(bool isStart) async {
@@ -5187,7 +5177,6 @@ class _TrendPickerContentState extends State<_TrendPickerContent> {
               onPressed: () {
                 SafeHaptics.selectionClick();
                 widget.onTrendRangeSelected(_startDate, _endDate);
-                Navigator.pop(context);
               },
               icon: const Icon(Icons.check_rounded, size: 18),
               label: Text(

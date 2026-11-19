@@ -251,7 +251,7 @@ void main() {
       expect(find.text('DAY FOCUS TIME'), findsOneWidget);
 
       // Verify date stepping chevrons
-      final chevronRight = find.byIcon(Icons.chevron_right_rounded);
+      final chevronRight = find.byIcon(Icons.chevron_right_rounded).first;
       expect(chevronRight, findsOneWidget);
       await tester.tap(chevronRight);
       await tester.pumpAndSettle();

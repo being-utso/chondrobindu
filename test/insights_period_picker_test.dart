@@ -65,8 +65,8 @@ void main() {
     });
   });
 
-  group('InsightsScreen Period Picker Modal & Date Stepper Tests', () {
-    testWidgets('tapping date label opens PeriodPickerModal dialog in Day mode', (tester) async {
+  group('InsightsScreen Period Picker Inline Display & Date Stepper Tests', () {
+    testWidgets('Day mode displays inline calendar with days of the month (no popups)', (tester) async {
       tester.view.physicalSize = const Size(1200, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -93,26 +93,15 @@ void main() {
       await tester.tap(find.text('Day'));
       await tester.pumpAndSettle();
 
-      // Find date label with calendar icon
-      final calendarIcon = find.byIcon(Icons.calendar_month_rounded);
-      expect(calendarIcon, findsOneWidget);
+      // Inline calendar header is visible directly below navigation
+      expect(find.text('Select Focus Date'), findsOneWidget);
+      expect(find.textContaining('Bounded:'), findsOneWidget);
 
-      // Tap calendar date label to open modal
-      await tester.tap(calendarIcon);
-      await tester.pumpAndSettle();
-
-      // Modal is open
-      expect(find.text('Select Study Date'), findsOneWidget);
-      expect(find.byIcon(Icons.close_rounded), findsOneWidget);
-
-      // Tap close icon to close
-      await tester.tap(find.byIcon(Icons.close_rounded));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Select Study Date'), findsNothing);
+      // Verify no dialog popup exists
+      expect(find.byType(Dialog), findsNothing);
     });
 
-    testWidgets('tapping date label in Month mode opens Month Picker with 12 months', (tester) async {
+    testWidgets('Month mode displays inline 12-month grid (no popups)', (tester) async {
       tester.view.physicalSize = const Size(1200, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -139,19 +128,16 @@ void main() {
       await tester.tap(find.text('Month'));
       await tester.pumpAndSettle();
 
-      // Tap calendar date label to open modal
-      await tester.tap(find.byIcon(Icons.calendar_month_rounded));
-      await tester.pumpAndSettle();
-
+      // Inline month grid is directly rendered
       expect(find.text('Select Calendar Month'), findsOneWidget);
       expect(find.text('Jan'), findsOneWidget);
       expect(find.text('Dec'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.close_rounded));
-      await tester.pumpAndSettle();
+      // Verify no dialog popup exists
+      expect(find.byType(Dialog), findsNothing);
     });
 
-    testWidgets('tapping date label in Trend mode opens Trend Picker with presets', (tester) async {
+    testWidgets('Trend mode displays inline preset chips and custom window (no popups)', (tester) async {
       tester.view.physicalSize = const Size(1200, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -178,17 +164,17 @@ void main() {
       await tester.tap(find.text('Trend'));
       await tester.pumpAndSettle();
 
-      // Tap calendar date label
-      await tester.tap(find.byIcon(Icons.calendar_month_rounded));
-      await tester.pumpAndSettle();
-
+      // Inline trend controls are directly visible
       expect(find.text('Telemetry Trend Window'), findsOneWidget);
       expect(find.text('Last 7 Days'), findsOneWidget);
       expect(find.text('Last 14 Days'), findsOneWidget);
       expect(find.text('Last 30 Days'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.close_rounded));
+      // Tapping a preset works inline without dialog
+      await tester.tap(find.text('Last 14 Days'));
       await tester.pumpAndSettle();
+
+      expect(find.byType(Dialog), findsNothing);
     });
 
     testWidgets('College student does NOT display WEEK 04 mockup dummy text', (tester) async {
