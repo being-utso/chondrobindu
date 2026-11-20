@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart' show isSameDay;
 
-import '../models/routine_models.dart' show HolidaySettings;
+import '../models/routine_models.dart' show HolidaySettings, AttendanceRecord, AttendanceStatus;
 import '../models/study_session_model.dart';
 import '../providers/firestore_providers.dart';
 import '../providers/journal_provider.dart';
@@ -492,7 +492,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 const SizedBox(height: 20),
 
                 if (effectiveCategoryTab == 'Time') ...[
-                  _buildDesktopTopKpis(colors, sessions, profile),
+                  _buildDesktopTopKpis(colors, sessions, profile, recentSessions),
                   const SizedBox(height: 20),
                   _buildDesktopCircadianRhythmCard(colors, sessions),
                   const SizedBox(height: 20),
@@ -512,12 +512,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            flex: 7,
+                            flex: 55,
                             child: _buildDesktopWeeklyHistogram(colors, sessions),
                           ),
                           const SizedBox(width: 20),
                           Expanded(
-                            flex: 5,
+                            flex: 45,
                             child: _buildDesktopStudyRigorMatrixCard(colors, recentSessions, attendanceRecords, isUni, weeksCount: 12),
                           ),
                         ],
@@ -541,12 +541,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            flex: 5,
+                            flex: 45,
                             child: _buildDesktopSubjectDistribution(colors, sessions, enrolledCourses, isUni),
                           ),
                           const SizedBox(width: 20),
                           Expanded(
-                            flex: 7,
+                            flex: 55,
                             child: _buildDesktopSubjectDeepDive(colors, sessions, enrolledCourses, isUni),
                           ),
                         ],
@@ -561,7 +561,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   _buildDesktopCgpaForecasterWorkspace(colors),
                 ] else ...[
                   // Default 'Overview'
-                  _buildDesktopTopKpis(colors, sessions, profile),
+                  _buildDesktopTopKpis(colors, sessions, profile, recentSessions),
 
                   const SizedBox(height: 20),
 
@@ -585,17 +585,17 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Middle Charts Row (70% Weekly / 50% Subject Donut - Stitch 7/5 cols)
+                          // Middle Charts Row (flex 55 Weekly / flex 45 Subject Donut)
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
-                                flex: 7,
+                                flex: 55,
                                 child: _buildDesktopWeeklyHistogram(colors, sessions),
                               ),
                               const SizedBox(width: 20),
                               Expanded(
-                                flex: 5,
+                                flex: 45,
                                 child: _buildDesktopSubjectDistribution(colors, sessions, enrolledCourses, isUni),
                               ),
                             ],
@@ -603,17 +603,17 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
                           const SizedBox(height: 20),
 
-                          // Bottom Timeline & Heatmap Row (70% Circadian / 50% Rigor Matrix - Stitch 7/5 cols)
+                          // Bottom Timeline & Heatmap Row (flex 1 Circadian / flex 1 Rigor Matrix)
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
-                                flex: 7,
+                                flex: 1,
                                 child: _buildDesktopCircadianRhythmCard(colors, sessions),
                               ),
                               const SizedBox(width: 20),
                               Expanded(
-                                flex: 5,
+                                flex: 1,
                                 child: _buildDesktopStudyRigorMatrixCard(colors, recentSessions, attendanceRecords, isUni, weeksCount: 12),
                               ),
                             ],
@@ -939,12 +939,21 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     );
   }
 
-  Widget _buildDesktopTopKpis(ChondrobinduThemeColors colors, List<StudySession> sessions, dynamic profile) {
+  Widget _buildDesktopTopKpis(
+    ChondrobinduThemeColors colors,
+    List<StudySession> sessions,
+    dynamic profile,
+    List<StudySession> recentSessions,
+  ) {
     final int totalSec = _computeTotalFocusSeconds(sessions);
     final String focusTimeStr = _formatFocusDuration(totalSec);
 
     final String sessionCountStr = '${sessions.length}';
-    final String sessionSubtitle = sessions.isNotEmpty ? 'Avg 2.1 sessions/day' : '0 sessions/day';
+    final int daysCount = (_rangeEnd.difference(_rangeStart).inDays + 1).clamp(1, 365);
+    final double avgSessionsPerDay = sessions.length / daysCount;
+    final String sessionSubtitle = sessions.isNotEmpty
+        ? 'Avg ${avgSessionsPerDay.toStringAsFixed(1)} sessions/day'
+        : '0 sessions/day';
 
     final int maxSec = _computeMaxSessionSeconds(sessions);
     final String maxSessionStr = maxSec > 0
@@ -952,7 +961,6 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         : '0m';
     final String longestCourse = _computeLongestSessionCourse(sessions);
 
-    final int daysCount = (_rangeEnd.difference(_rangeStart).inDays + 1).clamp(1, 365);
     final int avgDailySec = _computeAvgDailyFocusSeconds(sessions, daysCount);
     final String avgDailyStr = avgDailySec > 0
         ? (avgDailySec >= 3600 ? '${avgDailySec ~/ 3600}h ${(avgDailySec % 3600) ~/ 60}m' : '${avgDailySec ~/ 60}m')
@@ -963,6 +971,17 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final int streakDays = profile?.streakDays ?? 0;
     final String streakSubtitle = '$streakDays-day streak active';
 
+    // Dynamic calculation of delta vs previous period from real Firestore recentSessions
+    final prevPeriodStart = _rangeStart.subtract(Duration(days: daysCount));
+    final prevPeriodEnd = _rangeStart.subtract(const Duration(milliseconds: 1));
+    final prevSessions = recentSessions.where((s) =>
+        s.startedAt.isAfter(prevPeriodStart) && s.startedAt.isBefore(prevPeriodEnd));
+    final int prevSec = prevSessions.fold<int>(0, (acc, s) => acc + s.durationSeconds);
+    final double diffHours = (totalSec - prevSec) / 3600.0;
+    final String deltaStr = sessions.isNotEmpty || prevSec > 0
+        ? '${diffHours >= 0 ? '+' : ''}${diffHours.toStringAsFixed(1)}h vs last week'
+        : '0.0h vs last week';
+
     final kpi1 = _kpiCard(
       colors: colors,
       title: 'TOTAL FOCUS TIME',
@@ -971,16 +990,20 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       deltaWidget: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.trending_up_rounded, size: 14, color: colors.success),
+          Icon(
+            diffHours >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+            size: 14,
+            color: diffHours >= 0 ? colors.success : colors.secondary,
+          ),
           const SizedBox(width: 4),
           Flexible(
             child: Text(
-              sessions.isNotEmpty ? '+1.5h vs last week' : '0.0h vs last week',
+              deltaStr,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.jetBrainsMono(
-                color: colors.success,
-                fontSize: 11,
+                color: diffHours >= 0 ? colors.success : colors.secondary,
+                fontSize: 10.5,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -994,7 +1017,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
     final kpi2 = _kpiCard(
       colors: colors,
-      title: 'SESSIONS',
+      title: 'SESSIONS RECORDED',
       value: sessionCountStr,
       subtitle: sessionSubtitle,
       deltaWidget: Container(
@@ -1005,12 +1028,14 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           border: Border.all(color: colors.success.withValues(alpha: 0.3)),
         ),
         child: Text(
-          sessions.isNotEmpty ? '▲ High consistency' : 'Consistency: Pending',
+          sessions.isNotEmpty
+              ? (sessions.length >= daysCount ? '▲ High consistency' : '● Consistency: Logged')
+              : 'Consistency: Pending',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: GoogleFonts.jetBrainsMono(
             color: colors.success,
-            fontSize: 10.5,
+            fontSize: 10,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -1031,7 +1056,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         overflow: TextOverflow.ellipsis,
         style: GoogleFonts.jetBrainsMono(
           color: colors.primary,
-          fontSize: 11,
+          fontSize: 10.5,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -1080,11 +1105,11 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         return Row(
           children: [
             Expanded(child: kpi1),
-            const SizedBox(width: 20),
+            const SizedBox(width: 16),
             Expanded(child: kpi2),
-            const SizedBox(width: 20),
+            const SizedBox(width: 16),
             Expanded(child: kpi3),
-            const SizedBox(width: 20),
+            const SizedBox(width: 16),
             Expanded(child: kpi4),
           ],
         );
@@ -1104,7 +1129,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     double? progressFactor,
   }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      height: 132,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(16),
@@ -1124,62 +1150,58 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.jetBrainsMono(
                     color: colors.textMuted,
-                    fontSize: 11,
+                    fontSize: 10.5,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 1.0,
+                    letterSpacing: 0.8,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Container(
-                width: 32,
-                height: 32,
+                width: 28,
+                height: 28,
                 decoration: BoxDecoration(
                   color: iconBg,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: iconColor.withValues(alpha: 0.3)),
                 ),
-                child: Icon(icon, color: iconColor, size: 18),
+                child: Icon(icon, color: iconColor, size: 16),
               ),
             ],
           ),
-          const SizedBox(height: 12),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.jetBrainsMono(
               color: colors.textPrimary,
-              fontSize: 28,
+              fontSize: 24,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 4),
           Text(
             subtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(
               color: colors.textMuted,
-              fontSize: 12,
+              fontSize: 11,
             ),
           ),
-          const SizedBox(height: 8),
-          if (progressFactor != null) ...[
+          if (progressFactor != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(999),
               child: LinearProgressIndicator(
                 value: progressFactor.clamp(0.0, 1.0),
-                minHeight: 6,
+                minHeight: 5,
                 backgroundColor: colors.recessed,
                 valueColor: AlwaysStoppedAnimation<Color>(colors.secondary),
               ),
-            ),
-          ] else if (deltaWidget != null) ...[
-            deltaWidget,
-          ] else ...[
-            const SizedBox(height: 6),
-          ],
+            )
+          else if (deltaWidget != null)
+            deltaWidget
+          else
+            const SizedBox(height: 5),
         ],
       ),
     );
@@ -1204,8 +1226,17 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final double maxScale = math.max(3.0, (peakVal.isNaN ? 0.0 : peakVal * 1.15).ceilToDouble());
     final safeMaxScale = (maxScale.isNaN || maxScale.isInfinite || maxScale <= 0) ? 3.0 : maxScale;
 
+    final headerTitle = _selectedPeriod == InsightPeriod.day
+        ? 'DAY FOCUS TIME'
+        : (_selectedPeriod == InsightPeriod.month
+            ? 'MONTH FOCUS TIME'
+            : (_selectedPeriod == InsightPeriod.trend
+                ? 'TREND FOCUS TIME'
+                : 'Weekly Focus Distribution'));
+
     return Container(
-      padding: const EdgeInsets.all(20),
+      height: 340,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(16),
@@ -1213,6 +1244,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1222,8 +1254,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${_selectedPeriod.name.toUpperCase()} FOCUS TIME',
-                      style: GoogleFonts.jetBrainsMono(
+                      headerTitle,
+                      style: GoogleFonts.plusJakartaSans(
                         color: colors.textPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -1234,7 +1266,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       'Active academic load tracked by session timer',
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textMuted,
-                        fontSize: 12,
+                        fontSize: 11,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1278,26 +1310,26 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
 
           if (sessions.isEmpty)
             SizedBox(
-              height: 260,
+              height: 190,
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.bar_chart_rounded, color: colors.textMuted, size: 36),
-                    const SizedBox(height: 10),
+                    Icon(Icons.bar_chart_rounded, color: colors.textMuted, size: 32),
+                    const SizedBox(height: 8),
                     Text(
                       'No study sessions recorded for this period. Use the Timer to start logging focus blocks.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textMuted,
-                        fontSize: 13,
+                        fontSize: 12,
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 10),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: colors.secondary,
@@ -1318,10 +1350,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             )
           else
             SizedBox(
-              height: 260,
+              height: 190,
               child: Stack(
                 children: [
                   Positioned.fill(
+                    bottom: 24,
+                    top: 10,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1333,7 +1367,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     ),
                   ),
                   Positioned.fill(
-                    left: 36,
+                    left: 34,
                     right: 8,
                     bottom: 2,
                     child: Row(
@@ -1344,7 +1378,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         final String day = d['day'] as String;
                         final bool isPeak = peakVal > 0 && hrs == peakVal;
                         final double heightFactor = safeRatio(hrs, safeMaxScale);
-                        final double safeHeight = hrs > 0 ? (160.0 * heightFactor).clamp(4.0, 160.0) : 0.0;
+                        final double safeHeight = hrs > 0 ? (115.0 * heightFactor).clamp(4.0, 115.0) : 0.0;
 
                         return Column(
                           mainAxisAlignment: MainAxisAlignment.end,
@@ -1353,13 +1387,13 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                               '${hrs.toStringAsFixed(1)}h',
                               style: GoogleFonts.jetBrainsMono(
                                 color: isPeak ? colors.secondary : colors.primary,
-                                fontSize: 10.5,
+                                fontSize: 10,
                                 fontWeight: isPeak ? FontWeight.w800 : FontWeight.w600,
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 4),
                             Container(
-                              width: 36,
+                              width: 28,
                               height: safeHeight,
                               decoration: BoxDecoration(
                                 color: isPeak ? colors.secondary : colors.primary.withValues(alpha: 0.65),
@@ -1376,12 +1410,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                     : null,
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 6),
                             Text(
                               day,
                               style: GoogleFonts.jetBrainsMono(
                                 color: isPeak ? colors.textPrimary : colors.textMuted,
-                                fontSize: 11,
+                                fontSize: 10.5,
                                 fontWeight: isPeak ? FontWeight.w700 : FontWeight.w500,
                               ),
                             ),
@@ -1394,49 +1428,53 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               ),
             ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
 
           // Footer Metric Summary
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: colors.recessed,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: colors.surfaceBorder),
             ),
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              runSpacing: 4,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.verified_rounded, size: 16, color: colors.primary),
-                    const SizedBox(width: 8),
-                    RichText(
-                      text: TextSpan(
-                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 12),
-                        children: [
-                          const TextSpan(text: 'Target Variance: '),
-                          TextSpan(
-                            text: '${variance >= 0 ? '+' : ''}${variance.toStringAsFixed(1)}h overall',
-                            style: GoogleFonts.jetBrainsMono(
-                              color: colors.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.verified_rounded, size: 14, color: colors.primary),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: RichText(
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          text: TextSpan(
+                            style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 11),
+                            children: [
+                              const TextSpan(text: 'Target Variance: '),
+                              TextSpan(
+                                text: '${variance >= 0 ? '+' : ''}${variance.toStringAsFixed(1)}h overall',
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: colors.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   'Total Week: ${totalWeekHours.toStringAsFixed(1)}h / 7.0h ($weekPct%)',
                   style: GoogleFonts.jetBrainsMono(
                     color: colors.textMuted,
-                    fontSize: 11.5,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -1451,35 +1489,42 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     return Row(
       children: [
         SizedBox(
-          width: 32,
+          width: 30,
           child: Text(
             label,
             textAlign: TextAlign.right,
             style: GoogleFonts.jetBrainsMono(
               color: isBenchmark ? colors.secondary : colors.textMuted,
-              fontSize: 10,
+              fontSize: 9.5,
               fontWeight: isBenchmark ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         Expanded(
           child: Stack(
             clipBehavior: Clip.none,
+            alignment: Alignment.centerLeft,
             children: [
-              Container(
-                height: 1,
-                color: isBenchmark ? colors.secondary.withValues(alpha: 0.4) : colors.surfaceBorder,
-              ),
+              if (isBenchmark)
+                CustomPaint(
+                  size: const Size(double.infinity, 1),
+                  painter: _DashedLinePainter(colors.secondary.withValues(alpha: 0.6)),
+                )
+              else
+                Container(
+                  height: 1,
+                  color: colors.surfaceBorder.withValues(alpha: 0.5),
+                ),
               if (isBenchmark)
                 Positioned(
                   right: 0,
-                  top: -16,
+                  top: -14,
                   child: Text(
-                    'Goal Target (1.0h)',
+                    'GOAL TARGET (1.0h)',
                     style: GoogleFonts.jetBrainsMono(
                       color: colors.secondary,
-                      fontSize: 9.5,
+                      fontSize: 8.5,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.5,
                     ),
@@ -1507,7 +1552,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     int dominantPct = allocationList.isNotEmpty ? (allocationList.first['pct'] as int) : 0;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      height: 340,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(16),
@@ -1515,6 +1561,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1527,7 +1574,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       isUni ? 'Course Allocation' : 'Subject Allocation',
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textPrimary,
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1536,7 +1583,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       isUni ? 'Distribution across enrolled modules' : 'Distribution across enrolled subjects',
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textMuted,
-                        fontSize: 12,
+                        fontSize: 11,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1566,100 +1613,164 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
 
-          if (allocationList.isEmpty || totalSec == 0)
-            SizedBox(
-              height: 260,
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CustomPaint(
-                      size: const Size(120, 120),
-                      painter: _DonutChartPainter(
-                        values: const [1.0],
-                        colors: [colors.surfaceBorder],
-                        trackColor: colors.recessed,
-                        strokeWidth: 14,
+          SizedBox(
+            height: 190,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 140,
+                  height: 140,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CustomPaint(
+                        size: const Size(140, 140),
+                        painter: _DonutChartPainter(
+                          values: allocationList.isNotEmpty && totalSec > 0
+                              ? allocationList.map((e) => (e['seconds'] as int).toDouble()).toList()
+                              : const [1.0],
+                          colors: allocationList.isNotEmpty && totalSec > 0
+                              ? allocationList.map((e) => e['color'] as Color).toList()
+                              : [colors.surfaceBorder],
+                          trackColor: colors.recessed,
+                          strokeWidth: 14,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      isUni ? 'No enrolled courses or focus sessions logged yet.' : 'No enrolled subjects or focus sessions logged yet.',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: colors.textMuted,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            SizedBox(
-              height: 260,
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 160,
-                    height: 160,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        CustomPaint(
-                          size: const Size(160, 160),
-                          painter: _DonutChartPainter(
-                            values: allocationList.map((e) => (e['seconds'] as int).toDouble()).toList(),
-                            colors: allocationList.map((e) => e['color'] as Color).toList(),
-                            trackColor: colors.recessed,
-                            strokeWidth: 16,
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            focusTimeStr,
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              focusTimeStr,
-                              style: GoogleFonts.jetBrainsMono(
-                                color: colors.textPrimary,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                              ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'FOCUSED',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.textMuted,
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.2,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'TOTAL FOCUS',
-                              style: GoogleFonts.jetBrainsMono(
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: SizedBox(
+                    height: 190,
+                    child: allocationList.isEmpty || totalSec == 0
+                        ? Center(
+                            child: Text(
+                              isUni
+                                  ? 'No enrolled courses or focus sessions logged yet.'
+                                  : 'No enrolled subjects or focus sessions logged yet.',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.plusJakartaSans(
                                 color: colors.textMuted,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 1.2,
+                                fontSize: 11.5,
                               ),
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
+                          )
+                        : ListView.builder(
+                            padding: EdgeInsets.zero,
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: math.min(4, allocationList.length),
+                            itemBuilder: (context, index) {
+                              final item = allocationList[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 6.0),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: colors.recessed,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: colors.surfaceBorder),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          color: item['color'] as Color,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item['code'] as String,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.plusJakartaSans(
+                                                color: colors.textPrimary,
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            Text(
+                                              item['title'] as String,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.plusJakartaSans(
+                                                color: colors.textMuted,
+                                                fontSize: 10,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            '${item['pct']}%',
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: item['color'] as Color,
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                          Text(
+                                            item['hoursStr'] as String,
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: colors.textMuted,
+                                              fontSize: 9.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: allocationList.take(4).map((item) {
-                        return _buildCourseLegendItem(colors, item);
-                      }).toList(),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
 
-          // Primary Discipline Footer
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: colors.recessed,
               borderRadius: BorderRadius.circular(8),
@@ -1710,7 +1821,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final String peakWindow = circadianData['peakWindow'] as String;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      height: 270,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(16),
@@ -1718,6 +1830,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1730,7 +1843,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       'Circadian Focus Rhythm',
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textPrimary,
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1739,7 +1852,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       'Chronological time blocks logged across diurnal cycles (00:00 – 24:00)',
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textMuted,
-                        fontSize: 12,
+                        fontSize: 11,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1774,9 +1887,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
 
-          // 24H Timeline Grid Labels
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'].map((h) {
@@ -1784,16 +1896,16 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 h,
                 style: GoogleFonts.jetBrainsMono(
                   color: colors.textMuted,
-                  fontSize: 10,
+                  fontSize: 9.5,
                 ),
               );
             }).toList(),
           ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
 
           Container(
-            height: 48,
+            height: 38,
             decoration: BoxDecoration(
               color: colors.recessed,
               borderRadius: BorderRadius.circular(8),
@@ -1814,14 +1926,13 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         children: List.generate(7, (_) => Container(width: 1, color: colors.surfaceBorder.withValues(alpha: 0.5))),
                       ),
                     ),
-
                     if (daySessions.isEmpty)
                       Center(
                         child: Text(
                           'No focus blocks logged on ${DateFormat('d MMM yyyy').format(_currentAnchorDate)}.',
                           style: GoogleFonts.plusJakartaSans(
                             color: colors.textMuted,
-                            fontSize: 11.5,
+                            fontSize: 11,
                           ),
                         ),
                       )
@@ -1846,8 +1957,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         return Positioned(
                           left: safeLeft,
                           width: safeBlockWidth,
-                          top: 6,
-                          bottom: 6,
+                          top: 4,
+                          bottom: 4,
                           child: Tooltip(
                             message: '${s.cleanTitle}: ${DateFormat('HH:mm').format(s.startedAt)} - ${DateFormat('HH:mm').format(s.endedAt)} (${durM}m)',
                             child: Container(
@@ -1863,7 +1974,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.jetBrainsMono(
                                   color: const Color(0xFF171C24),
-                                  fontSize: 10,
+                                  fontSize: 9.5,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -1877,24 +1988,26 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
 
-          // Color-coded legend blocks (from Stitch reference)
-          Wrap(
-            spacing: 16,
-            runSpacing: 4,
-            children: [
-              _legendDot(colors.success, '09:00–12:00 (Morning Focus)', colors),
-              _legendDot(colors.secondary, '12:00–18:00 (Afternoon Block)', colors),
-              _legendDot(colors.primary, '18:00–24:00 (Night Flow)', colors),
-            ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _legendDot(colors.success, '09:00–12:00 Morning', colors),
+                const SizedBox(width: 12),
+                _legendDot(colors.secondary, '12:00–18:00 Afternoon', colors),
+                const SizedBox(width: 12),
+                _legendDot(colors.primary, '18:00–24:00 Night', colors),
+              ],
+            ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
 
-          // Cognitive Window Banner
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            height: 42,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: colors.recessed,
               borderRadius: BorderRadius.circular(8),
@@ -1902,12 +2015,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ),
             child: Row(
               children: [
-                Icon(Icons.psychology_rounded, size: 18, color: colors.secondary),
-                const SizedBox(width: 10),
+                Icon(Icons.psychology_rounded, size: 16, color: colors.secondary),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         'Peak Cognitive Window: $peakWindow',
@@ -1915,7 +2028,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.plusJakartaSans(
                           color: colors.textPrimary,
-                          fontSize: 12.5,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1925,7 +2038,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.jetBrainsMono(
                           color: colors.textMuted,
-                          fontSize: 10.5,
+                          fontSize: 9.5,
                         ),
                       ),
                     ],
@@ -1953,7 +2066,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           label,
           style: GoogleFonts.plusJakartaSans(
             color: colors.textMuted,
-            fontSize: 11,
+            fontSize: 10.5,
           ),
         ),
       ],
@@ -1971,9 +2084,16 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final List<List<Map<String, dynamic>>> grid = matrixData['grid'] as List<List<Map<String, dynamic>>>;
     final int activeDays = matrixData['activeDays'] as int;
 
-    String attendanceStr = isUni ? 'Academic Consistency' : 'Academic Consistency';
+    String attendanceStr = 'Academic Consistency';
     if (attendanceRecords.isNotEmpty) {
-      final attended = attendanceRecords.where((r) => r.isPresent == true).length;
+      int attended = 0;
+      for (final r in attendanceRecords) {
+        if (r is AttendanceRecord) {
+          if (r.status == AttendanceStatus.attended) attended++;
+        } else if (r is Map) {
+          if (r['status'] == 'attended' || r['isPresent'] == true) attended++;
+        }
+      }
       final pct = (safeRatio(attended, attendanceRecords.length) * 100).toStringAsFixed(1);
       attendanceStr = '$pct% Attendance Logged';
     }
@@ -1981,7 +2101,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final dayLabels = ['S', 'S', 'M', 'T', 'W', 'T', 'F'];
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      height: 270,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(16),
@@ -1989,6 +2110,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2001,7 +2123,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       'Study Rigor Matrix',
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textPrimary,
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -2010,7 +2132,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       '12-Week Academic Consistency Calendar',
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textMuted,
-                        fontSize: 12,
+                        fontSize: 11,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -2038,7 +2160,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
 
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2047,27 +2169,26 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 children: dayLabels.map((lbl) {
                   return Container(
                     height: 14,
-                    margin: const EdgeInsets.only(bottom: 4),
+                    margin: const EdgeInsets.only(bottom: 2),
                     alignment: Alignment.center,
                     child: Text(
                       lbl,
                       style: GoogleFonts.jetBrainsMono(
                         color: colors.textMuted,
-                        fontSize: 9.5,
+                        fontSize: 9,
                       ),
                     ),
                   );
                 }).toList(),
               ),
-
               const SizedBox(width: 8),
-
               Expanded(
                 child: Column(
                   children: List.generate(7, (rowIdx) {
                     final rowDays = grid[rowIdx];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 4.0),
+                    return Container(
+                      height: 14,
+                      margin: const EdgeInsets.only(bottom: 2),
                       child: Row(
                         children: rowDays.map((cell) {
                           final int intensity = cell['intensity'] as int;
@@ -2096,11 +2217,13 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                               message: '${DateFormat('EEE, d MMM').format(date)}: ${hrs.toStringAsFixed(1)}h',
                               child: Container(
                                 height: 14,
-                                margin: const EdgeInsets.symmetric(horizontal: 2),
+                                margin: const EdgeInsets.symmetric(horizontal: 1.5),
                                 decoration: BoxDecoration(
                                   color: cellColor,
                                   borderRadius: BorderRadius.circular(2.5),
-                                  border: intensity == 0 ? Border.all(color: colors.surfaceBorder.withValues(alpha: 0.5)) : null,
+                                  border: intensity == 0
+                                      ? Border.all(color: colors.surfaceBorder.withValues(alpha: 0.5))
+                                      : null,
                                 ),
                               ),
                             ),
@@ -2114,66 +2237,70 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ],
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
 
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            runSpacing: 4,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'Weeks W01 – W12',
                 style: GoogleFonts.jetBrainsMono(
                   color: colors.textMuted,
-                  fontSize: 10.5,
+                  fontSize: 9.5,
                 ),
               ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Less', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10)),
-                  const SizedBox(width: 6),
+                  Text('Less', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 9)),
+                  const SizedBox(width: 4),
                   _matrixCell(colors.recessed, border: colors.surfaceBorder),
                   _matrixCell(colors.primary.withValues(alpha: 0.35)),
                   _matrixCell(colors.primary),
                   _matrixCell(colors.secondary),
-                  const SizedBox(width: 6),
-                  Text('More', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10)),
+                  const SizedBox(width: 4),
+                  Text('More', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 9)),
                 ],
               ),
             ],
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
 
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: colors.recessed,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: colors.surfaceBorder),
             ),
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              runSpacing: 4,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '$activeDays Total Active Days',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: colors.textPrimary,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
+                Flexible(
+                  child: Text(
+                    '$activeDays Total Active Days',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.textPrimary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-                Text(
-                  attendanceStr,
-                  style: GoogleFonts.jetBrainsMono(
-                    color: colors.success,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    attendanceStr,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.success,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
@@ -3386,7 +3513,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     bool isUni,
   ) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      height: 340,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(16),
@@ -3420,10 +3548,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           if (enrolledCourses.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
+            Expanded(
               child: Center(
                 child: Text(
                   'No enrolled courses found for this term.',
@@ -3432,12 +3559,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               ),
             )
           else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: enrolledCourses.length,
-              separatorBuilder: (_, __) => Divider(color: colors.surfaceBorder, height: 16),
-              itemBuilder: (context, index) {
+            Expanded(
+              child: ListView.separated(
+                physics: const BouncingScrollPhysics(),
+                itemCount: enrolledCourses.length,
+                separatorBuilder: (_, __) => Divider(color: colors.surfaceBorder, height: 16),
+                itemBuilder: (context, index) {
                 final course = enrolledCourses[index];
                 final code = (course.code as String? ?? '').isNotEmpty ? (course.code as String) : (course.title as String? ?? '');
                 final title = course.title as String? ?? '';
@@ -3507,6 +3634,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 );
               },
             ),
+          ),
         ],
       ),
     );
@@ -5214,6 +5342,28 @@ class _TrendPickerContentState extends State<_TrendPickerContent> {
       ),
     );
   }
+}
+
+class _DashedLinePainter extends CustomPainter {
+  final Color color;
+  const _DashedLinePainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.0;
+    const dashWidth = 4.0;
+    const dashSpace = 4.0;
+    double startX = 0.0;
+    while (startX < size.width) {
+      canvas.drawLine(Offset(startX, 0), Offset(math.min(startX + dashWidth, size.width), 0), paint);
+      startX += dashWidth + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedLinePainter oldDelegate) => oldDelegate.color != color;
 }
 
 // ---------------------------------------------------------------------------

@@ -77,7 +77,7 @@ void main() {
       expect(tester.takeException(), isNull);
 
       // 1. Overview Tab (default)
-      expect(find.text('WEEK FOCUS TIME'), findsOneWidget);
+      expect(find.text('Weekly Focus Distribution'), findsOneWidget);
 
       // 2. Switch to 'Time' Tab
       await tester.tap(find.text('Time').first);

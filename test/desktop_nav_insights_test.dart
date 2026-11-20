@@ -239,7 +239,7 @@ void main() {
       // KPIs for zero sessions
       expect(find.text('0h 0m'), findsWidgets);
       expect(find.text('TOTAL FOCUS TIME'), findsOneWidget);
-      expect(find.text('SESSIONS'), findsOneWidget);
+      expect(find.text('SESSIONS RECORDED'), findsOneWidget);
       expect(find.text('MAX SINGLE SESSION'), findsOneWidget);
       expect(find.text('AVG DAILY FOCUS'), findsOneWidget);
 
@@ -327,7 +327,7 @@ void main() {
       expect(find.textContaining('UNIVERSITY TRACK'), findsOneWidget);
       expect(find.text('TOTAL FOCUS TIME'), findsOneWidget);
       expect(find.text('3h 0m'), findsNWidgets(2)); // KPI card and Donut center
-      expect(find.text('SESSIONS'), findsOneWidget);
+      expect(find.text('SESSIONS RECORDED'), findsOneWidget);
       expect(find.text('2'), findsOneWidget);
       expect(find.text('MAX SINGLE SESSION'), findsOneWidget);
       expect(find.text('2h 0m'), findsNWidgets(2)); // KPI card and Course legend
