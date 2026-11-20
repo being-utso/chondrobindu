@@ -24,6 +24,23 @@ import 'term_performance_screen.dart';
 /// Period selector for analytics and study sessions
 enum InsightPeriod { day, week, month, trend }
 
+/// Data bucket for timespan-driven Focus Distribution charts
+class FocusBucket {
+  final String label;
+  final String fullLabel;
+  final double hours;
+  final int seconds;
+  final bool isCurrent;
+
+  const FocusBucket({
+    required this.label,
+    required this.fullLabel,
+    required this.hours,
+    required this.seconds,
+    this.isCurrent = false,
+  });
+}
+
 /// Dynamic Y-axis scale calculation for Focus Distribution charts
 class FocusChartScale {
   final double maxY;
@@ -493,6 +510,303 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     }
   }
 
+  void _showTrendRangeDialog(BuildContext context, ChondrobinduThemeColors colors, bool isUni) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final minD = _minDate;
+
+    DateTime tempStart = _rangeStart.isBefore(minD) ? minD : _rangeStart;
+    DateTime tempEnd = _rangeEnd.isAfter(today) ? today : _rangeEnd;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final days = (tempEnd.difference(tempStart).inDays + 1).clamp(1, 1000);
+
+          final presets = [
+            ('Last 7 Days', today.subtract(const Duration(days: 6)), today),
+            ('Last 14 Days', today.subtract(const Duration(days: 13)), today),
+            ('Last 30 Days', today.subtract(const Duration(days: 29)), today),
+            (isUni ? 'Since Semester Start' : 'Since Joined', minD, today),
+          ];
+
+          return AlertDialog(
+            backgroundColor: colors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: colors.surfaceBorder),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: colors.secondary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: colors.secondary.withValues(alpha: 0.3)),
+                  ),
+                  child: Icon(Icons.date_range_rounded, size: 18, color: colors.secondary),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Telemetry Trend Window',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        'Select preset or custom date range',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textMuted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'QUICK PRESETS',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.textMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: presets.map((p) {
+                      final pStart = p.$2.isBefore(minD) ? minD : p.$2;
+                      final pEnd = p.$3.isAfter(today) ? today : p.$3;
+                      final isSelected = isSameDay(tempStart, pStart) && isSameDay(tempEnd, pEnd);
+
+                      return InkWell(
+                        onTap: () {
+                          setDialogState(() {
+                            tempStart = pStart;
+                            tempEnd = pEnd;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: isSelected ? colors.secondary.withValues(alpha: 0.2) : colors.recessed,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isSelected ? colors.secondary : colors.surfaceBorder,
+                            ),
+                          ),
+                          child: Text(
+                            p.$1,
+                            style: GoogleFonts.jetBrainsMono(
+                              color: isSelected ? colors.secondary : colors.textPrimary,
+                              fontSize: 11.5,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'CUSTOM RANGE',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.textMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: ctx,
+                              initialDate: tempStart,
+                              firstDate: minD,
+                              lastDate: tempEnd,
+                              builder: (context, child) => Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: ColorScheme.dark(
+                                    primary: colors.secondary,
+                                    surface: colors.surface,
+                                  ),
+                                ),
+                                child: child!,
+                              ),
+                            );
+                            if (picked != null) {
+                              setDialogState(() {
+                                tempStart = DateTime(picked.year, picked.month, picked.day);
+                              });
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: colors.recessed,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: colors.surfaceBorder),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'START DATE',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: colors.textMuted,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  DateFormat('d MMM yyyy').format(tempStart),
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: colors.textPrimary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Icon(Icons.arrow_forward_rounded, size: 16, color: colors.textMuted),
+                      ),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: ctx,
+                              initialDate: tempEnd,
+                              firstDate: tempStart,
+                              lastDate: today,
+                              builder: (context, child) => Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: ColorScheme.dark(
+                                    primary: colors.secondary,
+                                    surface: colors.surface,
+                                  ),
+                                ),
+                                child: child!,
+                              ),
+                            );
+                            if (picked != null) {
+                              setDialogState(() {
+                                tempEnd = DateTime(picked.year, picked.month, picked.day);
+                              });
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: colors.recessed,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: colors.surfaceBorder),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'END DATE',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: colors.textMuted,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  DateFormat('d MMM yyyy').format(tempEnd),
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: colors.textPrimary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Range: $days ${days == 1 ? "day" : "days"} (Bounded: ${DateFormat("d MMM yyyy").format(minD)} – Today)',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textMuted,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontWeight: FontWeight.w600),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colors.secondary,
+                  foregroundColor: const Color(0xFF171C24),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                ),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  SafeHaptics.selectionClick();
+                  setState(() {
+                    _customTrendStart = tempStart;
+                    _customTrendEnd = tempEnd;
+                    _currentAnchorDate = tempEnd;
+                  });
+                },
+                child: Text(
+                  'Apply Window',
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // PURE DATA AGGREGATION & FORMATTING HELPERS
   // ---------------------------------------------------------------------------
@@ -530,33 +844,203 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     return totalSec ~/ daysCount;
   }
 
-  List<Map<String, dynamic>> _computeWeeklyDistributionData(
+  List<FocusBucket> _computeFocusDistributionData(
     List<StudySession> sessions, [
     List<StudySession>? recentSessions,
   ]) {
     final combined = deduplicateSessions([...sessions, ...(recentSessions ?? const [])]);
-    // Bangladesh academic week starts on Saturday (Sat, Sun, Mon, Tue, Wed, Thu, Fri)
-    final dayLabels = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-    final daysFromSaturday = (_currentAnchorDate.weekday % 7 + 1) % 7;
-    final weekStart = DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day)
-        .subtract(Duration(days: daysFromSaturday));
-    final List<Map<String, dynamic>> result = [];
 
-    for (int i = 0; i < 7; i++) {
-      final dayDate = weekStart.add(Duration(days: i));
-      final daySessions = combined.where((s) => isSameDay(s.startedAt, dayDate));
-      final int sec = daySessions.fold<int>(0, (acc, s) => acc + s.durationSeconds);
-      final double hrs = double.parse((sec / 3600.0).toStringAsFixed(1));
-      result.add({
-        'day': dayLabels[i],
-        'date': dayDate,
-        'hours': hrs,
-        'seconds': sec,
-        'isToday': isSameDay(dayDate, DateTime.now()),
-      });
+    switch (_selectedPeriod) {
+      case InsightPeriod.day:
+        final dayStart = DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day);
+        final dayEnd = dayStart.add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
+        final daySessions = combined.where((s) =>
+            !s.startedAt.isBefore(dayStart) && !s.startedAt.isAfter(dayEnd)
+        ).toList();
+
+        final blockLabels = ['00-04', '04-08', '08-12', '12-16', '16-20', '20-24'];
+        final blockFullLabels = [
+          '00:00 – 04:00',
+          '04:00 – 08:00',
+          '08:00 – 12:00',
+          '12:00 – 16:00',
+          '16:00 – 20:00',
+          '20:00 – 24:00',
+        ];
+
+        final List<int> blockSecs = List.filled(6, 0);
+        for (final s in daySessions) {
+          final blockIdx = (s.startedAt.hour ~/ 4).clamp(0, 5);
+          blockSecs[blockIdx] += s.durationSeconds;
+        }
+
+        final now = DateTime.now();
+        final isToday = isSameDay(_currentAnchorDate, now);
+        final currentBlockIdx = isToday ? (now.hour ~/ 4).clamp(0, 5) : -1;
+
+        final List<FocusBucket> buckets = [];
+        for (int i = 0; i < 6; i++) {
+          final double hrs = double.parse((blockSecs[i] / 3600.0).toStringAsFixed(1));
+          buckets.add(FocusBucket(
+            label: blockLabels[i],
+            fullLabel: blockFullLabels[i],
+            hours: hrs,
+            seconds: blockSecs[i],
+            isCurrent: i == currentBlockIdx,
+          ));
+        }
+        return buckets;
+
+      case InsightPeriod.week:
+        final dayLabels = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        final daysFromSaturday = (_currentAnchorDate.weekday % 7 + 1) % 7;
+        final weekStart = DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day)
+            .subtract(Duration(days: daysFromSaturday));
+
+        final List<FocusBucket> buckets = [];
+        for (int i = 0; i < 7; i++) {
+          final dayDate = weekStart.add(Duration(days: i));
+          final daySessions = combined.where((s) => isSameDay(s.startedAt, dayDate));
+          final int sec = daySessions.fold<int>(0, (acc, s) => acc + s.durationSeconds);
+          final double hrs = double.parse((sec / 3600.0).toStringAsFixed(1));
+          buckets.add(FocusBucket(
+            label: dayLabels[i],
+            fullLabel: DateFormat('EEE, d MMM').format(dayDate),
+            hours: hrs,
+            seconds: sec,
+            isCurrent: isSameDay(dayDate, DateTime.now()),
+          ));
+        }
+        return buckets;
+
+      case InsightPeriod.month:
+        final year = _currentAnchorDate.year;
+        final month = _currentAnchorDate.month;
+        final totalDays = DateTime(year, month + 1, 0).day;
+
+        final List<(int, int, String, String)> weekDefs = [
+          (1, 7, 'W1', '1–7 ${DateFormat('MMM').format(_currentAnchorDate)}'),
+          (8, 14, 'W2', '8–14 ${DateFormat('MMM').format(_currentAnchorDate)}'),
+          (15, 21, 'W3', '15–21 ${DateFormat('MMM').format(_currentAnchorDate)}'),
+          (22, 28, 'W4', '22–28 ${DateFormat('MMM').format(_currentAnchorDate)}'),
+        ];
+        if (totalDays > 28) {
+          weekDefs.add((29, totalDays, 'W5', '29–$totalDays ${DateFormat('MMM').format(_currentAnchorDate)}'));
+        }
+
+        final monthSessions = combined.where((s) =>
+            s.startedAt.year == year && s.startedAt.month == month
+        ).toList();
+
+        final now = DateTime.now();
+        final isCurrentMonth = now.year == year && now.month == month;
+
+        final List<FocusBucket> buckets = [];
+        for (final def in weekDefs) {
+          final startDay = def.$1;
+          final endDay = def.$2;
+          final label = def.$3;
+          final fullLabel = def.$4;
+
+          final wSessions = monthSessions.where((s) => s.startedAt.day >= startDay && s.startedAt.day <= endDay);
+          final int sec = wSessions.fold<int>(0, (acc, s) => acc + s.durationSeconds);
+          final double hrs = double.parse((sec / 3600.0).toStringAsFixed(1));
+          final bool isCurrent = isCurrentMonth && now.day >= startDay && now.day <= endDay;
+
+          buckets.add(FocusBucket(
+            label: label,
+            fullLabel: fullLabel,
+            hours: hrs,
+            seconds: sec,
+            isCurrent: isCurrent,
+          ));
+        }
+        return buckets;
+
+      case InsightPeriod.trend:
+        final start = _rangeStart;
+        final end = _rangeEnd;
+        final daysCount = (end.difference(start).inDays + 1).clamp(1, 1000);
+
+        if (daysCount <= 14) {
+          final List<FocusBucket> buckets = [];
+          for (int i = 0; i < daysCount; i++) {
+            final dayDate = start.add(Duration(days: i));
+            final daySessions = combined.where((s) => isSameDay(s.startedAt, dayDate));
+            final int sec = daySessions.fold<int>(0, (acc, s) => acc + s.durationSeconds);
+            final double hrs = double.parse((sec / 3600.0).toStringAsFixed(1));
+            buckets.add(FocusBucket(
+              label: DateFormat('d MMM').format(dayDate),
+              fullLabel: DateFormat('EEE, d MMM yyyy').format(dayDate),
+              hours: hrs,
+              seconds: sec,
+              isCurrent: isSameDay(dayDate, DateTime.now()),
+            ));
+          }
+          return buckets;
+        }
+
+        if (daysCount <= 90) {
+          final List<FocusBucket> buckets = [];
+          DateTime chunkStart = start;
+          int weekIdx = 1;
+          final now = DateTime.now();
+
+          while (!chunkStart.isAfter(end)) {
+            DateTime chunkEnd = chunkStart.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+            if (chunkEnd.isAfter(end)) chunkEnd = end;
+
+            final wSessions = combined.where((s) =>
+                !s.startedAt.isBefore(chunkStart) && !s.startedAt.isAfter(chunkEnd)
+            );
+            final int sec = wSessions.fold<int>(0, (acc, s) => acc + s.durationSeconds);
+            final double hrs = double.parse((sec / 3600.0).toStringAsFixed(1));
+            final bool isCurrent = !now.isBefore(chunkStart) && !now.isAfter(chunkEnd);
+
+            buckets.add(FocusBucket(
+              label: 'W$weekIdx',
+              fullLabel: '${DateFormat('d MMM').format(chunkStart)} – ${DateFormat('d MMM').format(chunkEnd)}',
+              hours: hrs,
+              seconds: sec,
+              isCurrent: isCurrent,
+            ));
+
+            chunkStart = chunkEnd.add(const Duration(seconds: 1));
+            weekIdx++;
+          }
+          return buckets;
+        }
+
+        // > 90 days: monthly buckets
+        final List<FocusBucket> buckets = [];
+        DateTime m = DateTime(start.year, start.month, 1);
+        final DateTime limit = DateTime(end.year, end.month, 1);
+        final now = DateTime.now();
+
+        while (!m.isAfter(limit)) {
+          final mStart = (m.year == start.year && m.month == start.month) ? start : m;
+          DateTime mEnd = DateTime(m.year, m.month + 1, 1).subtract(const Duration(milliseconds: 1));
+          if (mEnd.isAfter(end)) mEnd = end;
+
+          final mSessions = combined.where((s) =>
+              !s.startedAt.isBefore(mStart) && !s.startedAt.isAfter(mEnd)
+          );
+          final int sec = mSessions.fold<int>(0, (acc, s) => acc + s.durationSeconds);
+          final double hrs = double.parse((sec / 3600.0).toStringAsFixed(1));
+          final bool isCurrent = now.year == m.year && now.month == m.month;
+
+          buckets.add(FocusBucket(
+            label: DateFormat('MMM').format(m),
+            fullLabel: DateFormat('MMMM yyyy').format(m),
+            hours: hrs,
+            seconds: sec,
+            isCurrent: isCurrent,
+          ));
+
+          m = DateTime(m.year, m.month + 1, 1);
+        }
+        return buckets;
     }
-
-    return result;
   }
 
   List<Map<String, dynamic>> _computeSubjectAllocationData(List<StudySession> sessions, List<dynamic> enrolledCourses) {
@@ -1018,92 +1502,182 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       (InsightPeriod.trend, 'Trend'),
     ];
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.surfaceBorder),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isNarrow = constraints.maxWidth < 1260;
-          final subTabsWidget = SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: categories.map((cat) {
-                final active = _desktopCategoryTab == cat;
-                return InkWell(
-                  onTap: () {
-                    SafeHaptics.selectionClick();
-                    setState(() => _desktopCategoryTab = cat);
-                  },
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: active ? colors.primary.withValues(alpha: 0.2) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(6),
-                      border: active ? Border.all(color: colors.primary.withValues(alpha: 0.5)) : null,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 1260;
+
+        final subTabsWidget = Container(
+          height: 38,
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: colors.recessed,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: colors.surfaceBorder),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: categories.map((cat) {
+              final active = _desktopCategoryTab == cat;
+              return InkWell(
+                onTap: () {
+                  SafeHaptics.selectionClick();
+                  setState(() => _desktopCategoryTab = cat);
+                },
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: active ? colors.primary.withValues(alpha: 0.2) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                    border: active ? Border.all(color: colors.primary.withValues(alpha: 0.5)) : null,
+                  ),
+                  child: Text(
+                    cat,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: active ? colors.textPrimary : colors.textMuted,
+                      fontSize: 12.5,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                     ),
-                    child: Text(
-                      cat,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: active ? colors.textPrimary : colors.textMuted,
-                        fontSize: 13,
-                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        );
+
+        final periodControls = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Granularity Segmented Pill
+            Container(
+              height: 38,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: colors.recessed,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: colors.surfaceBorder),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: periods.map((p) {
+                  final active = _selectedPeriod == p.$1;
+                  return InkWell(
+                    onTap: () {
+                      SafeHaptics.selectionClick();
+                      setState(() => _selectedPeriod = p.$1);
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: active ? colors.surface : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                        border: active ? Border.all(color: colors.surfaceBorder) : null,
+                      ),
+                      child: Text(
+                        p.$2,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: active ? colors.primary : colors.textMuted,
+                          fontSize: 12,
+                          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Date Stepper Pill (< Date Range >)
+            Container(
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              decoration: BoxDecoration(
+                color: colors.recessed,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: colors.surfaceBorder),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    onTap: _canStepBack ? () => _stepDateRange(-1) : null,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: _canStepBack ? colors.surface.withValues(alpha: 0.5) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(
+                        Icons.chevron_left_rounded,
+                        size: 18,
+                        color: _canStepBack ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
                       ),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-          );
-
-          final periodControls = Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: colors.recessed,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: colors.surfaceBorder),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: periods.map((p) {
-                    final active = _selectedPeriod == p.$1;
-                    return InkWell(
-                      onTap: () {
-                        SafeHaptics.selectionClick();
-                        setState(() => _selectedPeriod = p.$1);
-                      },
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: active ? colors.surface : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
-                          border: active ? Border.all(color: colors.surfaceBorder) : null,
-                        ),
-                        child: Text(
-                          p.$2,
-                          style: GoogleFonts.plusJakartaSans(
-                            color: active ? colors.primary : colors.textMuted,
-                            fontSize: 12,
-                            fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                  InkWell(
+                    onTap: _selectedPeriod == InsightPeriod.trend
+                        ? () => _showTrendRangeDialog(context, colors, isUni)
+                        : null,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _dateRangeLabel,
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.2,
+                            ),
                           ),
-                        ),
+                          if (_selectedPeriod == InsightPeriod.trend) ...[
+                            const SizedBox(width: 4),
+                            Icon(Icons.tune_rounded, size: 12, color: colors.secondary),
+                          ],
+                        ],
                       ),
-                    );
-                  }).toList(),
-                ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: _canStepForward ? () => _stepDateRange(1) : null,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: _canStepForward ? colors.surface.withValues(alpha: 0.5) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: _canStepForward ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            ),
+            const SizedBox(width: 8),
+
+            // Quick-Jump Button
+            InkWell(
+              onTap: _jumpToCurrentRange,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
                   color: colors.recessed,
                   borderRadius: BorderRadius.circular(8),
@@ -1112,117 +1686,54 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.chevron_left_rounded, size: 18),
-                      color: _canStepBack ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                      onPressed: _canStepBack ? () => _stepDateRange(-1) : null,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.calendar_month_rounded, size: 14, color: colors.secondary),
-                          const SizedBox(width: 6),
-                          Text(
-                            _dateRangeLabel,
-                            style: GoogleFonts.jetBrainsMono(
-                              color: colors.textPrimary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                    Icon(Icons.restore_rounded, size: 13, color: colors.secondary),
+                    const SizedBox(width: 5),
+                    Text(
+                      _quickJumpLabel,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.chevron_right_rounded, size: 18),
-                      color: _canStepForward ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                      onPressed: _canStepForward ? () => _stepDateRange(1) : null,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              InkWell(
-                onTap: _jumpToCurrentRange,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: colors.recessed,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.surfaceBorder),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.restore_rounded, size: 13, color: colors.secondary),
-                      const SizedBox(width: 4),
-                      Text(
-                        _quickJumpLabel,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: colors.textPrimary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          );
+            ),
+          ],
+        );
 
-          if (isNarrow) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: colors.recessed,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.surfaceBorder),
-                  ),
-                  child: subTabsWidget,
-                ),
-                const SizedBox(height: 8),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: periodControls,
-                ),
-              ],
-            );
-          }
-
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        if (isNarrow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: colors.recessed,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: colors.surfaceBorder),
-                ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
                 child: subTabsWidget,
               ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: periodControls,
-                ),
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: periodControls,
               ),
             ],
           );
-        },
-      ),
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            subTabsWidget,
+            const SizedBox(width: 12),
+            Flexible(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: periodControls,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1514,14 +2025,14 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     dynamic profile, [
     List<StudySession>? recentSessions,
   ]) {
-    final weeklyData = _computeWeeklyDistributionData(sessions, recentSessions);
+    final buckets = _computeFocusDistributionData(sessions, recentSessions);
     double peakVal = 0.0;
     String peakDay = 'None';
-    for (final d in weeklyData) {
-      final hrs = d['hours'] as double;
+    for (final b in buckets) {
+      final hrs = b.hours;
       if (!hrs.isNaN && hrs > peakVal) {
         peakVal = hrs;
-        peakDay = d['day'] as String;
+        peakDay = b.label;
       }
     }
 
@@ -1529,8 +2040,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         ? profile.dailyFocusGoalHours
         : 1.0;
 
-    final FocusChartScale scale = FocusChartScale.compute(peakVal, dailyGoalHours);
-    final double maxY = scale.maxY;
+    double? chartGoalLine;
+    String goalLineLabel = '';
 
     // Period-specific total and target math
     final int totalLoggedSeconds = sessions.fold<int>(0, (acc, s) => acc + s.durationSeconds);
@@ -1540,29 +2051,47 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
     switch (_selectedPeriod) {
       case InsightPeriod.day:
+        chartGoalLine = null; // Intra-day 4-hour blocks do not render daily goal line
         targetPeriodHours = dailyGoalHours;
         final pct = targetPeriodHours > 0 ? (safeRatio(totalPeriodHours, targetPeriodHours) * 100).round() : 0;
         periodFooterLabel = 'Total Day: ${totalPeriodHours.toStringAsFixed(1)}h / ${targetPeriodHours.toStringAsFixed(1)}h ($pct%)';
         break;
       case InsightPeriod.week:
+        chartGoalLine = dailyGoalHours;
+        goalLineLabel = 'GOAL TARGET (${dailyGoalHours.toStringAsFixed(1)}h/day)';
         targetPeriodHours = dailyGoalHours * 7.0;
         final pct = targetPeriodHours > 0 ? (safeRatio(totalPeriodHours, targetPeriodHours) * 100).round() : 0;
         periodFooterLabel = 'Total Week: ${totalPeriodHours.toStringAsFixed(1)}h / ${targetPeriodHours.toStringAsFixed(1)}h ($pct%)';
         break;
       case InsightPeriod.month:
+        chartGoalLine = dailyGoalHours * 7.0;
+        goalLineLabel = 'GOAL TARGET (${chartGoalLine.toStringAsFixed(1)}h/wk)';
         final daysInMonth = DateTime(_currentAnchorDate.year, _currentAnchorDate.month + 1, 0).day;
         targetPeriodHours = dailyGoalHours * daysInMonth.toDouble();
         final pct = targetPeriodHours > 0 ? (safeRatio(totalPeriodHours, targetPeriodHours) * 100).round() : 0;
         periodFooterLabel = 'Total Month: ${totalPeriodHours.toStringAsFixed(1)}h / ${targetPeriodHours.toStringAsFixed(1)}h ($pct%)';
         break;
       case InsightPeriod.trend:
-        final daysInTrend = (_rangeEnd.difference(_rangeStart).inDays + 1).clamp(1, 365);
+        final daysInTrend = (_rangeEnd.difference(_rangeStart).inDays + 1).clamp(1, 1000);
+        if (daysInTrend <= 14) {
+          chartGoalLine = dailyGoalHours;
+          goalLineLabel = 'GOAL TARGET (${dailyGoalHours.toStringAsFixed(1)}h/day)';
+        } else if (daysInTrend <= 90) {
+          chartGoalLine = dailyGoalHours * 7.0;
+          goalLineLabel = 'GOAL TARGET (${chartGoalLine.toStringAsFixed(1)}h/wk)';
+        } else {
+          chartGoalLine = dailyGoalHours * 30.0;
+          goalLineLabel = 'GOAL TARGET (${chartGoalLine.toStringAsFixed(1)}h/mo)';
+        }
         targetPeriodHours = dailyGoalHours * daysInTrend.toDouble();
         final pct = targetPeriodHours > 0 ? (safeRatio(totalPeriodHours, targetPeriodHours) * 100).round() : 0;
         periodFooterLabel = 'Total Range: ${totalPeriodHours.toStringAsFixed(1)}h / ${targetPeriodHours.toStringAsFixed(1)}h ($pct%)';
         break;
     }
     final double variance = totalPeriodHours - targetPeriodHours;
+
+    final FocusChartScale scale = FocusChartScale.compute(peakVal, chartGoalLine ?? 0.0);
+    final double maxY = scale.maxY;
 
     final headerTitle = _selectedPeriod == InsightPeriod.day
         ? 'DAY FOCUS TIME'
@@ -1576,6 +2105,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     const double baselineBottom = 24.0;
     const double topPadding = 26.0;
     const double chartPlotHeight = plotAreaHeight - baselineBottom - topPadding; // 140.0 px
+
+    final int count = buckets.length;
+    final double barColWidth = count <= 6 ? 40.0 : (count <= 8 ? 32.0 : (count <= 14 ? 22.0 : 18.0));
+    final double barWidth = count <= 6 ? 30.0 : (count <= 8 ? 24.0 : (count <= 14 ? 16.0 : 12.0));
+    final double valFontSize = count <= 6 ? 10.0 : (count <= 8 ? 9.5 : 8.5);
+    final double labelFontSize = count <= 6 ? 10.5 : (count <= 8 ? 10.0 : 9.0);
 
     return Container(
       height: 340,
@@ -1730,51 +2265,52 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     );
                   }),
 
-                  // Dashed GOAL TARGET line positioned mathematically
-                  Positioned(
-                    left: 38,
-                    right: 0,
-                    bottom: baselineBottom + (dailyGoalHours / maxY).clamp(0.0, 1.0) * chartPlotHeight,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      alignment: Alignment.centerLeft,
-                      children: [
-                        CustomPaint(
-                          size: const Size(double.infinity, 1),
-                          painter: _DashedLinePainter(colors.secondary.withValues(alpha: 0.7)),
-                        ),
-                        Positioned(
-                          right: 0,
-                          top: -14,
-                          child: InkWell(
-                            onTap: () => _showEditDailyGoalDialog(context, colors, dailyGoalHours),
-                            borderRadius: BorderRadius.circular(4),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'GOAL TARGET (${dailyGoalHours.toStringAsFixed(1)}h)',
-                                    style: GoogleFonts.jetBrainsMono(
-                                      color: colors.secondary,
-                                      fontSize: 8.5,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.5,
+                  // Dashed GOAL TARGET line (hidden for intra-day 4-hour blocks)
+                  if (chartGoalLine != null)
+                    Positioned(
+                      left: 38,
+                      right: 0,
+                      bottom: baselineBottom + (chartGoalLine / maxY).clamp(0.0, 1.0) * chartPlotHeight,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.centerLeft,
+                        children: [
+                          CustomPaint(
+                            size: const Size(double.infinity, 1),
+                            painter: _DashedLinePainter(colors.secondary.withValues(alpha: 0.7)),
+                          ),
+                          Positioned(
+                            right: 0,
+                            top: -14,
+                            child: InkWell(
+                              onTap: () => _showEditDailyGoalDialog(context, colors, dailyGoalHours),
+                              borderRadius: BorderRadius.circular(4),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      goalLineLabel,
+                                      style: GoogleFonts.jetBrainsMono(
+                                        color: colors.secondary,
+                                        fontSize: 8.5,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.5,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Icon(Icons.edit_rounded, size: 9, color: colors.secondary),
-                                ],
+                                    const SizedBox(width: 3),
+                                    Icon(Icons.edit_rounded, size: 9, color: colors.secondary),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
 
-                  // The 7 Bars (anchored to baseline)
+                  // The Bars (anchored to baseline)
                   Positioned(
                     left: 38,
                     right: 8,
@@ -1783,15 +2319,15 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: weeklyData.map((d) {
-                        final double hrs = d['hours'] as double;
+                      children: buckets.map((b) {
+                        final double hrs = b.hours;
                         final bool isPeak = peakVal > 0 && hrs == peakVal;
                         final double barHeight = hrs > 0
                             ? ((hrs / maxY).clamp(0.0, 1.0) * chartPlotHeight).clamp(4.0, chartPlotHeight)
                             : 0.0;
 
                         return SizedBox(
-                          width: 32,
+                          width: barColWidth,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.end,
@@ -1802,7 +2338,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                   maxLines: 1,
                                   style: GoogleFonts.jetBrainsMono(
                                     color: isPeak ? colors.secondary : colors.primary,
-                                    fontSize: 10,
+                                    fontSize: valFontSize,
                                     fontWeight: isPeak ? FontWeight.w800 : FontWeight.w600,
                                   ),
                                 )
@@ -1810,7 +2346,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                 const SizedBox(height: 14),
                               const SizedBox(height: 3),
                               Container(
-                                width: 28,
+                                width: barWidth,
                                 height: barHeight,
                                 decoration: BoxDecoration(
                                   color: isPeak ? colors.secondary : colors.primary.withValues(alpha: 0.65),
@@ -1834,7 +2370,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     ),
                   ),
 
-                  // Day Labels (below baseline)
+                  // Period Labels (below baseline)
                   Positioned(
                     left: 38,
                     right: 8,
@@ -1842,18 +2378,17 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     height: baselineBottom,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: weeklyData.map((d) {
-                        final double hrs = d['hours'] as double;
-                        final String day = d['day'] as String;
+                      children: buckets.map((b) {
+                        final double hrs = b.hours;
                         final bool isPeak = peakVal > 0 && hrs == peakVal;
                         return SizedBox(
-                          width: 32,
+                          width: barColWidth,
                           child: Center(
                             child: Text(
-                              day,
+                              b.label,
                               style: GoogleFonts.jetBrainsMono(
                                 color: isPeak ? colors.textPrimary : colors.textMuted,
-                                fontSize: 10.5,
+                                fontSize: labelFontSize,
                                 fontWeight: isPeak ? FontWeight.w700 : FontWeight.w500,
                               ),
                             ),
@@ -3075,26 +3610,34 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                       onPressed: _canStepBack ? () => _stepDateRange(-1) : null,
                     ),
                     Flexible(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 4.0),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.calendar_month_rounded, size: 14, color: colors.secondary),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                _dateRangeLabel,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.jetBrainsMono(
-                                  color: colors.textPrimary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                      child: InkWell(
+                        onTap: _selectedPeriod == InsightPeriod.trend
+                            ? () => _showTrendRangeDialog(context, colors, isUni)
+                            : null,
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 4.0),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  _dateRangeLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: colors.textPrimary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                              if (_selectedPeriod == InsightPeriod.trend) ...[
+                                const SizedBox(width: 4),
+                                Icon(Icons.tune_rounded, size: 12, color: colors.secondary),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -3317,14 +3860,14 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     dynamic profile, [
     List<StudySession>? recentSessions,
   ]) {
-    final weeklyData = _computeWeeklyDistributionData(sessions, recentSessions);
+    final buckets = _computeFocusDistributionData(sessions, recentSessions);
     double peakVal = 0.0;
     String peakDay = 'None';
-    for (final d in weeklyData) {
-      final hrs = d['hours'] as double;
+    for (final b in buckets) {
+      final hrs = b.hours;
       if (!hrs.isNaN && hrs > peakVal) {
         peakVal = hrs;
-        peakDay = d['day'] as String;
+        peakDay = b.label;
       }
     }
 
@@ -3332,13 +3875,57 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         ? profile.dailyFocusGoalHours
         : 1.0;
 
-    final FocusChartScale scale = FocusChartScale.compute(peakVal, dailyGoalHours);
+    double? chartGoalLine;
+    String goalLineLabel = '';
+
+    switch (_selectedPeriod) {
+      case InsightPeriod.day:
+        chartGoalLine = null; // Hide in day mode
+        break;
+      case InsightPeriod.week:
+        chartGoalLine = dailyGoalHours;
+        goalLineLabel = 'GOAL (${dailyGoalHours.toStringAsFixed(1)}h)';
+        break;
+      case InsightPeriod.month:
+        chartGoalLine = dailyGoalHours * 7.0;
+        goalLineLabel = 'GOAL (${chartGoalLine.toStringAsFixed(1)}h/wk)';
+        break;
+      case InsightPeriod.trend:
+        final daysInTrend = (_rangeEnd.difference(_rangeStart).inDays + 1).clamp(1, 1000);
+        if (daysInTrend <= 14) {
+          chartGoalLine = dailyGoalHours;
+          goalLineLabel = 'GOAL (${dailyGoalHours.toStringAsFixed(1)}h)';
+        } else if (daysInTrend <= 90) {
+          chartGoalLine = dailyGoalHours * 7.0;
+          goalLineLabel = 'GOAL (${chartGoalLine.toStringAsFixed(1)}h/wk)';
+        } else {
+          chartGoalLine = dailyGoalHours * 30.0;
+          goalLineLabel = 'GOAL (${chartGoalLine.toStringAsFixed(1)}h/mo)';
+        }
+        break;
+    }
+
+    final FocusChartScale scale = FocusChartScale.compute(peakVal, chartGoalLine ?? 0.0);
     final double maxY = scale.maxY;
+
+    final headerTitle = _selectedPeriod == InsightPeriod.day
+        ? 'DAY FOCUS TIME'
+        : (_selectedPeriod == InsightPeriod.month
+            ? 'MONTH FOCUS TIME'
+            : (_selectedPeriod == InsightPeriod.trend
+                ? 'TREND FOCUS TIME'
+                : 'Weekly Focus Distribution'));
 
     const double mobilePlotHeight = 150.0;
     const double baselineBottom = 22.0;
     const double topPadding = 24.0;
     const double chartPlotHeight = mobilePlotHeight - baselineBottom - topPadding; // 104.0 px
+
+    final int count = buckets.length;
+    final double barColWidth = count <= 6 ? 34.0 : (count <= 8 ? 26.0 : (count <= 14 ? 18.0 : 14.0));
+    final double barWidth = count <= 6 ? 26.0 : (count <= 8 ? 20.0 : (count <= 14 ? 13.0 : 10.0));
+    final double valFontSize = count <= 6 ? 9.5 : (count <= 8 ? 9.0 : 8.0);
+    final double labelFontSize = count <= 6 ? 10.0 : (count <= 8 ? 9.5 : 8.5);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -3358,7 +3945,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Weekly Focus Distribution',
+                      headerTitle,
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textPrimary,
                         fontSize: 14,
@@ -3450,48 +4037,49 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     );
                   }),
 
-                  // Dashed GOAL TARGET line
-                  Positioned(
-                    left: 34,
-                    right: 0,
-                    bottom: baselineBottom + (dailyGoalHours / maxY).clamp(0.0, 1.0) * chartPlotHeight,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      alignment: Alignment.centerLeft,
-                      children: [
-                        CustomPaint(
-                          size: const Size(double.infinity, 1),
-                          painter: _DashedLinePainter(colors.secondary.withValues(alpha: 0.7)),
-                        ),
-                        Positioned(
-                          right: 0,
-                          top: -12,
-                          child: InkWell(
-                            onTap: () => _showEditDailyGoalDialog(context, colors, dailyGoalHours),
-                            borderRadius: BorderRadius.circular(4),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'GOAL (${dailyGoalHours.toStringAsFixed(1)}h)',
-                                    style: GoogleFonts.jetBrainsMono(
-                                      color: colors.secondary,
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.w700,
+                  // Dashed GOAL TARGET line (hidden on Day mode)
+                  if (chartGoalLine != null)
+                    Positioned(
+                      left: 34,
+                      right: 0,
+                      bottom: baselineBottom + (chartGoalLine / maxY).clamp(0.0, 1.0) * chartPlotHeight,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.centerLeft,
+                        children: [
+                          CustomPaint(
+                            size: const Size(double.infinity, 1),
+                            painter: _DashedLinePainter(colors.secondary.withValues(alpha: 0.7)),
+                          ),
+                          Positioned(
+                            right: 0,
+                            top: -12,
+                            child: InkWell(
+                              onTap: () => _showEditDailyGoalDialog(context, colors, dailyGoalHours),
+                              borderRadius: BorderRadius.circular(4),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      goalLineLabel,
+                                      style: GoogleFonts.jetBrainsMono(
+                                        color: colors.secondary,
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Icon(Icons.edit_rounded, size: 8, color: colors.secondary),
-                                ],
+                                    const SizedBox(width: 2),
+                                    Icon(Icons.edit_rounded, size: 8, color: colors.secondary),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
 
                   // Bars (anchored to baseline)
                   Positioned(
@@ -3502,15 +4090,15 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: weeklyData.map((d) {
-                        final double hrs = d['hours'] as double;
+                      children: buckets.map((b) {
+                        final double hrs = b.hours;
                         final bool isPeak = peakVal > 0 && hrs == peakVal;
                         final double barHeight = hrs > 0
                             ? ((hrs / maxY).clamp(0.0, 1.0) * chartPlotHeight).clamp(4.0, chartPlotHeight)
                             : 0.0;
 
                         return SizedBox(
-                          width: 26,
+                          width: barColWidth,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.end,
@@ -3521,7 +4109,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                   maxLines: 1,
                                   style: GoogleFonts.jetBrainsMono(
                                     color: isPeak ? colors.secondary : colors.primary,
-                                    fontSize: 9.5,
+                                    fontSize: valFontSize,
                                     fontWeight: isPeak ? FontWeight.w800 : FontWeight.w600,
                                   ),
                                 )
@@ -3529,7 +4117,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                 const SizedBox(height: 12),
                               const SizedBox(height: 2),
                               Container(
-                                width: 22,
+                                width: barWidth,
                                 height: barHeight,
                                 decoration: BoxDecoration(
                                   color: isPeak ? colors.secondary : colors.primary.withValues(alpha: 0.65),
@@ -3543,7 +4131,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     ),
                   ),
 
-                  // Day labels (below baseline)
+                  // Period labels (below baseline)
                   Positioned(
                     left: 34,
                     right: 8,
@@ -3551,18 +4139,17 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                     height: baselineBottom,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: weeklyData.map((d) {
-                        final double hrs = d['hours'] as double;
-                        final String day = d['day'] as String;
+                      children: buckets.map((b) {
+                        final double hrs = b.hours;
                         final bool isPeak = peakVal > 0 && hrs == peakVal;
                         return SizedBox(
-                          width: 26,
+                          width: barColWidth,
                           child: Center(
                             child: Text(
-                              day,
+                              b.label,
                               style: GoogleFonts.jetBrainsMono(
                                 color: isPeak ? colors.textPrimary : colors.textMuted,
-                                fontSize: 10,
+                                fontSize: labelFontSize,
                                 fontWeight: isPeak ? FontWeight.w700 : FontWeight.w500,
                               ),
                             ),
