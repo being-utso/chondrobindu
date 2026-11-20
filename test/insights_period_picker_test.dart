@@ -7,6 +7,7 @@ import 'package:chondrobindu/screens/journal_screen.dart';
 import 'package:chondrobindu/models/routine_models.dart';
 import 'package:chondrobindu/providers/user_profile_provider.dart';
 import 'package:chondrobindu/providers/firestore_providers.dart';
+import 'package:chondrobindu/providers/journal_provider.dart';
 
 class FakeUserProfileNotifier extends StateNotifier<UserProfile> implements UserProfileNotifier {
   FakeUserProfileNotifier(super.state);
@@ -67,7 +68,7 @@ void main() {
 
   group('InsightsScreen Period Picker Inline Display & Date Stepper Tests', () {
     testWidgets('Day mode displays inline calendar with days of the month (no popups)', (tester) async {
-      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.physicalSize = const Size(400, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
         tester.view.resetPhysicalSize();
@@ -78,8 +79,12 @@ void main() {
         ProviderScope(
           overrides: [
             studySessionsRangeStreamProvider.overrideWith((ref, param) => Stream.value([])),
+            recentStudySessionsStreamProvider.overrideWith((ref) => Stream.value([])),
             coursesStreamProvider.overrideWith((ref) => Stream.value([])),
             holidaySettingsStreamProvider.overrideWith((ref) => Stream.value(const HolidaySettings())),
+            journalStreamProvider.overrideWith((ref) => Stream.value([])),
+            attendanceRecordsStreamProvider.overrideWith((ref) => Stream.value([])),
+            upcomingAssessmentsStreamProvider.overrideWith((ref) => Stream.value([])),
           ],
           child: const MaterialApp(
             home: InsightsScreen(),
@@ -102,7 +107,7 @@ void main() {
     });
 
     testWidgets('Month mode displays inline 12-month grid (no popups)', (tester) async {
-      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.physicalSize = const Size(400, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
         tester.view.resetPhysicalSize();
@@ -113,8 +118,12 @@ void main() {
         ProviderScope(
           overrides: [
             studySessionsRangeStreamProvider.overrideWith((ref, param) => Stream.value([])),
+            recentStudySessionsStreamProvider.overrideWith((ref) => Stream.value([])),
             coursesStreamProvider.overrideWith((ref) => Stream.value([])),
             holidaySettingsStreamProvider.overrideWith((ref) => Stream.value(const HolidaySettings())),
+            journalStreamProvider.overrideWith((ref) => Stream.value([])),
+            attendanceRecordsStreamProvider.overrideWith((ref) => Stream.value([])),
+            upcomingAssessmentsStreamProvider.overrideWith((ref) => Stream.value([])),
           ],
           child: const MaterialApp(
             home: InsightsScreen(),
@@ -138,7 +147,7 @@ void main() {
     });
 
     testWidgets('Trend mode displays inline preset chips and custom window (no popups)', (tester) async {
-      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.physicalSize = const Size(400, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
         tester.view.resetPhysicalSize();
@@ -149,8 +158,12 @@ void main() {
         ProviderScope(
           overrides: [
             studySessionsRangeStreamProvider.overrideWith((ref, param) => Stream.value([])),
+            recentStudySessionsStreamProvider.overrideWith((ref) => Stream.value([])),
             coursesStreamProvider.overrideWith((ref) => Stream.value([])),
             holidaySettingsStreamProvider.overrideWith((ref) => Stream.value(const HolidaySettings())),
+            journalStreamProvider.overrideWith((ref) => Stream.value([])),
+            attendanceRecordsStreamProvider.overrideWith((ref) => Stream.value([])),
+            upcomingAssessmentsStreamProvider.overrideWith((ref) => Stream.value([])),
           ],
           child: const MaterialApp(
             home: InsightsScreen(),
@@ -197,8 +210,12 @@ void main() {
           overrides: [
             userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(collegeProfile)),
             studySessionsRangeStreamProvider.overrideWith((ref, param) => Stream.value([])),
+            recentStudySessionsStreamProvider.overrideWith((ref) => Stream.value([])),
             coursesStreamProvider.overrideWith((ref) => Stream.value([])),
             holidaySettingsStreamProvider.overrideWith((ref) => Stream.value(const HolidaySettings())),
+            journalStreamProvider.overrideWith((ref) => Stream.value([])),
+            attendanceRecordsStreamProvider.overrideWith((ref) => Stream.value([])),
+            upcomingAssessmentsStreamProvider.overrideWith((ref) => Stream.value([])),
           ],
           child: const MaterialApp(
             home: InsightsScreen(),

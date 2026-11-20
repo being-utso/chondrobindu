@@ -913,38 +913,25 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   scrollDirection: Axis.horizontal,
                   child: periodControls,
                 ),
-                const SizedBox(height: 12),
-                Divider(color: colors.surfaceBorder, height: 1),
-                const SizedBox(height: 12),
-                _buildInlinePeriodPicker(colors, isUni),
               ],
             );
           }
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          return Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: colors.recessed,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: colors.surfaceBorder),
-                      ),
-                      child: subTabsWidget,
-                    ),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: colors.recessed,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: colors.surfaceBorder),
                   ),
-                  const SizedBox(width: 12),
-                  periodControls,
-                ],
+                  child: subTabsWidget,
+                ),
               ),
-              const SizedBox(height: 12),
-              Divider(color: colors.surfaceBorder, height: 1),
-              const SizedBox(height: 12),
-              _buildInlinePeriodPicker(colors, isUni),
+              const SizedBox(width: 12),
+              periodControls,
             ],
           );
         },
