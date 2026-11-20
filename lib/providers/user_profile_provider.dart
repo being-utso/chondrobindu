@@ -181,6 +181,15 @@ class UserProfileNotifier extends StateNotifier<UserProfile> {
     return uploadProfilePicture(bytes, fileExtension);
   }
 
+  Future<void> updateDailyFocusGoal(double hours) async {
+    if (hours <= 0) return;
+    final updated = state.copyWith(
+      dailyFocusGoalHours: hours,
+      targetFocusMinutes: (hours * 60).round(),
+    );
+    await saveProfile(updated);
+  }
+
   Future<void> addFocusMinutes(int additionalMinutes) async {
     if (additionalMinutes <= 0) return;
     final newTodaysFocus = state.todaysFocusMinutes + additionalMinutes;

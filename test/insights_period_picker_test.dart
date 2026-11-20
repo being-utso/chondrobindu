@@ -67,7 +67,7 @@ void main() {
   });
 
   group('InsightsScreen Period Picker Inline Display & Date Stepper Tests', () {
-    testWidgets('Day mode displays inline calendar with days of the month (no popups)', (tester) async {
+    testWidgets('Day mode displays date stepper with chevrons and Today quick-jump button (no popups)', (tester) async {
       tester.view.physicalSize = const Size(400, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -98,15 +98,18 @@ void main() {
       await tester.tap(find.text('Day'));
       await tester.pumpAndSettle();
 
-      // Inline calendar header is visible directly below navigation
-      expect(find.text('Select Focus Date'), findsOneWidget);
-      expect(find.textContaining('Bounded:'), findsOneWidget);
+      // Quick-jump button displays 'Today'
+      expect(find.text('Today'), findsOneWidget);
+
+      // Chevrons are present
+      expect(find.byIcon(Icons.chevron_left_rounded), findsWidgets);
+      expect(find.byIcon(Icons.chevron_right_rounded), findsWidgets);
 
       // Verify no dialog popup exists
       expect(find.byType(Dialog), findsNothing);
     });
 
-    testWidgets('Month mode displays inline 12-month grid (no popups)', (tester) async {
+    testWidgets('Month mode displays month stepper and This Month quick-jump button (no popups)', (tester) async {
       tester.view.physicalSize = const Size(400, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -137,16 +140,14 @@ void main() {
       await tester.tap(find.text('Month'));
       await tester.pumpAndSettle();
 
-      // Inline month grid is directly rendered
-      expect(find.text('Select Calendar Month'), findsOneWidget);
-      expect(find.text('Jan'), findsOneWidget);
-      expect(find.text('Dec'), findsOneWidget);
+      // Quick-jump button displays 'This Month'
+      expect(find.text('This Month'), findsOneWidget);
 
       // Verify no dialog popup exists
       expect(find.byType(Dialog), findsNothing);
     });
 
-    testWidgets('Trend mode displays inline preset chips and custom window (no popups)', (tester) async {
+    testWidgets('Trend mode displays trend stepper and Current quick-jump button (no popups)', (tester) async {
       tester.view.physicalSize = const Size(400, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -177,16 +178,10 @@ void main() {
       await tester.tap(find.text('Trend'));
       await tester.pumpAndSettle();
 
-      // Inline trend controls are directly visible
-      expect(find.text('Telemetry Trend Window'), findsOneWidget);
-      expect(find.text('Last 7 Days'), findsOneWidget);
-      expect(find.text('Last 14 Days'), findsOneWidget);
-      expect(find.text('Last 30 Days'), findsOneWidget);
+      // Quick-jump button displays 'Current'
+      expect(find.text('Current'), findsOneWidget);
 
-      // Tapping a preset works inline without dialog
-      await tester.tap(find.text('Last 14 Days'));
-      await tester.pumpAndSettle();
-
+      // Verify no dialog popup exists
       expect(find.byType(Dialog), findsNothing);
     });
 

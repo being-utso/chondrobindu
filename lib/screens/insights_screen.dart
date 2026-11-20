@@ -1,5 +1,7 @@
 import 'dart:math' as math;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,6 +23,42 @@ import 'term_performance_screen.dart';
 
 /// Period selector for analytics and study sessions
 enum InsightPeriod { day, week, month, trend }
+
+/// Dynamic Y-axis scale calculation for Focus Distribution charts
+class FocusChartScale {
+  final double maxY;
+  final List<double> ticks;
+
+  const FocusChartScale({required this.maxY, required this.ticks});
+
+  static FocusChartScale compute(double peakHours, double goalHours) {
+    final rawMax = math.max(peakHours, goalHours);
+    if (rawMax <= 0.0) {
+      return const FocusChartScale(maxY: 3.0, ticks: [0.0, 1.0, 2.0, 3.0]);
+    }
+    if (rawMax <= 3.0) {
+      return const FocusChartScale(maxY: 3.0, ticks: [0.0, 1.0, 2.0, 3.0]);
+    }
+    if (rawMax <= 6.0) {
+      return const FocusChartScale(maxY: 6.0, ticks: [0.0, 2.0, 4.0, 6.0]);
+    }
+    if (rawMax <= 8.0) {
+      return const FocusChartScale(maxY: 8.0, ticks: [0.0, 2.0, 4.0, 6.0, 8.0]);
+    }
+    if (rawMax <= 12.0) {
+      return const FocusChartScale(maxY: 12.0, ticks: [0.0, 3.0, 6.0, 9.0, 12.0]);
+    }
+    if (rawMax <= 16.0) {
+      return const FocusChartScale(maxY: 16.0, ticks: [0.0, 4.0, 8.0, 12.0, 16.0]);
+    }
+    final step = (rawMax / 4.0).ceilToDouble();
+    final top = step * 4.0;
+    return FocusChartScale(
+      maxY: top,
+      ticks: [0.0, step, step * 2, step * 3, top],
+    );
+  }
+}
 
 /// Computes track-aware date range minimum boundary (minDate).
 DateTime computeMinDate({
@@ -244,6 +282,217 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     });
   }
 
+  String get _quickJumpLabel {
+    switch (_selectedPeriod) {
+      case InsightPeriod.day:
+        return 'Today';
+      case InsightPeriod.week:
+        return 'This Week';
+      case InsightPeriod.month:
+        return 'This Month';
+      case InsightPeriod.trend:
+        return 'Current';
+    }
+  }
+
+  void _jumpToCurrentRange() {
+    SafeHaptics.selectionClick();
+    setState(() {
+      _currentAnchorDate = DateTime.now();
+      _customTrendStart = null;
+      _customTrendEnd = null;
+    });
+  }
+
+  void _showEditDailyGoalDialog(BuildContext context, ChondrobinduThemeColors colors, double currentGoal) {
+    final textController = TextEditingController(text: currentGoal.toStringAsFixed(1));
+    double selectedGoal = currentGoal;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final presets = [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0];
+          return AlertDialog(
+            backgroundColor: colors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: colors.surfaceBorder),
+            ),
+            title: Row(
+              children: [
+                Icon(Icons.flag_rounded, size: 20, color: colors.secondary),
+                const SizedBox(width: 8),
+                Text(
+                  'Daily Focus Goal',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: colors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Set target study hours per day. Charts, target variance, and progress badges will update dynamically.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: colors.textMuted,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'QUICK PRESETS',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: presets.map((p) {
+                    final active = (selectedGoal - p).abs() < 0.05;
+                    return InkWell(
+                      onTap: () {
+                        setDialogState(() {
+                          selectedGoal = p;
+                          textController.text = p.toStringAsFixed(1);
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: active ? colors.secondary.withValues(alpha: 0.2) : colors.recessed,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: active ? colors.secondary : colors.surfaceBorder,
+                          ),
+                        ),
+                        child: Text(
+                          '${p.toStringAsFixed(1)}h',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: active ? colors.secondary : colors.textPrimary,
+                            fontSize: 12,
+                            fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'CUSTOM TARGET (HOURS)',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: colors.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: textController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: colors.recessed,
+                    suffixText: 'hours / day',
+                    suffixStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: colors.surfaceBorder),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: colors.surfaceBorder),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: colors.secondary, width: 1.5),
+                    ),
+                  ),
+                  onChanged: (val) {
+                    final parsed = double.tryParse(val.trim());
+                    if (parsed != null && parsed > 0) {
+                      setDialogState(() {
+                        selectedGoal = parsed;
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontWeight: FontWeight.w600),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colors.secondary,
+                  foregroundColor: const Color(0xFF171C24),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                ),
+                onPressed: () {
+                  final parsed = double.tryParse(textController.text.trim()) ?? selectedGoal;
+                  if (parsed > 0) {
+                    Navigator.of(ctx).pop();
+                    _updateDailyFocusGoal(parsed);
+                  }
+                },
+                child: Text(
+                  'Save Target',
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _updateDailyFocusGoal(double newGoal) async {
+    if (newGoal <= 0) return;
+    SafeHaptics.selectionClick();
+    ref.read(userProfileProvider.notifier).updateDailyFocusGoal(newGoal);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null && uid.isNotEmpty && Firebase.apps.isNotEmpty) {
+      try {
+        await FirebaseFirestore.instance.collection('users').doc(uid).set({
+          'dailyFocusGoalHours': newGoal,
+          'targetFocusMinutes': (newGoal * 60).round(),
+        }, SetOptions(merge: true));
+      } catch (e) {
+        debugPrint('Error updating dailyFocusGoalHours: $e');
+      }
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Daily focus goal updated to ${newGoal.toStringAsFixed(1)}h/day'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // PURE DATA AGGREGATION & FORMATTING HELPERS
   // ---------------------------------------------------------------------------
@@ -281,15 +530,21 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     return totalSec ~/ daysCount;
   }
 
-  List<Map<String, dynamic>> _computeWeeklyDistributionData(List<StudySession> sessions) {
+  List<Map<String, dynamic>> _computeWeeklyDistributionData(
+    List<StudySession> sessions, [
+    List<StudySession>? recentSessions,
+  ]) {
+    final combined = deduplicateSessions([...sessions, ...(recentSessions ?? const [])]);
     // Bangladesh academic week starts on Saturday (Sat, Sun, Mon, Tue, Wed, Thu, Fri)
     final dayLabels = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-    final weekStart = _rangeStart;
+    final daysFromSaturday = (_currentAnchorDate.weekday % 7 + 1) % 7;
+    final weekStart = DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day)
+        .subtract(Duration(days: daysFromSaturday));
     final List<Map<String, dynamic>> result = [];
 
     for (int i = 0; i < 7; i++) {
       final dayDate = weekStart.add(Duration(days: i));
-      final daySessions = sessions.where((s) => isSameDay(s.startedAt, dayDate));
+      final daySessions = combined.where((s) => isSameDay(s.startedAt, dayDate));
       final int sec = daySessions.fold<int>(0, (acc, s) => acc + s.durationSeconds);
       final double hrs = double.parse((sec / 3600.0).toStringAsFixed(1));
       result.add({
@@ -502,7 +757,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _buildDesktopWeeklyHistogram(colors, sessions),
+                            _buildDesktopWeeklyHistogram(colors, sessions, profile, recentSessions),
                             const SizedBox(height: 20),
                             _buildDesktopStudyRigorMatrixCard(colors, recentSessions, attendanceRecords, isUni, weeksCount: 12),
                           ],
@@ -513,7 +768,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         children: [
                           Expanded(
                             flex: 55,
-                            child: _buildDesktopWeeklyHistogram(colors, sessions),
+                            child: _buildDesktopWeeklyHistogram(colors, sessions, profile, recentSessions),
                           ),
                           const SizedBox(width: 20),
                           Expanded(
@@ -572,7 +827,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _buildDesktopWeeklyHistogram(colors, sessions),
+                            _buildDesktopWeeklyHistogram(colors, sessions, profile, recentSessions),
                             const SizedBox(height: 20),
                             _buildDesktopSubjectDistribution(colors, sessions, enrolledCourses, isUni),
                             const SizedBox(height: 20),
@@ -591,7 +846,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                             children: [
                               Expanded(
                                 flex: 55,
-                                child: _buildDesktopWeeklyHistogram(colors, sessions),
+                                child: _buildDesktopWeeklyHistogram(colors, sessions, profile, recentSessions),
                               ),
                               const SizedBox(width: 20),
                               Expanded(
@@ -772,7 +1027,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isNarrow = constraints.maxWidth < 1100;
+          final isNarrow = constraints.maxWidth < 1260;
           final subTabsWidget = SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -892,12 +1147,40 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: _jumpToCurrentRange,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: colors.recessed,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: colors.surfaceBorder),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.restore_rounded, size: 13, color: colors.secondary),
+                      const SizedBox(width: 4),
+                      Text(
+                        _quickJumpLabel,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textPrimary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           );
 
           if (isNarrow) {
             return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
                   padding: const EdgeInsets.all(4),
@@ -918,20 +1201,24 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           }
 
           return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: colors.recessed,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.surfaceBorder),
-                  ),
-                  child: subTabsWidget,
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: colors.recessed,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colors.surfaceBorder),
                 ),
+                child: subTabsWidget,
               ),
               const SizedBox(width: 12),
-              periodControls,
+              Flexible(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: periodControls,
+                ),
+              ),
             ],
           );
         },
@@ -965,7 +1252,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final String avgDailyStr = avgDailySec > 0
         ? (avgDailySec >= 3600 ? '${avgDailySec ~/ 3600}h ${(avgDailySec % 3600) ~/ 60}m' : '${avgDailySec ~/ 60}m')
         : '0m';
-    final double targetRatio = safeRatio(avgDailySec, 3600.0);
+    final double dailyGoalHours = (profile?.dailyFocusGoalHours != null && profile!.dailyFocusGoalHours > 0)
+        ? profile.dailyFocusGoalHours
+        : 1.0;
+    final double targetRatio = safeRatio(avgDailySec, dailyGoalHours * 3600.0);
     final int targetPct = (targetRatio * 100).round();
 
     final int streakDays = profile?.streakDays ?? 0;
@@ -1069,11 +1359,12 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       colors: colors,
       title: 'AVG DAILY FOCUS',
       value: avgDailyStr,
-      subtitle: '$targetPct% of 1.0h daily target',
+      subtitle: '$targetPct% of ${dailyGoalHours.toStringAsFixed(1)}h daily target ✎',
       progressFactor: targetRatio,
       icon: Icons.schedule_rounded,
       iconColor: colors.primary,
       iconBg: colors.recessed,
+      onTap: () => _showEditDailyGoalDialog(context, colors, dailyGoalHours),
     );
 
     return LayoutBuilder(
@@ -1127,8 +1418,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     required Color iconColor,
     required Color iconBg,
     double? progressFactor,
+    VoidCallback? onTap,
   }) {
-    return Container(
+    final cardContent = Container(
       height: 132,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -1205,10 +1497,24 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
         ],
       ),
     );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: cardContent,
+      );
+    }
+    return cardContent;
   }
 
-  Widget _buildDesktopWeeklyHistogram(ChondrobinduThemeColors colors, List<StudySession> sessions) {
-    final weeklyData = _computeWeeklyDistributionData(sessions);
+  Widget _buildDesktopWeeklyHistogram(
+    ChondrobinduThemeColors colors,
+    List<StudySession> sessions,
+    dynamic profile, [
+    List<StudySession>? recentSessions,
+  ]) {
+    final weeklyData = _computeWeeklyDistributionData(sessions, recentSessions);
     double peakVal = 0.0;
     String peakDay = 'None';
     for (final d in weeklyData) {
@@ -1219,12 +1525,44 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       }
     }
 
-    final totalWeekSec = weeklyData.fold<int>(0, (acc, d) => acc + (d['seconds'] as int));
-    final double totalWeekHours = totalWeekSec / 3600.0;
-    final double variance = totalWeekHours - 7.0;
-    final int weekPct = (safeRatio(totalWeekHours, 7.0) * 100).round();
-    final double maxScale = math.max(3.0, (peakVal.isNaN ? 0.0 : peakVal * 1.15).ceilToDouble());
-    final safeMaxScale = (maxScale.isNaN || maxScale.isInfinite || maxScale <= 0) ? 3.0 : maxScale;
+    final double dailyGoalHours = (profile?.dailyFocusGoalHours != null && profile!.dailyFocusGoalHours > 0)
+        ? profile.dailyFocusGoalHours
+        : 1.0;
+
+    final FocusChartScale scale = FocusChartScale.compute(peakVal, dailyGoalHours);
+    final double maxY = scale.maxY;
+
+    // Period-specific total and target math
+    final int totalLoggedSeconds = sessions.fold<int>(0, (acc, s) => acc + s.durationSeconds);
+    final double totalPeriodHours = totalLoggedSeconds / 3600.0;
+    double targetPeriodHours;
+    String periodFooterLabel;
+
+    switch (_selectedPeriod) {
+      case InsightPeriod.day:
+        targetPeriodHours = dailyGoalHours;
+        final pct = targetPeriodHours > 0 ? (safeRatio(totalPeriodHours, targetPeriodHours) * 100).round() : 0;
+        periodFooterLabel = 'Total Day: ${totalPeriodHours.toStringAsFixed(1)}h / ${targetPeriodHours.toStringAsFixed(1)}h ($pct%)';
+        break;
+      case InsightPeriod.week:
+        targetPeriodHours = dailyGoalHours * 7.0;
+        final pct = targetPeriodHours > 0 ? (safeRatio(totalPeriodHours, targetPeriodHours) * 100).round() : 0;
+        periodFooterLabel = 'Total Week: ${totalPeriodHours.toStringAsFixed(1)}h / ${targetPeriodHours.toStringAsFixed(1)}h ($pct%)';
+        break;
+      case InsightPeriod.month:
+        final daysInMonth = DateTime(_currentAnchorDate.year, _currentAnchorDate.month + 1, 0).day;
+        targetPeriodHours = dailyGoalHours * daysInMonth.toDouble();
+        final pct = targetPeriodHours > 0 ? (safeRatio(totalPeriodHours, targetPeriodHours) * 100).round() : 0;
+        periodFooterLabel = 'Total Month: ${totalPeriodHours.toStringAsFixed(1)}h / ${targetPeriodHours.toStringAsFixed(1)}h ($pct%)';
+        break;
+      case InsightPeriod.trend:
+        final daysInTrend = (_rangeEnd.difference(_rangeStart).inDays + 1).clamp(1, 365);
+        targetPeriodHours = dailyGoalHours * daysInTrend.toDouble();
+        final pct = targetPeriodHours > 0 ? (safeRatio(totalPeriodHours, targetPeriodHours) * 100).round() : 0;
+        periodFooterLabel = 'Total Range: ${totalPeriodHours.toStringAsFixed(1)}h / ${targetPeriodHours.toStringAsFixed(1)}h ($pct%)';
+        break;
+    }
+    final double variance = totalPeriodHours - targetPeriodHours;
 
     final headerTitle = _selectedPeriod == InsightPeriod.day
         ? 'DAY FOCUS TIME'
@@ -1233,6 +1571,11 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             : (_selectedPeriod == InsightPeriod.trend
                 ? 'TREND FOCUS TIME'
                 : 'Weekly Focus Distribution'));
+
+    const double plotAreaHeight = 190.0;
+    const double baselineBottom = 24.0;
+    const double topPadding = 26.0;
+    const double chartPlotHeight = plotAreaHeight - baselineBottom - topPadding; // 140.0 px
 
     return Container(
       height: 340,
@@ -1314,7 +1657,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
           if (sessions.isEmpty)
             SizedBox(
-              height: 190,
+              height: plotAreaHeight,
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1350,68 +1693,163 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             )
           else
             SizedBox(
-              height: 190,
+              height: plotAreaHeight,
               child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  Positioned.fill(
-                    bottom: 24,
-                    top: 10,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  // Ticks & subtle grid lines
+                  ...scale.ticks.map((tick) {
+                    final double tickBottom = baselineBottom + (tick / maxY).clamp(0.0, 1.0) * chartPlotHeight;
+                    return Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: tickBottom,
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 32,
+                            child: Text(
+                              '${tick.toStringAsFixed(1)}h',
+                              textAlign: TextAlign.right,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: colors.textMuted,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              color: colors.surfaceBorder.withValues(alpha: 0.35),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+
+                  // Dashed GOAL TARGET line positioned mathematically
+                  Positioned(
+                    left: 38,
+                    right: 0,
+                    bottom: baselineBottom + (dailyGoalHours / maxY).clamp(0.0, 1.0) * chartPlotHeight,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.centerLeft,
                       children: [
-                        _guideLine(colors, '3.0h', false),
-                        _guideLine(colors, '2.0h', false),
-                        _guideLine(colors, '1.0h', true),
-                        _guideLine(colors, '0.0h', false),
+                        CustomPaint(
+                          size: const Size(double.infinity, 1),
+                          painter: _DashedLinePainter(colors.secondary.withValues(alpha: 0.7)),
+                        ),
+                        Positioned(
+                          right: 0,
+                          top: -14,
+                          child: InkWell(
+                            onTap: () => _showEditDailyGoalDialog(context, colors, dailyGoalHours),
+                            borderRadius: BorderRadius.circular(4),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'GOAL TARGET (${dailyGoalHours.toStringAsFixed(1)}h)',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: colors.secondary,
+                                      fontSize: 8.5,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Icon(Icons.edit_rounded, size: 9, color: colors.secondary),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  Positioned.fill(
-                    left: 34,
+
+                  // The 7 Bars (anchored to baseline)
+                  Positioned(
+                    left: 38,
                     right: 8,
-                    bottom: 2,
+                    bottom: baselineBottom,
+                    top: 0,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: weeklyData.map((d) {
                         final double hrs = d['hours'] as double;
+                        final bool isPeak = peakVal > 0 && hrs == peakVal;
+                        final double barHeight = hrs > 0
+                            ? ((hrs / maxY).clamp(0.0, 1.0) * chartPlotHeight).clamp(4.0, chartPlotHeight)
+                            : 0.0;
+
+                        return SizedBox(
+                          width: 32,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (hrs > 0)
+                                Text(
+                                  '${hrs.toStringAsFixed(1)}h',
+                                  maxLines: 1,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: isPeak ? colors.secondary : colors.primary,
+                                    fontSize: 10,
+                                    fontWeight: isPeak ? FontWeight.w800 : FontWeight.w600,
+                                  ),
+                                )
+                              else
+                                const SizedBox(height: 14),
+                              const SizedBox(height: 3),
+                              Container(
+                                width: 28,
+                                height: barHeight,
+                                decoration: BoxDecoration(
+                                  color: isPeak ? colors.secondary : colors.primary.withValues(alpha: 0.65),
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                                  border: isPeak ? null : Border.all(color: colors.primary.withValues(alpha: 0.3)),
+                                  boxShadow: isPeak
+                                      ? [
+                                          BoxShadow(
+                                            color: colors.secondary.withValues(alpha: 0.35),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 2),
+                                          )
+                                        ]
+                                      : null,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+
+                  // Day Labels (below baseline)
+                  Positioned(
+                    left: 38,
+                    right: 8,
+                    bottom: 0,
+                    height: baselineBottom,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: weeklyData.map((d) {
+                        final double hrs = d['hours'] as double;
                         final String day = d['day'] as String;
                         final bool isPeak = peakVal > 0 && hrs == peakVal;
-                        final double heightFactor = safeRatio(hrs, safeMaxScale);
-                        final double safeHeight = hrs > 0 ? (115.0 * heightFactor).clamp(4.0, 115.0) : 0.0;
-
-                        return Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Text(
-                              '${hrs.toStringAsFixed(1)}h',
-                              style: GoogleFonts.jetBrainsMono(
-                                color: isPeak ? colors.secondary : colors.primary,
-                                fontSize: 10,
-                                fontWeight: isPeak ? FontWeight.w800 : FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              width: 28,
-                              height: safeHeight,
-                              decoration: BoxDecoration(
-                                color: isPeak ? colors.secondary : colors.primary.withValues(alpha: 0.65),
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                                border: isPeak ? null : Border.all(color: colors.primary.withValues(alpha: 0.3)),
-                                boxShadow: isPeak
-                                    ? [
-                                        BoxShadow(
-                                          color: colors.secondary.withValues(alpha: 0.35),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        )
-                                      ]
-                                    : null,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
+                        return SizedBox(
+                          width: 32,
+                          child: Center(
+                            child: Text(
                               day,
                               style: GoogleFonts.jetBrainsMono(
                                 color: isPeak ? colors.textPrimary : colors.textMuted,
@@ -1419,7 +1857,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                 fontWeight: isPeak ? FontWeight.w700 : FontWeight.w500,
                               ),
                             ),
-                          ],
+                          ),
                         );
                       }).toList(),
                     ),
@@ -1471,7 +1909,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Total Week: ${totalWeekHours.toStringAsFixed(1)}h / 7.0h ($weekPct%)',
+                  periodFooterLabel,
                   style: GoogleFonts.jetBrainsMono(
                     color: colors.textMuted,
                     fontSize: 11,
@@ -1482,58 +1920,6 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _guideLine(ChondrobinduThemeColors colors, String label, bool isBenchmark) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 30,
-          child: Text(
-            label,
-            textAlign: TextAlign.right,
-            style: GoogleFonts.jetBrainsMono(
-              color: isBenchmark ? colors.secondary : colors.textMuted,
-              fontSize: 9.5,
-              fontWeight: isBenchmark ? FontWeight.w700 : FontWeight.w500,
-            ),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.centerLeft,
-            children: [
-              if (isBenchmark)
-                CustomPaint(
-                  size: const Size(double.infinity, 1),
-                  painter: _DashedLinePainter(colors.secondary.withValues(alpha: 0.6)),
-                )
-              else
-                Container(
-                  height: 1,
-                  color: colors.surfaceBorder.withValues(alpha: 0.5),
-                ),
-              if (isBenchmark)
-                Positioned(
-                  right: 0,
-                  top: -14,
-                  child: Text(
-                    'GOAL TARGET (1.0h)',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: colors.secondary,
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 
@@ -1681,15 +2067,16 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                               ),
                             ),
                           )
-                        : ListView.builder(
-                            padding: EdgeInsets.zero,
-                            physics: const BouncingScrollPhysics(),
-                            itemCount: math.min(4, allocationList.length),
-                            itemBuilder: (context, index) {
-                              final item = allocationList[index];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 6.0),
-                                child: Container(
+                        : Scrollbar(
+                            thumbVisibility: false,
+                            child: ListView.separated(
+                              padding: const EdgeInsets.only(right: 4),
+                              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                              itemCount: allocationList.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 6),
+                              itemBuilder: (context, index) {
+                                final item = allocationList[index];
+                                return Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                   decoration: BoxDecoration(
                                     color: colors.recessed,
@@ -1756,9 +2143,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                       ),
                                     ],
                                   ),
-                                ),
-                              );
-                            },
+                                );
+                              },
+                            ),
                           ),
                   ),
                 ),
@@ -2443,7 +2830,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 const SizedBox(height: 16),
                 _buildMobileCircadianRhythmCard(colors, sessions),
                 const SizedBox(height: 16),
-                _buildMobileWeeklyHistogram(colors, sessions),
+                _buildMobileWeeklyHistogram(colors, sessions, profile, recentSessions),
                 const SizedBox(height: 16),
                 _buildMobileStudyRigorMatrixCard(colors, recentSessions, isUni, weeksCount: 6),
               ] else if (effectiveCategoryTab == 'Subjects') ...[
@@ -2462,7 +2849,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
                 const SizedBox(height: 16),
 
-                _buildMobileWeeklyHistogram(colors, sessions),
+                _buildMobileWeeklyHistogram(colors, sessions, profile, recentSessions),
 
                 const SizedBox(height: 16),
 
@@ -2667,61 +3054,91 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
         const SizedBox(height: 8),
 
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: colors.surfaceBorder),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left_rounded, size: 20),
-                color: _canStepBack ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                onPressed: _canStepBack ? () => _stepDateRange(-1) : null,
-              ),
-              Flexible(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.calendar_month_rounded, size: 14, color: colors.secondary),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          _dateRangeLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.jetBrainsMono(
-                            color: colors.textPrimary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colors.surfaceBorder),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left_rounded, size: 20),
+                      color: _canStepBack ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      onPressed: _canStepBack ? () => _stepDateRange(-1) : null,
+                    ),
+                    Flexible(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 4.0),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.calendar_month_rounded, size: 14, color: colors.secondary),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                _dateRangeLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: colors.textPrimary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right_rounded, size: 20),
+                      color: _canStepForward ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      onPressed: _canStepForward ? () => _stepDateRange(1) : null,
+                    ),
+                  ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right_rounded, size: 20),
-                color: _canStepForward ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                onPressed: _canStepForward ? () => _stepDateRange(1) : null,
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: _jumpToCurrentRange,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colors.surfaceBorder),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.restore_rounded, size: 13, color: colors.secondary),
+                    const SizedBox(width: 4),
+                    Text(
+                      _quickJumpLabel,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-
-        const SizedBox(height: 8),
-
-        _buildInlinePeriodPicker(colors, isUni),
       ],
     );
   }
@@ -2743,7 +3160,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     final String avgDailyStr = avgDailySec > 0
         ? (avgDailySec >= 3600 ? '${avgDailySec ~/ 3600}h ${(avgDailySec % 3600) ~/ 60}m' : '${avgDailySec ~/ 60}m')
         : '0m';
-    final int targetPct = (safeRatio(avgDailySec, 3600.0) * 100).round();
+    final double dailyGoalHours = (profile?.dailyFocusGoalHours != null && profile!.dailyFocusGoalHours > 0)
+        ? profile.dailyFocusGoalHours
+        : 1.0;
+    final int targetPct = (safeRatio(avgDailySec, dailyGoalHours * 3600.0) * 100).round();
 
     final int streakDays = profile?.streakDays ?? 0;
     final String streakSubtitle = '$streakDays-day streak active';
@@ -2797,10 +3217,11 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 colors: colors,
                 title: 'AVG DAILY FOCUS',
                 value: avgDailyStr,
-                badge: '$targetPct% of 1.0h goal',
+                badge: '$targetPct% of ${dailyGoalHours.toStringAsFixed(1)}h goal ✎',
                 badgeColor: colors.textMuted,
                 icon: Icons.schedule_rounded,
                 iconColor: colors.primary,
+                onTap: () => _showEditDailyGoalDialog(context, colors, dailyGoalHours),
               ),
             ),
           ],
@@ -2817,8 +3238,9 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     required Color badgeColor,
     required IconData icon,
     required Color iconColor,
+    VoidCallback? onTap,
   }) {
-    return Container(
+    final cardContent = Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.surface,
@@ -2857,23 +3279,45 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            badge,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.jetBrainsMono(
-              color: badgeColor,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  badge,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: badgeColor,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (onTap != null)
+                Icon(Icons.edit_rounded, size: 11, color: colors.secondary),
+            ],
           ),
         ],
       ),
     );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: cardContent,
+      );
+    }
+    return cardContent;
   }
 
-  Widget _buildMobileWeeklyHistogram(ChondrobinduThemeColors colors, List<StudySession> sessions) {
-    final weeklyData = _computeWeeklyDistributionData(sessions);
+  Widget _buildMobileWeeklyHistogram(
+    ChondrobinduThemeColors colors,
+    List<StudySession> sessions,
+    dynamic profile, [
+    List<StudySession>? recentSessions,
+  ]) {
+    final weeklyData = _computeWeeklyDistributionData(sessions, recentSessions);
     double peakVal = 0.0;
     String peakDay = 'None';
     for (final d in weeklyData) {
@@ -2884,8 +3328,17 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
       }
     }
 
-    final double maxScale = math.max(3.0, (peakVal.isNaN ? 0.0 : peakVal * 1.15).ceilToDouble());
-    final safeMaxScale = (maxScale.isNaN || maxScale.isInfinite || maxScale <= 0) ? 3.0 : maxScale;
+    final double dailyGoalHours = (profile?.dailyFocusGoalHours != null && profile!.dailyFocusGoalHours > 0)
+        ? profile.dailyFocusGoalHours
+        : 1.0;
+
+    final FocusChartScale scale = FocusChartScale.compute(peakVal, dailyGoalHours);
+    final double maxY = scale.maxY;
+
+    const double mobilePlotHeight = 150.0;
+    const double baselineBottom = 22.0;
+    const double topPadding = 24.0;
+    const double chartPlotHeight = mobilePlotHeight - baselineBottom - topPadding; // 104.0 px
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -2960,52 +3413,152 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
             )
           else
             SizedBox(
-              height: 150,
+              height: mobilePlotHeight,
               child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _guideLine(colors, '3.0h', false),
-                      _guideLine(colors, '1.0h', true),
-                      _guideLine(colors, '0.0h', false),
-                    ],
+                  // Ticks & subtle grid lines
+                  ...scale.ticks.map((tick) {
+                    final double tickBottom = baselineBottom + (tick / maxY).clamp(0.0, 1.0) * chartPlotHeight;
+                    return Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: tickBottom,
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 28,
+                            child: Text(
+                              '${tick.toStringAsFixed(1)}h',
+                              textAlign: TextAlign.right,
+                              style: GoogleFonts.jetBrainsMono(
+                                color: colors.textMuted,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              color: colors.surfaceBorder.withValues(alpha: 0.35),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+
+                  // Dashed GOAL TARGET line
+                  Positioned(
+                    left: 34,
+                    right: 0,
+                    bottom: baselineBottom + (dailyGoalHours / maxY).clamp(0.0, 1.0) * chartPlotHeight,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.centerLeft,
+                      children: [
+                        CustomPaint(
+                          size: const Size(double.infinity, 1),
+                          painter: _DashedLinePainter(colors.secondary.withValues(alpha: 0.7)),
+                        ),
+                        Positioned(
+                          right: 0,
+                          top: -12,
+                          child: InkWell(
+                            onTap: () => _showEditDailyGoalDialog(context, colors, dailyGoalHours),
+                            borderRadius: BorderRadius.circular(4),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'GOAL (${dailyGoalHours.toStringAsFixed(1)}h)',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: colors.secondary,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Icon(Icons.edit_rounded, size: 8, color: colors.secondary),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  Positioned.fill(
-                    left: 36,
+
+                  // Bars (anchored to baseline)
+                  Positioned(
+                    left: 34,
                     right: 8,
+                    bottom: baselineBottom,
+                    top: 0,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: weeklyData.map((d) {
                         final double hrs = d['hours'] as double;
+                        final bool isPeak = peakVal > 0 && hrs == peakVal;
+                        final double barHeight = hrs > 0
+                            ? ((hrs / maxY).clamp(0.0, 1.0) * chartPlotHeight).clamp(4.0, chartPlotHeight)
+                            : 0.0;
+
+                        return SizedBox(
+                          width: 26,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (hrs > 0)
+                                Text(
+                                  '${hrs.toStringAsFixed(1)}h',
+                                  maxLines: 1,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: isPeak ? colors.secondary : colors.primary,
+                                    fontSize: 9.5,
+                                    fontWeight: isPeak ? FontWeight.w800 : FontWeight.w600,
+                                  ),
+                                )
+                              else
+                                const SizedBox(height: 12),
+                              const SizedBox(height: 2),
+                              Container(
+                                width: 22,
+                                height: barHeight,
+                                decoration: BoxDecoration(
+                                  color: isPeak ? colors.secondary : colors.primary.withValues(alpha: 0.65),
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+
+                  // Day labels (below baseline)
+                  Positioned(
+                    left: 34,
+                    right: 8,
+                    bottom: 0,
+                    height: baselineBottom,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: weeklyData.map((d) {
+                        final double hrs = d['hours'] as double;
                         final String day = d['day'] as String;
                         final bool isPeak = peakVal > 0 && hrs == peakVal;
-                        final double heightFactor = safeRatio(hrs, safeMaxScale);
-                        final double safeHeight = hrs > 0 ? (90.0 * heightFactor).clamp(4.0, 90.0) : 0.0;
-
-                        return Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Text(
-                              '${hrs.toStringAsFixed(1)}h',
-                              style: GoogleFonts.jetBrainsMono(
-                                color: isPeak ? colors.secondary : colors.primary,
-                                fontSize: 9.5,
-                                fontWeight: isPeak ? FontWeight.w800 : FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              width: 22,
-                              height: safeHeight,
-                              decoration: BoxDecoration(
-                                color: isPeak ? colors.secondary : colors.primary.withValues(alpha: 0.65),
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
+                        return SizedBox(
+                          width: 26,
+                          child: Center(
+                            child: Text(
                               day,
                               style: GoogleFonts.jetBrainsMono(
                                 color: isPeak ? colors.textPrimary : colors.textMuted,
@@ -3013,7 +3566,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                                 fontWeight: isPeak ? FontWeight.w700 : FontWeight.w500,
                               ),
                             ),
-                          ],
+                          ),
                         );
                       }).toList(),
                     ),
@@ -4361,161 +4914,6 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     return null;
   }
 
-  Widget _buildInlinePeriodPicker(ChondrobinduThemeColors colors, bool isUni) {
-    IconData headerIcon;
-    String headerTitle;
-    String headerSubtitle;
-
-    switch (_selectedPeriod) {
-      case InsightPeriod.day:
-        headerIcon = Icons.today_rounded;
-        headerTitle = 'Select Focus Date';
-        headerSubtitle = 'Bounded: ${DateFormat('d MMM yyyy').format(_minDate)} – Today';
-        break;
-      case InsightPeriod.week:
-        headerIcon = Icons.calendar_view_week_rounded;
-        headerTitle = 'Select Academic Week';
-        headerSubtitle = 'Bangladesh Academic Week (Sat – Fri)';
-        break;
-      case InsightPeriod.month:
-        headerIcon = Icons.calendar_month_rounded;
-        headerTitle = 'Select Calendar Month';
-        headerSubtitle = 'Academic Year Overview';
-        break;
-      case InsightPeriod.trend:
-        headerIcon = Icons.tune_rounded;
-        headerTitle = 'Telemetry Trend Window';
-        headerSubtitle = 'Filter telemetry across custom timeframe';
-        break;
-    }
-
-    Widget content;
-    switch (_selectedPeriod) {
-      case InsightPeriod.day:
-        content = _DayPickerContent(
-          colors: colors,
-          currentAnchor: _currentAnchorDate,
-          minDate: _minDate,
-          maxDate: _maxDate,
-          onDaySelected: (date) {
-            setState(() {
-              _currentAnchorDate = date;
-            });
-          },
-        );
-        break;
-      case InsightPeriod.week:
-        content = _WeekPickerContent(
-          colors: colors,
-          currentRangeStart: _rangeStart,
-          minDate: _minDate,
-          maxDate: _maxDate,
-          onWeekSelected: (start) {
-            setState(() {
-              _currentAnchorDate = start;
-            });
-          },
-        );
-        break;
-      case InsightPeriod.month:
-        content = _MonthPickerContent(
-          colors: colors,
-          currentAnchor: _currentAnchorDate,
-          minDate: _minDate,
-          maxDate: _maxDate,
-          onMonthSelected: (monthDate) {
-            setState(() {
-              _currentAnchorDate = monthDate;
-            });
-          },
-        );
-        break;
-      case InsightPeriod.trend:
-        content = _TrendPickerContent(
-          colors: colors,
-          minDate: _minDate,
-          maxDate: _maxDate,
-          isUniversity: isUni,
-          trendStart: _rangeStart,
-          trendEnd: _rangeEnd,
-          onTrendRangeSelected: (start, end) {
-            setState(() {
-              _customTrendStart = start;
-              _customTrendEnd = end;
-              _currentAnchorDate = end;
-            });
-          },
-        );
-        break;
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.recessed,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: colors.surfaceBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: colors.secondary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: colors.secondary.withValues(alpha: 0.3)),
-                ),
-                child: Icon(headerIcon, color: colors.secondary, size: 16),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      headerTitle,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: colors.textPrimary,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      headerSubtitle,
-                      style: GoogleFonts.jetBrainsMono(
-                        color: colors.textMuted,
-                        fontSize: 10.5,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Divider(color: colors.surfaceBorder, height: 1),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 580),
-              child: content,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCourseLegendItem(ChondrobinduThemeColors colors, Map<String, dynamic> item) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -4583,761 +4981,6 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// TRACK-BOUNDED INLINE PERIOD PICKER CONTENT (DAY, WEEK, MONTH, TREND)
-// ---------------------------------------------------------------------------
-
-class _DayPickerContent extends StatefulWidget {
-  final ChondrobinduThemeColors colors;
-  final DateTime currentAnchor;
-  final DateTime minDate;
-  final DateTime maxDate;
-  final ValueChanged<DateTime> onDaySelected;
-
-  const _DayPickerContent({
-    required this.colors,
-    required this.currentAnchor,
-    required this.minDate,
-    required this.maxDate,
-    required this.onDaySelected,
-  });
-
-  @override
-  State<_DayPickerContent> createState() => _DayPickerContentState();
-}
-
-class _DayPickerContentState extends State<_DayPickerContent> {
-  late DateTime _browsedMonth;
-
-  @override
-  void initState() {
-    super.initState();
-    _browsedMonth = DateTime(widget.currentAnchor.year, widget.currentAnchor.month, 1);
-  }
-
-  @override
-  void didUpdateWidget(covariant _DayPickerContent oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!isSameDay(oldWidget.currentAnchor, widget.currentAnchor)) {
-      _browsedMonth = DateTime(widget.currentAnchor.year, widget.currentAnchor.month, 1);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = widget.colors;
-    final daysInMonth = DateTime(_browsedMonth.year, _browsedMonth.month + 1, 0).day;
-    final firstDayOffset = (_browsedMonth.weekday % 7 + 1) % 7;
-
-    final canStepBack = !DateTime(_browsedMonth.year, _browsedMonth.month, 1).isBefore(
-      DateTime(widget.minDate.year, widget.minDate.month, 1),
-    );
-    final canStepForward = !DateTime(_browsedMonth.year, _browsedMonth.month, 1).isAfter(
-      DateTime(widget.maxDate.year, widget.maxDate.month, 1),
-    );
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.chevron_left_rounded, size: 20),
-              color: canStepBack ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
-              onPressed: canStepBack
-                  ? () {
-                      SafeHaptics.selectionClick();
-                      setState(() {
-                        _browsedMonth = DateTime(_browsedMonth.year, _browsedMonth.month - 1, 1);
-                      });
-                    }
-                  : null,
-            ),
-            Text(
-              DateFormat('MMMM yyyy').format(_browsedMonth),
-              style: GoogleFonts.jetBrainsMono(
-                color: colors.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right_rounded, size: 20),
-              color: canStepForward ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
-              onPressed: canStepForward
-                  ? () {
-                      SafeHaptics.selectionClick();
-                      setState(() {
-                        _browsedMonth = DateTime(_browsedMonth.year, _browsedMonth.month + 1, 1);
-                      });
-                    }
-                  : null,
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((d) {
-            return SizedBox(
-              width: 36,
-              child: Text(
-                d,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.jetBrainsMono(
-                  color: colors.textMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 8),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: firstDayOffset + daysInMonth,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 7,
-            mainAxisSpacing: 4,
-            crossAxisSpacing: 4,
-            childAspectRatio: 1.0,
-          ),
-          itemBuilder: (context, index) {
-            if (index < firstDayOffset) {
-              return const SizedBox();
-            }
-            final day = index - firstDayOffset + 1;
-            final date = DateTime(_browsedMonth.year, _browsedMonth.month, day);
-            final isBeforeMin = date.isBefore(widget.minDate);
-            final isAfterMax = date.isAfter(widget.maxDate);
-            final isDisabled = isBeforeMin || isAfterMax;
-            final isSelected = isSameDay(date, widget.currentAnchor);
-            final isToday = isSameDay(date, DateTime.now());
-
-            return InkWell(
-              onTap: isDisabled
-                  ? null
-                  : () {
-                      SafeHaptics.selectionClick();
-                      widget.onDaySelected(date);
-                    },
-              borderRadius: BorderRadius.circular(6),
-              child: Container(
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? colors.secondary
-                      : (isToday ? colors.primary.withValues(alpha: 0.15) : Colors.transparent),
-                  borderRadius: BorderRadius.circular(6),
-                  border: isToday && !isSelected
-                      ? Border.all(color: colors.primary.withValues(alpha: 0.6))
-                      : null,
-                ),
-                child: Text(
-                  '$day',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: isSelected
-                        ? const Color(0xFF171C24)
-                        : (isDisabled ? colors.textMuted.withValues(alpha: 0.3) : colors.textPrimary),
-                    fontSize: 12,
-                    fontWeight: isSelected || isToday ? FontWeight.w700 : FontWeight.w500,
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _WeekPickerContent extends StatefulWidget {
-  final ChondrobinduThemeColors colors;
-  final DateTime currentRangeStart;
-  final DateTime minDate;
-  final DateTime maxDate;
-  final ValueChanged<DateTime> onWeekSelected;
-
-  const _WeekPickerContent({
-    required this.colors,
-    required this.currentRangeStart,
-    required this.minDate,
-    required this.maxDate,
-    required this.onWeekSelected,
-  });
-
-  @override
-  State<_WeekPickerContent> createState() => _WeekPickerContentState();
-}
-
-class _WeekPickerContentState extends State<_WeekPickerContent> {
-  late DateTime _browsedMonth;
-
-  @override
-  void initState() {
-    super.initState();
-    _browsedMonth = DateTime(widget.currentRangeStart.year, widget.currentRangeStart.month, 1);
-  }
-
-  @override
-  void didUpdateWidget(covariant _WeekPickerContent oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!isSameDay(oldWidget.currentRangeStart, widget.currentRangeStart)) {
-      _browsedMonth = DateTime(widget.currentRangeStart.year, widget.currentRangeStart.month, 1);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = widget.colors;
-    final canStepBack = !DateTime(_browsedMonth.year, _browsedMonth.month, 1).isBefore(
-      DateTime(widget.minDate.year, widget.minDate.month, 1),
-    );
-    final canStepForward = !DateTime(_browsedMonth.year, _browsedMonth.month, 1).isAfter(
-      DateTime(widget.maxDate.year, widget.maxDate.month, 1),
-    );
-
-    final firstDayOfMonth = DateTime(_browsedMonth.year, _browsedMonth.month, 1);
-    final lastDayOfMonth = DateTime(_browsedMonth.year, _browsedMonth.month + 1, 0);
-
-    final firstSaturdayOffset = (firstDayOfMonth.weekday % 7 + 1) % 7;
-    var currentSat = firstDayOfMonth.subtract(Duration(days: firstSaturdayOffset));
-
-    final List<({DateTime start, DateTime end})> weeks = [];
-    while (currentSat.isBefore(lastDayOfMonth) || isSameDay(currentSat, lastDayOfMonth)) {
-      final weekEnd = currentSat.add(const Duration(days: 6));
-      weeks.add((start: currentSat, end: weekEnd));
-      currentSat = currentSat.add(const Duration(days: 7));
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.chevron_left_rounded, size: 20),
-              color: canStepBack ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
-              onPressed: canStepBack
-                  ? () {
-                      SafeHaptics.selectionClick();
-                      setState(() {
-                        _browsedMonth = DateTime(_browsedMonth.year, _browsedMonth.month - 1, 1);
-                      });
-                    }
-                  : null,
-            ),
-            Text(
-              DateFormat('MMMM yyyy').format(_browsedMonth),
-              style: GoogleFonts.jetBrainsMono(
-                color: colors.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right_rounded, size: 20),
-              color: canStepForward ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
-              onPressed: canStepForward
-                  ? () {
-                      SafeHaptics.selectionClick();
-                      setState(() {
-                        _browsedMonth = DateTime(_browsedMonth.year, _browsedMonth.month + 1, 1);
-                      });
-                    }
-                  : null,
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: weeks.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 6),
-          itemBuilder: (context, index) {
-            final w = weeks[index];
-            final isSelected = isSameDay(w.start, widget.currentRangeStart);
-            final isDisabled = w.start.isAfter(widget.maxDate) || w.end.isBefore(widget.minDate);
-            final label = '${DateFormat('d MMM').format(w.start)} – ${DateFormat('d MMM yyyy').format(w.end)}';
-
-            return InkWell(
-              onTap: isDisabled
-                  ? null
-                  : () {
-                      SafeHaptics.selectionClick();
-                      widget.onWeekSelected(w.start);
-                    },
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? colors.secondary.withValues(alpha: 0.2)
-                      : (isDisabled ? colors.recessed.withValues(alpha: 0.4) : colors.recessed),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isSelected ? colors.secondary : colors.surfaceBorder,
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Icon(
-                            isSelected ? Icons.check_circle_rounded : Icons.calendar_view_week_rounded,
-                            size: 16,
-                            color: isSelected ? colors.secondary : colors.primary,
-                          ),
-                          const SizedBox(width: 10),
-                          Flexible(
-                            child: Text(
-                              label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.jetBrainsMono(
-                                color: isSelected
-                                    ? colors.secondary
-                                    : (isDisabled ? colors.textMuted.withValues(alpha: 0.3) : colors.textPrimary),
-                                fontSize: 12,
-                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (isSelected) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: colors.secondary,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'ACTIVE',
-                          style: GoogleFonts.jetBrainsMono(
-                            color: const Color(0xFF171C24),
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _MonthPickerContent extends StatefulWidget {
-  final ChondrobinduThemeColors colors;
-  final DateTime currentAnchor;
-  final DateTime minDate;
-  final DateTime maxDate;
-  final ValueChanged<DateTime> onMonthSelected;
-
-  const _MonthPickerContent({
-    required this.colors,
-    required this.currentAnchor,
-    required this.minDate,
-    required this.maxDate,
-    required this.onMonthSelected,
-  });
-
-  @override
-  State<_MonthPickerContent> createState() => _MonthPickerContentState();
-}
-
-class _MonthPickerContentState extends State<_MonthPickerContent> {
-  late int _browsedYear;
-
-  @override
-  void initState() {
-    super.initState();
-    _browsedYear = widget.currentAnchor.year;
-  }
-
-  @override
-  void didUpdateWidget(covariant _MonthPickerContent oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.currentAnchor.year != widget.currentAnchor.year) {
-      _browsedYear = widget.currentAnchor.year;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = widget.colors;
-    final canStepBack = _browsedYear > widget.minDate.year;
-    final canStepForward = _browsedYear < widget.maxDate.year;
-
-    final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.chevron_left_rounded, size: 20),
-              color: canStepBack ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
-              onPressed: canStepBack
-                  ? () {
-                      SafeHaptics.selectionClick();
-                      setState(() {
-                        _browsedYear--;
-                      });
-                    }
-                  : null,
-            ),
-            Text(
-              '$_browsedYear',
-              style: GoogleFonts.jetBrainsMono(
-                color: colors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right_rounded, size: 20),
-              color: canStepForward ? colors.textPrimary : colors.textMuted.withValues(alpha: 0.3),
-              onPressed: canStepForward
-                  ? () {
-                      SafeHaptics.selectionClick();
-                      setState(() {
-                        _browsedYear++;
-                      });
-                    }
-                  : null,
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: 12,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 2.2,
-          ),
-          itemBuilder: (context, index) {
-            final monthIndex = index + 1;
-            final monthStart = DateTime(_browsedYear, monthIndex, 1);
-            final monthEnd = DateTime(_browsedYear, monthIndex + 1, 0);
-
-            final isDisabled = monthEnd.isBefore(widget.minDate) || monthStart.isAfter(widget.maxDate);
-            final isSelected = _browsedYear == widget.currentAnchor.year && monthIndex == widget.currentAnchor.month;
-
-            return InkWell(
-              onTap: isDisabled
-                  ? null
-                  : () {
-                      SafeHaptics.selectionClick();
-                      final selected = monthStart.isAfter(widget.maxDate) ? widget.maxDate : monthStart;
-                      widget.onMonthSelected(selected);
-                    },
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? colors.secondary
-                      : (isDisabled ? colors.recessed.withValues(alpha: 0.4) : colors.recessed),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isSelected ? colors.secondary : colors.surfaceBorder,
-                  ),
-                ),
-                child: Text(
-                  monthNames[index],
-                  style: GoogleFonts.jetBrainsMono(
-                    color: isSelected
-                        ? const Color(0xFF171C24)
-                        : (isDisabled ? colors.textMuted.withValues(alpha: 0.3) : colors.textPrimary),
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _TrendPickerContent extends StatefulWidget {
-  final ChondrobinduThemeColors colors;
-  final DateTime minDate;
-  final DateTime maxDate;
-  final bool isUniversity;
-  final DateTime? trendStart;
-  final DateTime? trendEnd;
-  final void Function(DateTime start, DateTime end) onTrendRangeSelected;
-
-  const _TrendPickerContent({
-    required this.colors,
-    required this.minDate,
-    required this.maxDate,
-    required this.isUniversity,
-    required this.trendStart,
-    required this.trendEnd,
-    required this.onTrendRangeSelected,
-  });
-
-  @override
-  State<_TrendPickerContent> createState() => _TrendPickerContentState();
-}
-
-class _TrendPickerContentState extends State<_TrendPickerContent> {
-  late DateTime _startDate;
-  late DateTime _endDate;
-  bool _isCustom = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _endDate = widget.trendEnd ?? widget.maxDate;
-    _startDate = widget.trendStart ?? _endDate.subtract(const Duration(days: 29));
-    if (_startDate.isBefore(widget.minDate)) {
-      _startDate = widget.minDate;
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant _TrendPickerContent oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.trendStart != widget.trendStart || oldWidget.trendEnd != widget.trendEnd) {
-      _startDate = widget.trendStart ?? widget.minDate;
-      _endDate = widget.trendEnd ?? widget.maxDate;
-    }
-  }
-
-  void _applyPreset(int days, {bool sinceStart = false}) {
-    SafeHaptics.selectionClick();
-    setState(() => _isCustom = false);
-    DateTime start;
-    if (sinceStart) {
-      start = widget.minDate;
-    } else {
-      start = widget.maxDate.subtract(Duration(days: days - 1));
-      if (start.isBefore(widget.minDate)) {
-        start = widget.minDate;
-      }
-    }
-    widget.onTrendRangeSelected(start, widget.maxDate);
-  }
-
-  Future<void> _pickDate(bool isStart) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: isStart ? _startDate : _endDate,
-      firstDate: isStart ? widget.minDate : _startDate,
-      lastDate: isStart ? _endDate : widget.maxDate,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: widget.colors.secondary,
-                  surface: widget.colors.surface,
-                ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      setState(() {
-        if (isStart) {
-          _startDate = picked;
-        } else {
-          _endDate = picked;
-        }
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = widget.colors;
-    final sinceStartLabel = widget.isUniversity ? 'Since Semester Start' : 'Since Joined';
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'QUICK PRESETS',
-          style: GoogleFonts.jetBrainsMono(
-            color: colors.textMuted,
-            fontSize: 10.5,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.8,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _presetChip(colors, 'Last 7 Days', () => _applyPreset(7)),
-            _presetChip(colors, 'Last 14 Days', () => _applyPreset(14)),
-            _presetChip(colors, 'Last 30 Days', () => _applyPreset(30)),
-            _presetChip(colors, sinceStartLabel, () => _applyPreset(0, sinceStart: true)),
-            _presetChip(colors, 'Custom Range', () {
-              SafeHaptics.selectionClick();
-              setState(() => _isCustom = true);
-            }, isHighlighted: _isCustom),
-          ],
-        ),
-        if (_isCustom) ...[
-          const SizedBox(height: 20),
-          Divider(color: colors.surfaceBorder, height: 1),
-          const SizedBox(height: 16),
-          Text(
-            'CUSTOM DATE WINDOW',
-            style: GoogleFonts.jetBrainsMono(
-              color: colors.textMuted,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () => _pickDate(true),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: colors.recessed,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: colors.surfaceBorder),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'START DATE',
-                          style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 9.5),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          DateFormat('d MMM yyyy').format(_startDate),
-                          style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 12, fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Icon(Icons.arrow_forward_rounded, color: colors.textMuted, size: 16),
-              const SizedBox(width: 10),
-              Expanded(
-                child: InkWell(
-                  onTap: () => _pickDate(false),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: colors.recessed,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: colors.surfaceBorder),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'END DATE',
-                          style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 9.5),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          DateFormat('d MMM yyyy').format(_endDate),
-                          style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 12, fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colors.secondary,
-                foregroundColor: const Color(0xFF171C24),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              onPressed: () {
-                SafeHaptics.selectionClick();
-                widget.onTrendRangeSelected(_startDate, _endDate);
-              },
-              icon: const Icon(Icons.check_rounded, size: 18),
-              label: Text(
-                'Apply Custom Window',
-                style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _presetChip(ChondrobinduThemeColors colors, String label, VoidCallback onTap, {bool isHighlighted = false}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isHighlighted ? colors.secondary.withValues(alpha: 0.2) : colors.recessed,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isHighlighted ? colors.secondary : colors.surfaceBorder,
-          ),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.jetBrainsMono(
-            color: isHighlighted ? colors.secondary : colors.textPrimary,
-            fontSize: 11.5,
-            fontWeight: isHighlighted ? FontWeight.w700 : FontWeight.w500,
-          ),
         ),
       ),
     );

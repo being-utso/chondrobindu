@@ -57,6 +57,7 @@ class UserProfile {
   final int todaysFocusMinutes;
   final int totalFocusMinutes;
   final int targetFocusMinutes;
+  final double dailyFocusGoalHours;
   final String scratchpadText;
   final String? targetEventName;
   final DateTime? targetEventDate;
@@ -100,6 +101,7 @@ class UserProfile {
     this.todaysFocusMinutes = 0,
     this.totalFocusMinutes = 0,
     this.targetFocusMinutes = 240,
+    this.dailyFocusGoalHours = 1.0,
     this.scratchpadText = '',
     this.targetEventName,
     this.targetEventDate,
@@ -207,6 +209,7 @@ class UserProfile {
     todaysFocusMinutes: 0,
     totalFocusMinutes: 0,
     targetFocusMinutes: 240,
+    dailyFocusGoalHours: 1.0,
     scratchpadText: '',
     customTimerSubjects: [],
     isLoaded: false,
@@ -349,6 +352,9 @@ class UserProfile {
       todaysFocusMinutes: (map['todaysFocusMinutes'] as num?)?.toInt() ?? (map['todays_focus_minutes'] as num?)?.toInt() ?? 0,
       totalFocusMinutes: (map['totalFocusMinutes'] as num?)?.toInt() ?? (map['total_focus_minutes'] as num?)?.toInt() ?? 0,
       targetFocusMinutes: (map['targetFocusMinutes'] as num?)?.toInt() ?? (map['target_focus_minutes'] as num?)?.toInt() ?? 240,
+      dailyFocusGoalHours: (map['dailyFocusGoalHours'] as num?)?.toDouble() ??
+          (map['daily_focus_goal_hours'] as num?)?.toDouble() ??
+          1.0,
       scratchpadText: map['scratchpadText'] as String? ?? map['scratchpad_text'] as String? ?? '',
       targetEventName: map['targetEventName'] as String? ?? map['target_event_name'] as String?,
       targetEventDate: targetDate,
@@ -437,6 +443,8 @@ class UserProfile {
       'total_focus_minutes': totalFocusMinutes,
       'targetFocusMinutes': targetFocusMinutes,
       'target_focus_minutes': targetFocusMinutes,
+      'dailyFocusGoalHours': dailyFocusGoalHours,
+      'daily_focus_goal_hours': dailyFocusGoalHours,
       'scratchpadText': scratchpadText,
       'scratchpad_text': scratchpadText,
       'targetEventName': targetEventName,
@@ -488,6 +496,7 @@ class UserProfile {
     int? todaysFocusMinutes,
     int? totalFocusMinutes,
     int? targetFocusMinutes,
+    double? dailyFocusGoalHours,
     String? scratchpadText,
     String? targetEventName,
     DateTime? targetEventDate,
@@ -538,6 +547,7 @@ class UserProfile {
       todaysFocusMinutes: todaysFocusMinutes ?? this.todaysFocusMinutes,
       totalFocusMinutes: totalFocusMinutes ?? this.totalFocusMinutes,
       targetFocusMinutes: targetFocusMinutes ?? this.targetFocusMinutes,
+      dailyFocusGoalHours: dailyFocusGoalHours ?? this.dailyFocusGoalHours,
       scratchpadText: scratchpadText ?? this.scratchpadText,
       targetEventName: targetEventName ?? this.targetEventName,
       targetEventDate: targetEventDate ?? this.targetEventDate,
