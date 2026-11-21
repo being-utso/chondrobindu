@@ -1732,6 +1732,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           ],
         );
 
+        final showPeriodControls = _desktopCategoryTab != 'CGPA Forecaster';
+
         if (isNarrow) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1740,11 +1742,13 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 scrollDirection: Axis.horizontal,
                 child: subTabsWidget,
               ),
-              const SizedBox(height: 8),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: periodControls,
-              ),
+              if (showPeriodControls) ...[
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: periodControls,
+                ),
+              ],
             ],
           );
         }
@@ -1753,13 +1757,15 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             subTabsWidget,
-            const SizedBox(width: 12),
-            Flexible(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: periodControls,
+            if (showPeriodControls) ...[
+              const SizedBox(width: 12),
+              Flexible(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: periodControls,
+                ),
               ),
-            ),
+            ],
           ],
         );
       },
@@ -3383,9 +3389,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
               _buildMobileSubNav(colors, isUni),
 
-              const SizedBox(height: 12),
-
-              _buildMobilePeriodSelectorAndStepper(colors, isUni),
+              if (effectiveCategoryTab != 'CGPA Forecaster') ...[
+                const SizedBox(height: 12),
+                _buildMobilePeriodSelectorAndStepper(colors, isUni),
+              ],
 
               const SizedBox(height: 16),
 

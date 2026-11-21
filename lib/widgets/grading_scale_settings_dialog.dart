@@ -5,6 +5,26 @@ import '../core/theme/app_colors.dart';
 import '../screens/grading_setup_screen.dart';
 import 'package:chondrobindu/utils/safe_haptics.dart';
 
+/// Helper wrapper holding controllers for an editable row in GradingScaleSettingsDialog
+class _RowControllerHolder {
+  GradingRow row;
+  final TextEditingController letterCtrl;
+  final TextEditingController gpaCtrl;
+  final TextEditingController minPctCtrl;
+
+  _RowControllerHolder({
+    required this.row,
+  })  : letterCtrl = TextEditingController(text: row.letterGrade),
+        gpaCtrl = TextEditingController(text: row.gradePoint.toStringAsFixed(2)),
+        minPctCtrl = TextEditingController(text: row.minPercentage.toString());
+
+  void dispose() {
+    letterCtrl.dispose();
+    gpaCtrl.dispose();
+    minPctCtrl.dispose();
+  }
+}
+
 /// Stitch-styled modal dialog & bottom sheet for configuring letter grade cutoffs and GPA weights.
 class GradingScaleSettingsDialog extends StatefulWidget {
   final String universityName;
@@ -51,7 +71,7 @@ class GradingScaleSettingsDialog extends StatefulWidget {
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
+          constraints: const BoxConstraints(maxWidth: 540),
           child: GradingScaleSettingsDialog(
             universityName: universityName,
             currentScale: currentScale,
@@ -92,9 +112,8 @@ class GradingScaleSettingsDialog extends StatefulWidget {
 }
 
 class _GradingScaleSettingsDialogState extends State<GradingScaleSettingsDialog> {
-  late List<GradingRow> _editableScale;
+  late List<_RowControllerHolder> _rowHolders;
   String? _selectedPreset;
-  final Map<String, TextEditingController> _controllers = {};
 
   static List<GradingRow> get buetUgcScale => [
         GradingRow(letterGrade: 'A+', gradePoint: 4.00, minPercentage: 80, maxPercentage: 100),
@@ -124,21 +143,26 @@ class _GradingScaleSettingsDialogState extends State<GradingScaleSettingsDialog>
   @override
   void initState() {
     super.initState();
-    _editableScale = widget.currentScale.map((r) => GradingRow(
-          letterGrade: r.letterGrade,
-          gradePoint: r.gradePoint,
-          minPercentage: r.minPercentage,
-          maxPercentage: r.maxPercentage,
-        )).toList();
+    final sourceList = widget.currentScale.isNotEmpty ? widget.currentScale : buetUgcScale;
+    _rowHolders = sourceList
+        .map((r) => _RowControllerHolder(
+              row: GradingRow(
+                letterGrade: r.letterGrade,
+                gradePoint: r.gradePoint,
+                minPercentage: r.minPercentage,
+                maxPercentage: r.maxPercentage,
+              ),
+            ))
+        .toList();
 
     _detectInitialPreset();
-    _syncControllers();
   }
 
   void _detectInitialPreset() {
-    if (_matchesPreset(_editableScale, buetUgcScale)) {
+    final currentRows = _rowHolders.map((h) => h.row).toList();
+    if (_matchesPreset(currentRows, buetUgcScale)) {
       _selectedPreset = 'buet';
-    } else if (_matchesPreset(_editableScale, northAmericanScale)) {
+    } else if (_matchesPreset(currentRows, northAmericanScale)) {
       _selectedPreset = 'na';
     } else {
       _selectedPreset = 'custom';
@@ -149,7 +173,7 @@ class _GradingScaleSettingsDialogState extends State<GradingScaleSettingsDialog>
     if (current.length != preset.length) return false;
     for (int i = 0; i < current.length; i++) {
       if (current[i].letterGrade != preset[i].letterGrade ||
-          current[i].gradePoint != preset[i].gradePoint ||
+          (current[i].gradePoint - preset[i].gradePoint).abs() > 0.01 ||
           current[i].minPercentage != preset[i].minPercentage) {
         return false;
       }
@@ -157,65 +181,117 @@ class _GradingScaleSettingsDialogState extends State<GradingScaleSettingsDialog>
     return true;
   }
 
-  void _syncControllers() {
-    for (final row in _editableScale) {
-      if (_controllers.containsKey(row.letterGrade)) {
-        _controllers[row.letterGrade]!.text = row.minPercentage.toString();
-      } else {
-        _controllers[row.letterGrade] = TextEditingController(text: row.minPercentage.toString());
-      }
-    }
-  }
-
   @override
   void dispose() {
-    for (final c in _controllers.values) {
-      c.dispose();
+    for (final h in _rowHolders) {
+      h.dispose();
     }
     super.dispose();
   }
 
   void _applyPreset(String presetKey, List<GradingRow> presetRows) {
     SafeHaptics.lightImpact();
+    for (final h in _rowHolders) {
+      h.dispose();
+    }
     setState(() {
       _selectedPreset = presetKey;
-      _editableScale = presetRows.map((r) => GradingRow(
-            letterGrade: r.letterGrade,
-            gradePoint: r.gradePoint,
-            minPercentage: r.minPercentage,
-            maxPercentage: r.maxPercentage,
-          )).toList();
-
-      for (final row in _editableScale) {
-        if (_controllers.containsKey(row.letterGrade)) {
-          _controllers[row.letterGrade]!.text = row.minPercentage.toString();
-        } else {
-          _controllers[row.letterGrade] = TextEditingController(text: row.minPercentage.toString());
-        }
-      }
+      _rowHolders = presetRows
+          .map((r) => _RowControllerHolder(
+                row: GradingRow(
+                  letterGrade: r.letterGrade,
+                  gradePoint: r.gradePoint,
+                  minPercentage: r.minPercentage,
+                  maxPercentage: r.maxPercentage,
+                ),
+              ))
+          .toList();
     });
+  }
+
+  void _removeRow(int index) {
+    SafeHaptics.mediumImpact();
+    setState(() {
+      _selectedPreset = 'custom';
+      final removed = _rowHolders.removeAt(index);
+      removed.dispose();
+    });
+  }
+
+  void _addGradeTier() {
+    SafeHaptics.mediumImpact();
+    setState(() {
+      _selectedPreset = 'custom';
+      final lastRow = _rowHolders.isNotEmpty ? _rowHolders.last.row : null;
+      final newMin = lastRow != null ? (lastRow.minPercentage - 5).clamp(0, 100) : 35;
+      final newGpa = lastRow != null ? (lastRow.gradePoint - 0.25).clamp(0.0, 4.0) : 1.75;
+      final newRow = GradingRow(
+        letterGrade: 'C-',
+        gradePoint: newGpa,
+        minPercentage: newMin,
+        maxPercentage: lastRow != null ? lastRow.minPercentage - 1 : 39,
+      );
+      _rowHolders.add(_RowControllerHolder(row: newRow));
+    });
+  }
+
+  void _saveAndApply() {
+    final List<GradingRow> savedRows = [];
+    for (final h in _rowHolders) {
+      final letter = h.letterCtrl.text.trim().isNotEmpty ? h.letterCtrl.text.trim() : h.row.letterGrade;
+      final gpa = double.tryParse(h.gpaCtrl.text.trim()) ?? h.row.gradePoint;
+      final minPct = int.tryParse(h.minPctCtrl.text.trim()) ?? h.row.minPercentage;
+      savedRows.add(GradingRow(
+        letterGrade: letter,
+        gradePoint: gpa,
+        minPercentage: minPct.clamp(0, 100),
+        maxPercentage: 100,
+      ));
+    }
+
+    // Sort descending by minPercentage so highest grade is first
+    savedRows.sort((a, b) => b.minPercentage.compareTo(a.minPercentage));
+
+    // Ensure maxPercentages are contiguous
+    for (int i = 0; i < savedRows.length; i++) {
+      if (i == 0) {
+        savedRows[i].maxPercentage = 100;
+      } else {
+        savedRows[i].maxPercentage = savedRows[i - 1].minPercentage - 1;
+      }
+    }
+
+    Navigator.pop(context);
+    SafeHaptics.mediumImpact();
+    widget.onSave(savedRows);
   }
 
   Color _getBadgeTextColor(String letter, double gradePoint, ChondrobinduThemeColors colors) {
     if (letter.startsWith('A+')) return const Color(0xFF4ADE80);
     if (letter == 'A') return colors.primary;
     if (letter.startsWith('A-')) return colors.secondary;
+    if (letter.startsWith('B')) return colors.primary;
+    if (letter.startsWith('C') || letter.startsWith('D')) return colors.secondary;
     if (letter.startsWith('F')) return const Color(0xFFEF4444);
     return colors.textPrimary;
   }
 
   Color _getBadgeBgColor(String letter, double gradePoint, ChondrobinduThemeColors colors) {
     if (letter.startsWith('A+')) return const Color(0xFF4ADE80).withValues(alpha: 0.15);
-    if (letter == 'A') return colors.primary.withValues(alpha: 0.20);
-    if (letter.startsWith('A-')) return colors.secondary.withValues(alpha: 0.20);
+    if (letter == 'A') return colors.primary.withValues(alpha: 0.15);
+    if (letter.startsWith('A-')) return colors.secondary.withValues(alpha: 0.15);
+    if (letter.startsWith('B')) return colors.primary.withValues(alpha: 0.12);
+    if (letter.startsWith('C') || letter.startsWith('D')) return colors.secondary.withValues(alpha: 0.12);
     if (letter.startsWith('F')) return const Color(0xFFEF4444).withValues(alpha: 0.15);
-    return colors.surface;
+    return colors.recessed;
   }
 
   Color _getBadgeBorderColor(String letter, double gradePoint, ChondrobinduThemeColors colors) {
     if (letter.startsWith('A+')) return const Color(0xFF4ADE80).withValues(alpha: 0.35);
     if (letter == 'A') return colors.primary.withValues(alpha: 0.35);
     if (letter.startsWith('A-')) return colors.secondary.withValues(alpha: 0.35);
+    if (letter.startsWith('B')) return colors.primary.withValues(alpha: 0.3);
+    if (letter.startsWith('C') || letter.startsWith('D')) return colors.secondary.withValues(alpha: 0.3);
     if (letter.startsWith('F')) return const Color(0xFFEF4444).withValues(alpha: 0.35);
     return colors.surfaceBorder;
   }
@@ -223,7 +299,6 @@ class _GradingScaleSettingsDialogState extends State<GradingScaleSettingsDialog>
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
       decoration: BoxDecoration(
@@ -233,68 +308,43 @@ class _GradingScaleSettingsDialogState extends State<GradingScaleSettingsDialog>
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 28,
-            offset: const Offset(0, 12),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: bottomInset + 20,
-      ),
-      child: Material(
-        color: Colors.transparent,
+      child: Padding(
+        padding: const EdgeInsets.all(22.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Modal Header
+            // Modal Header: Title & Close Button
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: colors.recessed,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: colors.surfaceBorder),
-                        ),
-                        child: Icon(Icons.tune_rounded, color: colors.secondary, size: 20),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Grading Scale Settings',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Grading Scale Settings',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: colors.textPrimary,
-                                fontSize: 16.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Configure letter grade cutoffs & GPA weights for simulation',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: colors.textMuted,
-                                fontSize: 11.5,
-                              ),
-                            ),
-                          ],
-                        ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      widget.universityName.isNotEmpty
+                          ? '${widget.universityName} Letter Grade & GPA Conversion'
+                          : 'Letter Grade & GPA Conversion Matrix',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textMuted,
+                        fontSize: 12,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
                 InkWell(
                   onTap: () => Navigator.pop(context),
@@ -307,7 +357,7 @@ class _GradingScaleSettingsDialogState extends State<GradingScaleSettingsDialog>
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: colors.surfaceBorder),
                     ),
-                    child: Icon(Icons.close_rounded, color: colors.textMuted, size: 18),
+                    child: Icon(Icons.close_rounded, size: 18, color: colors.textMuted),
                   ),
                 ),
               ],
@@ -315,18 +365,8 @@ class _GradingScaleSettingsDialogState extends State<GradingScaleSettingsDialog>
             const SizedBox(height: 18),
 
             // Segmented Preset Switcher
-            Text(
-              'GRADING PRESET',
-              style: GoogleFonts.jetBrainsMono(
-                color: colors.textMuted,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
-              ),
-            ),
-            const SizedBox(height: 6),
             Container(
-              padding: const EdgeInsets.all(3),
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: colors.recessed,
                 borderRadius: BorderRadius.circular(12),
@@ -363,64 +403,106 @@ class _GradingScaleSettingsDialogState extends State<GradingScaleSettingsDialog>
                 ],
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
 
-            // Grid Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Letter & Grade Point',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: colors.textMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+            // Table Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10.0),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 60,
+                    child: Text(
+                      'GRADE',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.textMuted,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
                   ),
-                ),
-                Text(
-                  'Minimum Marks (%)',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: colors.textMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 68,
+                    child: Text(
+                      'GPA',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.textMuted,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'MINIMUM %',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.textMuted,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 32,
+                    alignment: Alignment.center,
+                    child: Text(
+                      'DEL',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: colors.textMuted,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 8),
 
-            // Compact 2-Column Grade Cutoff Grid
+            // Fully Interactive Grade Rows List
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 280),
               child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
                 child: Column(
                   children: [
-                    for (int i = 0; i < _editableScale.length; i += 2) ...[
+                    for (int i = 0; i < _rowHolders.length; i++) ...[
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _buildGradeCutoffTile(
-                                row: _editableScale[i],
-                                colors: colors,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            if (i + 1 < _editableScale.length)
-                              Expanded(
-                                child: _buildGradeCutoffTile(
-                                  row: _editableScale[i + 1],
-                                  colors: colors,
-                                ),
-                              )
-                            else
-                              const Expanded(child: SizedBox()),
-                          ],
+                        child: _buildInteractiveGradeRow(
+                          holder: _rowHolders[i],
+                          index: i,
+                          colors: colors,
                         ),
                       ),
                     ],
                   ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Add Grade Tier Button
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: colors.primary,
+                side: BorderSide(color: colors.surfaceBorder),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              ),
+              onPressed: _addGradeTier,
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: Text(
+                '+ Add Grade Tier',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -463,11 +545,7 @@ class _GradingScaleSettingsDialogState extends State<GradingScaleSettingsDialog>
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      SafeHaptics.mediumImpact();
-                      widget.onSave(_editableScale);
-                    },
+                    onPressed: _saveAndApply,
                     icon: const Icon(Icons.check_rounded, size: 16, color: Color(0xFF171C24)),
                     label: Text(
                       'Save & Apply Scale',
@@ -524,89 +602,106 @@ class _GradingScaleSettingsDialogState extends State<GradingScaleSettingsDialog>
     );
   }
 
-  Widget _buildGradeCutoffTile({
-    required GradingRow row,
+  Widget _buildInteractiveGradeRow({
+    required _RowControllerHolder holder,
+    required int index,
     required ChondrobinduThemeColors colors,
   }) {
-    final isF = row.letterGrade.toUpperCase() == 'F';
-    final controller = _controllers[row.letterGrade] ??=
-        TextEditingController(text: row.minPercentage.toString());
-
-    final badgeColor = _getBadgeTextColor(row.letterGrade, row.gradePoint, colors);
-    final badgeBg = _getBadgeBgColor(row.letterGrade, row.gradePoint, colors);
-    final badgeBorder = _getBadgeBorderColor(row.letterGrade, row.gradePoint, colors);
+    final badgeColor = _getBadgeTextColor(holder.row.letterGrade, holder.row.gradePoint, colors);
+    final badgeBg = _getBadgeBgColor(holder.row.letterGrade, holder.row.gradePoint, colors);
+    final badgeBorder = _getBadgeBorderColor(holder.row.letterGrade, holder.row.gradePoint, colors);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: colors.recessed,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: colors.surfaceBorder),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Letter Badge + Grade Point
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 28,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: badgeBg,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: badgeBorder),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  row.letterGrade,
-                  style: GoogleFonts.jetBrainsMono(
-                    color: badgeColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+          // 1. Editable Letter Grade Field
+          Container(
+            width: 56,
+            height: 32,
+            decoration: BoxDecoration(
+              color: badgeBg,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: badgeBorder),
+            ),
+            child: TextFormField(
+              controller: holder.letterCtrl,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.jetBrainsMono(
+                color: badgeColor,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
               ),
-              const SizedBox(width: 8),
-              Text(
-                row.gradePoint.toStringAsFixed(2),
-                style: GoogleFonts.jetBrainsMono(
-                  color: colors.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
+              decoration: const InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 6),
+                border: InputBorder.none,
               ),
-            ],
+              onChanged: (val) {
+                holder.row.letterGrade = val.trim();
+                if (_selectedPreset != 'custom') {
+                  setState(() => _selectedPreset = 'custom');
+                }
+              },
+            ),
           ),
+          const SizedBox(width: 8),
 
-          // Minimum % field
-          if (isF)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: colors.background,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: colors.surfaceBorder),
+          // 2. Editable Grade Point (GPA) Field
+          Container(
+            width: 64,
+            height: 32,
+            decoration: BoxDecoration(
+              color: colors.background,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: colors.surfaceBorder),
+            ),
+            child: TextFormField(
+              controller: holder.gpaCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              textAlign: TextAlign.center,
+              style: GoogleFonts.jetBrainsMono(
+                color: colors.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
-              child: Text(
-                '< 40%',
-                style: GoogleFonts.jetBrainsMono(
-                  color: colors.textMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
+              decoration: const InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                border: InputBorder.none,
               ),
-            )
-          else
-            Row(
-              mainAxisSize: MainAxisSize.min,
+              onChanged: (val) {
+                final d = double.tryParse(val.trim());
+                if (d != null) {
+                  holder.row.gradePoint = d;
+                  if (_selectedPreset != 'custom') {
+                    setState(() => _selectedPreset = 'custom');
+                  }
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // 3. Editable Minimum Marks (%) Field (Fully editable for ALL rows, including F)
+          Expanded(
+            child: Row(
               children: [
-                SizedBox(
-                  width: 44,
-                  height: 28,
+                Container(
+                  width: 58,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: colors.background,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: colors.surfaceBorder),
+                  ),
                   child: TextFormField(
-                    controller: controller,
+                    controller: holder.minPctCtrl,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
                     style: GoogleFonts.jetBrainsMono(
@@ -614,46 +709,50 @@ class _GradingScaleSettingsDialogState extends State<GradingScaleSettingsDialog>
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                      filled: true,
-                      fillColor: colors.background,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(color: colors.surfaceBorder),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(color: colors.surfaceBorder),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        borderSide: BorderSide(color: colors.primary, width: 1.2),
-                      ),
+                      contentPadding: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                      border: InputBorder.none,
                     ),
                     onChanged: (val) {
-                      final parsed = int.tryParse(val);
-                      if (parsed != null) {
-                        row.minPercentage = parsed;
-                        setState(() {
-                          _selectedPreset = 'custom';
-                        });
+                      final p = int.tryParse(val.trim());
+                      if (p != null) {
+                        holder.row.minPercentage = p;
+                        if (_selectedPreset != 'custom') {
+                          setState(() => _selectedPreset = 'custom');
+                        }
                       }
                     },
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 6),
                 Text(
                   '%',
                   style: GoogleFonts.jetBrainsMono(
                     color: colors.textMuted,
-                    fontSize: 11,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
+          ),
+
+          // 4. Delete Tier Icon Button
+          InkWell(
+            onTap: _rowHolders.length > 1 ? () => _removeRow(index) : null,
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.all(4.0),
+              child: Icon(
+                Icons.close_rounded,
+                size: 17,
+                color: _rowHolders.length > 1
+                    ? colors.textMuted
+                    : colors.textMuted.withValues(alpha: 0.25),
+              ),
+            ),
+          ),
         ],
       ),
     );

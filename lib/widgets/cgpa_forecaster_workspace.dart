@@ -5,13 +5,37 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import '../core/theme/app_colors.dart';
+import '../models/assessment_model.dart';
 import '../models/course_model.dart';
+import '../models/routine_models.dart' show AttendanceRecord, AttendanceStatus;
 import '../models/user_profile.dart';
+import '../providers/firestore_providers.dart';
 import '../providers/user_profile_provider.dart';
 import '../screens/grading_setup_screen.dart';
 import '../screens/term_performance_screen.dart' show CourseScoreBreakdown;
+import '../services/assessment_calculator.dart';
 import '../utils/safe_haptics.dart';
 import 'grading_scale_settings_dialog.dart';
+
+/// Representation of a simulated course with real calculated marks and weightages
+typedef SimulatedCourseData = ({
+  Course course,
+  GradingRow gradingRow,
+  double totalPct,
+  double courseTotalMarks,
+  double termMaxMarks,
+  double earnedTermMarks,
+  double attMaxMarks,
+  double effectiveAttMarks,
+  double ctMaxMarks,
+  double effectiveCtMarks,
+  double midMaxMarks,
+  double effectiveMidMarks,
+  double finalMaxMarks,
+  double projectedFinalMarks,
+  double sliderPct,
+  bool isSelected,
+});
 
 /// Full interactive CGPA Forecaster & Term Simulator Workspace strictly designed from Stitch MCP.
 /// Renders inline in Desktop Web and Mobile Insights without requiring a launcher screen.
@@ -227,6 +251,220 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
     return const Color(0xFF2E3846);
   }
 
+  SimulatedCourseData _computeCourseSimulationData({
+    required Course course,
+    required List<Assessment> allAssessments,
+    required List<AttendanceRecord> attendanceRecords,
+    required bool isSelected,
+  }) {
+    final rawData = course.rawData ?? {
+      'courseCode': course.code,
+      'creditHours': course.credits,
+      'courseType': course.courseType.name,
+    };
+
+    // 1. Total marks for course: 100 marks per credit (e.g. 3.0 Cr -> 300 marks; 1.5 Cr -> 150 marks)
+    final double rawTotalMarks = (rawData['totalMarks'] as num?)?.toDouble() ?? 0.0;
+    final double courseTotalMarks = rawTotalMarks > 0
+        ? rawTotalMarks
+        : (course.credits > 0 ? course.credits * 100.0 : 100.0);
+
+    // 2. Determine Weightages & Max Marks for Term Final and Continuous Components
+    double finalWeightPct = course.isTheory ? 70.0 : 40.0;
+    double attWeightPct = course.isTheory ? 10.0 : 30.0;
+    double ctWeightPct = course.isTheory ? 20.0 : 30.0;
+    double midWeightPct = 0.0;
+
+    double? customFinalMarks;
+    double? customAttMarks;
+    double? customCtMarks;
+    double? customMidMarks;
+
+    final rawWeightages = rawData['weightages'];
+    if (rawWeightages is List && rawWeightages.isNotEmpty) {
+      for (final w in rawWeightages) {
+        if (w is Map) {
+          final isActive = w['isActive'] as bool? ?? true;
+          final pct = (w['weightPercentage'] as num?)?.toDouble() ?? 0.0;
+          final totalM = (w['totalMarks'] as num?)?.toDouble();
+          if (isActive) {
+            final type = (w['assessmentType'] as String? ?? '').toLowerCase();
+            if (type.contains('final')) {
+              if (pct > 0) finalWeightPct = pct;
+              if (totalM != null && totalM > 0) customFinalMarks = totalM;
+            } else if (type.contains('attend')) {
+              if (pct > 0) attWeightPct = pct;
+              if (totalM != null && totalM > 0) customAttMarks = totalM;
+            } else if (type.contains('ct') || type.contains('quiz') || type.contains('continuous')) {
+              if (pct > 0) ctWeightPct = pct;
+              if (totalM != null && totalM > 0) customCtMarks = totalM;
+            } else if (type.contains('mid') || type.contains('lab report')) {
+              if (pct > 0) midWeightPct = pct;
+              if (totalM != null && totalM > 0) customMidMarks = totalM;
+            }
+          }
+        }
+      }
+    }
+
+    // Check direct fields on course
+    final rawFinalExamMarks = (rawData['finalExamMarks'] as num?)?.toDouble() ??
+        (rawData['finalTotal'] as num?)?.toDouble() ??
+        (rawData['assessments'] is Map ? (rawData['assessments']['finalTotal'] as num?)?.toDouble() : null);
+    if (rawFinalExamMarks != null && rawFinalExamMarks > 0) {
+      customFinalMarks = rawFinalExamMarks;
+    }
+
+    // Compute finalMaxMarks (e.g. 210 marks for 3.0 Cr theory)
+    final double finalMaxMarks = customFinalMarks ??
+        ((finalWeightPct / 100.0) * courseTotalMarks).clamp(1.0, courseTotalMarks);
+
+    // Continuous assessment max marks (e.g. 90 marks for 3.0 Cr theory)
+    final double termMaxMarks = (courseTotalMarks - finalMaxMarks).clamp(0.0, courseTotalMarks);
+
+    // Compute component max marks
+    double attMaxMarks = customAttMarks ?? ((attWeightPct / 100.0) * courseTotalMarks);
+    double ctMaxMarks = customCtMarks ?? ((ctWeightPct / 100.0) * courseTotalMarks);
+    double midMaxMarks = customMidMarks ?? (midWeightPct > 0 ? (midWeightPct / 100.0) * courseTotalMarks : 0.0);
+
+    // If components don't sum to termMaxMarks (e.g. when mid is 0), proportionally balance them
+    final double sumComponents = attMaxMarks + ctMaxMarks + midMaxMarks;
+    if (sumComponents > 0 && (sumComponents - termMaxMarks).abs() > 0.5) {
+      attMaxMarks = (attMaxMarks / sumComponents) * termMaxMarks;
+      ctMaxMarks = (ctMaxMarks / sumComponents) * termMaxMarks;
+      if (midMaxMarks > 0) {
+        midMaxMarks = (midMaxMarks / sumComponents) * termMaxMarks;
+      }
+    } else if (sumComponents == 0 && termMaxMarks > 0) {
+      attMaxMarks = termMaxMarks * (1.0 / 3.0);
+      ctMaxMarks = termMaxMarks * (2.0 / 3.0);
+    }
+
+    // 3. Real Earned Attendance Marks
+    double realAttMarks = 0.0;
+    if (course.useManualAttendanceOverride && (course.manualTotalClasses ?? 0) > 0) {
+      final attended = (course.manualAttendedClasses ?? 0).clamp(0, course.manualTotalClasses!);
+      realAttMarks = (attended / course.manualTotalClasses!) * attMaxMarks;
+    } else if (rawData['assessments'] is Map &&
+        ((rawData['assessments']['totalClasses'] as num?)?.toInt() ?? 0) > 0) {
+      final total = (rawData['assessments']['totalClasses'] as num).toInt();
+      final attended = ((rawData['assessments']['classesAttended'] as num?)?.toInt() ?? 0).clamp(0, total);
+      realAttMarks = (attended / total) * attMaxMarks;
+    } else {
+      final courseAttRecs = attendanceRecords.where((r) =>
+          r.courseId == course.id ||
+          (r.courseCode != null &&
+              r.courseCode!.trim().toLowerCase() == course.code.trim().toLowerCase())).toList();
+      if (courseAttRecs.isNotEmpty) {
+        final attended = courseAttRecs.where((r) =>
+            r.status == AttendanceStatus.attended || r.status == AttendanceStatus.extra).length;
+        final totalActioned = courseAttRecs.where((r) =>
+            r.status == AttendanceStatus.attended ||
+            r.status == AttendanceStatus.missed ||
+            r.status == AttendanceStatus.extra).length;
+        if (totalActioned > 0) {
+          realAttMarks = (attended / totalActioned) * attMaxMarks;
+        }
+      }
+    }
+    final double effectiveAttMarks = (_simulatedAttendanceMarks[course.id] ?? realAttMarks)
+        .clamp(0.0, attMaxMarks);
+
+    // 4. Real Earned CT / Quiz Marks
+    double realCtMarks = 0.0;
+    final courseAssessments = allAssessments.where((a) =>
+        a.courseId == course.id ||
+        (a.courseCode.isNotEmpty &&
+            a.courseCode.trim().toLowerCase() == course.code.trim().toLowerCase())).toList();
+
+    final ctItems = courseAssessments
+        .where((a) =>
+            a.type.toLowerCase().contains('ct') ||
+            a.type.toLowerCase().contains('quiz') ||
+            a.name.toLowerCase().contains('ct') ||
+            a.name.toLowerCase().contains('quiz'))
+        .where((a) => a.isCompleted && a.totalMarks > 0 && a.obtainedMarks != null)
+        .map((a) => AssessmentItem(name: a.name, obtainedMarks: a.obtainedMarks, totalMarks: a.totalMarks))
+        .toList();
+
+    if (ctItems.isNotEmpty) {
+      final catRes = AssessmentCalculationHelper.calculateCategoryScore(
+        items: ctItems,
+        weightagePercentage: ctWeightPct,
+        useBestOf: true,
+        bestCount: 3,
+      );
+      realCtMarks = (catRes.percentage / 100.0) * ctMaxMarks;
+    } else {
+      // Fallback to course.rawData['assessments']
+      final breakdown = CourseScoreBreakdown.compute(rawData);
+      if (breakdown.ctWeight > 0 && breakdown.ctSecured > 0) {
+        realCtMarks = (breakdown.ctSecured / breakdown.ctWeight).clamp(0.0, 1.0) * ctMaxMarks;
+      }
+    }
+    final double effectiveCtMarks = (_simulatedCtMarks[course.id] ?? realCtMarks)
+        .clamp(0.0, ctMaxMarks);
+
+    // 5. Real Earned Midterm Marks
+    double realMidMarks = 0.0;
+    if (midMaxMarks > 0) {
+      final midAssessments = courseAssessments
+          .where((a) =>
+              a.type.toLowerCase().contains('mid') ||
+              a.name.toLowerCase().contains('mid'))
+          .where((a) => a.isCompleted && a.totalMarks > 0 && a.obtainedMarks != null)
+          .toList();
+      if (midAssessments.isNotEmpty) {
+        final totalMidTotal = midAssessments.fold<double>(0.0, (acc, a) => acc + a.totalMarks);
+        final totalMidObt = midAssessments.fold<double>(0.0, (acc, a) => acc + (a.obtainedMarks ?? 0.0));
+        if (totalMidTotal > 0) {
+          realMidMarks = (totalMidObt / totalMidTotal).clamp(0.0, 1.0) * midMaxMarks;
+        }
+      } else {
+        final breakdown = CourseScoreBreakdown.compute(rawData);
+        if (breakdown.midWeight > 0 && breakdown.midSecured > 0) {
+          realMidMarks = (breakdown.midSecured / breakdown.midWeight).clamp(0.0, 1.0) * midMaxMarks;
+        }
+      }
+    }
+    final double effectiveMidMarks = realMidMarks.clamp(0.0, midMaxMarks);
+
+    // 6. Earned Term Total Marks (Strictly clamped to termMaxMarks)
+    final double earnedTermMarks = (effectiveAttMarks + effectiveCtMarks + effectiveMidMarks)
+        .clamp(0.0, termMaxMarks);
+
+    // 7. Projected Final Marks from Slider
+    final double sliderPct = _projectedPendingPercentages[course.id] ?? 80.0;
+    final double projectedFinalMarks = ((sliderPct / 100.0) * finalMaxMarks).clamp(0.0, finalMaxMarks);
+
+    // 8. Total Course Marks and Percentage
+    final double totalCourseMarks = (earnedTermMarks + projectedFinalMarks).clamp(0.0, courseTotalMarks);
+    final double totalPct = courseTotalMarks > 0
+        ? ((totalCourseMarks / courseTotalMarks) * 100.0).clamp(0.0, 100.0)
+        : 0.0;
+
+    final gradingRow = _getGradingRowForPercentage(totalPct);
+
+    return (
+      course: course,
+      gradingRow: gradingRow,
+      totalPct: totalPct,
+      courseTotalMarks: courseTotalMarks,
+      termMaxMarks: termMaxMarks,
+      earnedTermMarks: earnedTermMarks,
+      attMaxMarks: attMaxMarks,
+      effectiveAttMarks: effectiveAttMarks,
+      ctMaxMarks: ctMaxMarks,
+      effectiveCtMarks: effectiveCtMarks,
+      midMaxMarks: midMaxMarks,
+      effectiveMidMarks: effectiveMidMarks,
+      finalMaxMarks: finalMaxMarks,
+      projectedFinalMarks: projectedFinalMarks,
+      sliderPct: sliderPct,
+      isSelected: isSelected,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -239,47 +477,30 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
       return _buildEmptyState(colors);
     }
 
+    // Watch real live assessments & attendance records from Firestore streams
+    final allAssessments = ref.watch(allAssessmentsStreamProvider).value ?? [];
+    final attendanceRecords = ref.watch(attendanceRecordsStreamProvider).value ?? [];
+
     // Calculations across all enrolled courses
     double totalWeightedQualityPoints = 0.0;
     double totalSelectedCredits = 0.0;
-    final List<({Course course, GradingRow gradingRow, double totalPct, double totalSecured, double remainingWeight, double sliderPct, bool isSelected})> simulatedCourses = [];
+    final List<SimulatedCourseData> simulatedCourses = [];
 
     for (final course in enrolled) {
       final isSelected = _selectedCourseIds.contains(course.id);
-      final rawData = course.rawData ?? {
-        'courseCode': course.code,
-        'creditHours': course.credits,
-        'courseType': course.courseType.name,
-      };
-
-      final breakdown = CourseScoreBreakdown.compute(rawData);
-      final remainingWeight = breakdown.remainingWeight > 0
-          ? breakdown.remainingWeight
-          : (course.isTheory ? 70.0 : 60.0);
-
-      final sliderPct = _projectedPendingPercentages[course.id] ?? 80.0;
-      final simAttendance = _simulatedAttendanceMarks[course.id] ?? breakdown.attendanceSecured;
-      final simCT = _simulatedCtMarks[course.id] ?? breakdown.ctSecured;
-      final totalSecured = simAttendance + simCT + breakdown.midSecured + breakdown.otherSecured;
-      final projectedFinalMarks = (sliderPct / 100.0) * remainingWeight;
-      final totalPct = (totalSecured + projectedFinalMarks).clamp(0.0, 100.0);
-
-      final gradingRow = _getGradingRowForPercentage(totalPct);
+      final item = _computeCourseSimulationData(
+        course: course,
+        allAssessments: allAssessments,
+        attendanceRecords: attendanceRecords,
+        isSelected: isSelected,
+      );
 
       if (isSelected && course.credits > 0) {
-        totalWeightedQualityPoints += (gradingRow.gradePoint * course.credits);
+        totalWeightedQualityPoints += (item.gradingRow.gradePoint * course.credits);
         totalSelectedCredits += course.credits;
       }
 
-      simulatedCourses.add((
-        course: course,
-        gradingRow: gradingRow,
-        totalPct: totalPct,
-        totalSecured: totalSecured,
-        remainingWeight: remainingWeight,
-        sliderPct: sliderPct,
-        isSelected: isSelected,
-      ));
+      simulatedCourses.add(item);
     }
 
     // Safely guard against division by zero (e.g. when 0 credits selected)
@@ -397,7 +618,7 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
     required double totalSelectedCredits,
     required int selectedCount,
     required int totalCount,
-    required List<({Course course, GradingRow gradingRow, double totalPct, double totalSecured, double remainingWeight, double sliderPct, bool isSelected})> simulatedCourses,
+    required List<SimulatedCourseData> simulatedCourses,
   }) {
     final uniStr = widget.profile.universityName?.isNotEmpty == true ? widget.profile.universityName!.toUpperCase() : 'BUET';
     final deptStr = widget.profile.department?.isNotEmpty == true ? widget.profile.department!.toUpperCase() : 'EEE';
@@ -868,11 +1089,11 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
           children: [
             Container(width: 8, height: 8, decoration: BoxDecoration(color: colors.primary, borderRadius: BorderRadius.circular(2))),
             const SizedBox(width: 6),
-            Text('Earned Marks (30%)', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5)),
+            Text('Earned Term Marks', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5)),
             const SizedBox(width: 14),
             Container(width: 8, height: 8, decoration: BoxDecoration(color: colors.secondary, borderRadius: BorderRadius.circular(2))),
             const SizedBox(width: 6),
-            Text('Final Weight (70%)', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5)),
+            Text('Projected Final Exam', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10.5)),
           ],
         ),
       ],
@@ -881,7 +1102,7 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
 
   Widget _buildDesktopCourseGrid(
     ChondrobinduThemeColors colors,
-    List<({Course course, GradingRow gradingRow, double totalPct, double totalSecured, double remainingWeight, double sliderPct, bool isSelected})> items,
+    List<SimulatedCourseData> items,
   ) {
     // 2-Column Responsive Pairing (Safe from IntrinsicHeight crash on Flutter Web)
     return Column(
@@ -912,7 +1133,7 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
 
   Widget _buildMobileCourseStack(
     ChondrobinduThemeColors colors,
-    List<({Course course, GradingRow gradingRow, double totalPct, double totalSecured, double remainingWeight, double sliderPct, bool isSelected})> items,
+    List<SimulatedCourseData> items,
   ) {
     return Column(
       children: items.map((item) {
@@ -926,26 +1147,13 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
 
   Widget _buildCourseSimulationCard(
     ChondrobinduThemeColors colors,
-    ({Course course, GradingRow gradingRow, double totalPct, double totalSecured, double remainingWeight, double sliderPct, bool isSelected}) item,
+    SimulatedCourseData item,
   ) {
     final c = item.course;
     final isSelected = item.isSelected;
     final grade = item.gradingRow;
-    final totalPct = item.totalPct;
-    final totalSecured = item.totalSecured;
-    final remainingWeight = item.remainingWeight;
-    final sliderPct = item.sliderPct;
-    final projectedFinalMarks = (sliderPct / 100.0) * remainingWeight;
     final isExpanded = _expandedAccordions.contains(c.id);
-
-    final rawData = c.rawData ?? {};
-    final breakdown = CourseScoreBreakdown.compute(rawData);
-
     final isTheory = c.isTheory;
-    final effectiveAtt = _simulatedAttendanceMarks[c.id] ?? breakdown.attendanceSecured;
-    final attWeight = breakdown.attendanceWeight > 0 ? breakdown.attendanceWeight : 10.0;
-    final effectiveCT = _simulatedCtMarks[c.id] ?? breakdown.ctSecured;
-    final ctWeight = breakdown.ctWeight > 0 ? breakdown.ctWeight : 20.0;
 
     final gradeColor = _getGradeColor(grade.letterGrade);
     final gradeBg = _getGradeBgColor(grade.letterGrade);
@@ -1042,7 +1250,7 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '${totalPct.toStringAsFixed(1)}%',
+                          '${item.totalPct.toStringAsFixed(1)}%',
                           style: GoogleFonts.jetBrainsMono(
                             color: gradeColor,
                             fontSize: 13,
@@ -1095,7 +1303,7 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
 
             const SizedBox(height: 14),
 
-            // 2. Recessed 3-column breakdown strip with inline editing preserved
+            // 2. Recessed 3-column breakdown strip with real marks and inline editing
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               decoration: BoxDecoration(
@@ -1109,14 +1317,14 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
                   Expanded(
                     child: _buildBreakdownCol(
                       label: isTheory ? 'Attendance' : 'Lab Reports',
-                      secured: effectiveAtt,
-                      weight: attWeight,
+                      secured: item.effectiveAttMarks,
+                      weight: item.attMaxMarks,
                       colors: colors,
                       onEdit: () => _openScoreSimulationDialog(
                         courseId: c.id,
                         label: isTheory ? 'Attendance' : 'Lab Reports',
-                        maxWeight: attWeight,
-                        currentVal: effectiveAtt,
+                        maxWeight: item.attMaxMarks,
+                        currentVal: item.effectiveAttMarks,
                         onApplied: (v) => setState(() => _simulatedAttendanceMarks[c.id] = v),
                       ),
                     ),
@@ -1129,14 +1337,14 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
                       padding: const EdgeInsets.symmetric(horizontal: 8.0),
                       child: _buildBreakdownCol(
                         label: isTheory ? 'CT / Quizzes' : 'Quiz & Viva',
-                        secured: effectiveCT,
-                        weight: ctWeight,
+                        secured: item.effectiveCtMarks,
+                        weight: item.ctMaxMarks,
                         colors: colors,
                         onEdit: () => _openScoreSimulationDialog(
                           courseId: c.id,
                           label: isTheory ? 'CT / Quizzes' : 'Quiz & Viva',
-                          maxWeight: ctWeight,
-                          currentVal: effectiveCT,
+                          maxWeight: item.ctMaxMarks,
+                          currentVal: item.effectiveCtMarks,
                           onApplied: (v) => setState(() => _simulatedCtMarks[c.id] = v),
                         ),
                       ),
@@ -1160,7 +1368,7 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${totalSecured.toStringAsFixed(1)} / ${(attWeight + ctWeight).toStringAsFixed(0)}',
+                            '${item.earnedTermMarks.toStringAsFixed(1)} / ${item.termMaxMarks.toStringAsFixed(0)}',
                             style: GoogleFonts.jetBrainsMono(
                               color: colors.primary,
                               fontSize: 12,
@@ -1177,32 +1385,42 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
 
             const SizedBox(height: 12),
 
-            // 3. Segmented marks progress bar
+            // 3. Segmented marks progress bar (Real marks out of real totals)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text.rich(
-                  TextSpan(
-                    text: 'Earned: ',
-                    style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11),
-                    children: [
-                      TextSpan(
-                        text: '${totalSecured.toStringAsFixed(1)} / ${(attWeight + ctWeight).toStringAsFixed(0)}',
-                        style: GoogleFonts.jetBrainsMono(color: colors.primary, fontWeight: FontWeight.w700),
-                      ),
-                    ],
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      text: 'Earned: ',
+                      style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11),
+                      children: [
+                        TextSpan(
+                          text: '${item.earnedTermMarks.toStringAsFixed(1)} / ${item.termMaxMarks.toStringAsFixed(0)}',
+                          style: GoogleFonts.jetBrainsMono(color: colors.primary, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Text.rich(
-                  TextSpan(
-                    text: 'Final Exam: ',
-                    style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11),
-                    children: [
-                      TextSpan(
-                        text: '${projectedFinalMarks.toStringAsFixed(1)} / ${remainingWeight.toStringAsFixed(0)} (${sliderPct.toStringAsFixed(0)}%)',
-                        style: GoogleFonts.jetBrainsMono(color: colors.secondary, fontWeight: FontWeight.w700),
-                      ),
-                    ],
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text.rich(
+                    TextSpan(
+                      text: 'Final: ',
+                      style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11),
+                      children: [
+                        TextSpan(
+                          text: '${item.projectedFinalMarks.toStringAsFixed(1)} / ${item.finalMaxMarks.toStringAsFixed(0)} (${item.sliderPct.toStringAsFixed(0)}%)',
+                          style: GoogleFonts.jetBrainsMono(color: colors.secondary, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                    textAlign: TextAlign.end,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -1220,19 +1438,19 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
                 ),
                 child: Row(
                   children: [
-                    if (totalSecured > 0)
+                    if (item.earnedTermMarks > 0)
                       Expanded(
-                        flex: totalSecured.round().clamp(1, 100),
+                        flex: ((item.earnedTermMarks / item.courseTotalMarks) * 100).round().clamp(1, 100),
                         child: Container(color: colors.primary),
                       ),
-                    if (projectedFinalMarks > 0)
+                    if (item.projectedFinalMarks > 0)
                       Expanded(
-                        flex: projectedFinalMarks.round().clamp(1, 100),
+                        flex: ((item.projectedFinalMarks / item.courseTotalMarks) * 100).round().clamp(1, 100),
                         child: Container(color: colors.secondary),
                       ),
-                    if ((100.0 - totalPct) > 0)
+                    if ((item.courseTotalMarks - (item.earnedTermMarks + item.projectedFinalMarks)) > 0)
                       Expanded(
-                        flex: (100.0 - totalPct).round().clamp(1, 100),
+                        flex: (((item.courseTotalMarks - (item.earnedTermMarks + item.projectedFinalMarks)) / item.courseTotalMarks) * 100).round().clamp(1, 100),
                         child: Container(color: colors.recessed),
                       ),
                   ],
@@ -1242,20 +1460,25 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
 
             const SizedBox(height: 14),
 
-            // 4. Interactive Final Exam Score slider
+            // 4. Interactive Final Exam Score slider (Exact required marks out of real Term Final total)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  isTheory ? 'Expected Final Exam Score' : 'Expected Lab Final Score',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: colors.textPrimary,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
+                Expanded(
+                  child: Text(
+                    isTheory ? 'Expected Final Exam Score' : 'Expected Lab Final Score',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: colors.textPrimary,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
-                  '${sliderPct.toStringAsFixed(0)}% (${projectedFinalMarks.toStringAsFixed(1)} / ${remainingWeight.toStringAsFixed(0)} marks)',
+                  '${item.projectedFinalMarks.toStringAsFixed(1)} / ${item.finalMaxMarks.toStringAsFixed(0)} marks (${item.sliderPct.toStringAsFixed(0)}%)',
                   style: GoogleFonts.jetBrainsMono(
                     color: colors.secondary,
                     fontSize: 11.5,
@@ -1276,7 +1499,7 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
               ),
               child: Slider(
-                value: sliderPct,
+                value: item.sliderPct,
                 min: 0.0,
                 max: 100.0,
                 onChanged: isSelected
@@ -1289,16 +1512,16 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
               ),
             ),
 
-            // Tick marks
+            // Tick marks scaled to real final marks
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('0% (0)', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10)),
-                  Text('40% Pass (${(0.40 * remainingWeight).toStringAsFixed(0)})', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10)),
-                  Text('75% A (${(0.75 * remainingWeight).toStringAsFixed(0)})', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10)),
-                  Text('100% (${remainingWeight.toStringAsFixed(0)})', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10)),
+                  Text('40% (${(0.40 * item.finalMaxMarks).toStringAsFixed(0)})', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10)),
+                  Text('75% (${(0.75 * item.finalMaxMarks).toStringAsFixed(0)})', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10)),
+                  Text('100% (${item.finalMaxMarks.toStringAsFixed(0)})', style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 10)),
                 ],
               ),
             ),
@@ -1358,8 +1581,10 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
             if (isExpanded) ...[
               const SizedBox(height: 10),
               _buildCutoffTargetsGrid(
-                totalSecured: totalSecured,
-                remainingWeight: remainingWeight,
+                courseTotalMarks: item.courseTotalMarks,
+                termMaxMarks: item.termMaxMarks,
+                earnedTermMarks: item.earnedTermMarks,
+                finalMaxMarks: item.finalMaxMarks,
                 colors: colors,
               ),
             ],
@@ -1413,16 +1638,49 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
   }
 
   Widget _buildCutoffTargetsGrid({
-    required double totalSecured,
-    required double remainingWeight,
+    required double courseTotalMarks,
+    required double termMaxMarks,
+    required double earnedTermMarks,
+    required double finalMaxMarks,
     required ChondrobinduThemeColors colors,
   }) {
-    // 3 Cutoff Targets matching Stitch reference (A+, A, A-)
-    final targets = [
-      (label: 'For A+ (80%)', cutoff: 80.0, color: const Color(0xFF4ADE80)),
-      (label: 'For A (75%)', cutoff: 75.0, color: colors.primary),
-      (label: 'For A- (70%)', cutoff: 70.0, color: colors.secondary),
-    ];
+    // Cutoff targets derived from active grading scale
+    final passingRows = _gradingScale.where((r) => r.gradePoint >= 2.0 && r.minPercentage > 0).toList();
+    passingRows.sort((a, b) => b.minPercentage.compareTo(a.minPercentage));
+
+    final targets = <({String label, double cutoff, Color color})>[];
+    if (passingRows.isNotEmpty) {
+      final r0 = passingRows[0];
+      targets.add((
+        label: 'For ${r0.letterGrade} (${r0.minPercentage.toStringAsFixed(0)}%)',
+        cutoff: r0.minPercentage.toDouble(),
+        color: const Color(0xFF4ADE80),
+      ));
+      if (passingRows.length > 1) {
+        final r1 = passingRows[1];
+        targets.add((
+          label: 'For ${r1.letterGrade} (${r1.minPercentage.toStringAsFixed(0)}%)',
+          cutoff: r1.minPercentage.toDouble(),
+          color: colors.primary,
+        ));
+      }
+      if (passingRows.length > 2) {
+        final r2 = passingRows[2];
+        targets.add((
+          label: 'For ${r2.letterGrade} (${r2.minPercentage.toStringAsFixed(0)}%)',
+          cutoff: r2.minPercentage.toDouble(),
+          color: colors.secondary,
+        ));
+      }
+    }
+
+    if (targets.isEmpty) {
+      targets.addAll([
+        (label: 'For A+ (80%)', cutoff: 80.0, color: const Color(0xFF4ADE80)),
+        (label: 'For A (75%)', cutoff: 75.0, color: colors.primary),
+        (label: 'For A- (70%)', cutoff: 70.0, color: colors.secondary),
+      ]);
+    }
 
     return Container(
       padding: const EdgeInsets.all(10),
@@ -1433,10 +1691,12 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
       ),
       child: Row(
         children: targets.map((t) {
-          final neededMarks = t.cutoff - totalSecured;
-          final neededPct = (neededMarks / remainingWeight) * 100.0;
-          final isSecured = neededMarks <= 0;
-          final isImpossible = neededPct > 100.0;
+          // Exact formula: requiredFinalMarks = ((targetPercent / 100) * courseTotalMarks) - earnedTermMarks
+          final requiredFinalMarks = ((t.cutoff / 100.0) * courseTotalMarks) - earnedTermMarks;
+          final clampedFinalMarks = requiredFinalMarks.clamp(0.0, finalMaxMarks);
+          final neededFinalPct = finalMaxMarks > 0 ? (requiredFinalMarks / finalMaxMarks) * 100.0 : 0.0;
+          final isSecured = requiredFinalMarks <= 0;
+          final isOutOfReach = requiredFinalMarks > finalMaxMarks;
 
           return Expanded(
             child: Container(
@@ -1462,35 +1722,56 @@ class _CgpaForecasterWorkspaceState extends ConsumerState<CgpaForecasterWorkspac
                   const SizedBox(height: 4),
                   if (isSecured)
                     Text(
-                      'Secured',
+                      'Already Secured ✓',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.jetBrainsMono(
                         color: const Color(0xFF4ADE80),
-                        fontSize: 11,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.w700,
                       ),
                     )
-                  else if (isImpossible)
-                    Text(
-                      'Need > 100%',
-                      style: GoogleFonts.jetBrainsMono(
-                        color: const Color(0xFFEF4444),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  else if (isOutOfReach)
+                    Column(
+                      children: [
+                        Text(
+                          'Out of Reach',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: const Color(0xFFEF4444),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          '(Needs > ${finalMaxMarks.toStringAsFixed(0)})',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: colors.textMuted,
+                            fontSize: 9.5,
+                          ),
+                        ),
+                      ],
                     )
                   else
                     Column(
                       children: [
                         Text(
-                          '${neededMarks.toStringAsFixed(1)} / ${remainingWeight.toStringAsFixed(0)}',
+                          '${clampedFinalMarks.toStringAsFixed(1)} / ${finalMaxMarks.toStringAsFixed(0)} marks',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.jetBrainsMono(
                             color: colors.textPrimary,
-                            fontSize: 11.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         Text(
-                          '(${neededPct.round()}% on Final)',
+                          '(${neededFinalPct.round()}% on Final)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.jetBrainsMono(
                             color: colors.textMuted,
                             fontSize: 9.5,

@@ -98,7 +98,15 @@ void main() {
       expect(find.text('Enrolled Course Simulations'), findsOneWidget);
       expect(find.textContaining('3.90'), findsOneWidget);
 
-      // 5. Test Date Stepper in CGPA Forecaster
+      // Verify date controls are completely hidden in CGPA Forecaster
+      expect(find.text('Trend'), findsNothing);
+      expect(find.byIcon(Icons.restore_rounded), findsNothing);
+
+      // 5. Switch back to 'Time' and test Date Stepper
+      await tester.tap(find.text('Time').first);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
       await tester.tap(find.byIcon(Icons.chevron_right_rounded).first);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
