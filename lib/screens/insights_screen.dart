@@ -133,7 +133,7 @@ typedef AcademicInsightsScreen = InsightsScreen;
 class _InsightsScreenState extends ConsumerState<InsightsScreen> {
   String _desktopCategoryTab = 'Overview';
   InsightPeriod _selectedPeriod = InsightPeriod.week;
-  DateTime _currentAnchorDate = DateTime.now();
+  DateTime _currentAnchorDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
   DateTime? _customTrendStart;
   DateTime? _customTrendEnd;
 
@@ -164,77 +164,91 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 
   bool get _canStepBack {
     final minD = _minDate;
+    final anchor = DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day);
     switch (_selectedPeriod) {
       case InsightPeriod.day:
-        final prev = _currentAnchorDate.subtract(const Duration(days: 1));
+        final prev = DateTime(anchor.year, anchor.month, anchor.day - 1);
         return !prev.isBefore(minD);
       case InsightPeriod.week:
-        final prevSat = _rangeStart.subtract(const Duration(days: 7));
-        return !prevSat.isBefore(minD) || prevSat.add(const Duration(days: 6)).isAfter(minD);
+        final daysFromSaturday = (anchor.weekday % 7 + 1) % 7;
+        final currentSat = DateTime(anchor.year, anchor.month, anchor.day - daysFromSaturday);
+        final prevSat = DateTime(currentSat.year, currentSat.month, currentSat.day - 7);
+        final prevFri = DateTime(prevSat.year, prevSat.month, prevSat.day + 6);
+        return !prevFri.isBefore(minD);
       case InsightPeriod.month:
-        final prevMonth = DateTime(_currentAnchorDate.year, _currentAnchorDate.month - 1, 1);
-        final minMonth = DateTime(minD.year, minD.month, 1);
-        return !prevMonth.isBefore(minMonth);
+        final currentMonthStart = DateTime(anchor.year, anchor.month, 1);
+        final minMonthStart = DateTime(minD.year, minD.month, 1);
+        return currentMonthStart.isAfter(minMonthStart);
       case InsightPeriod.trend:
         return _rangeStart.isAfter(minD);
     }
   }
 
   bool get _canStepForward {
-    final maxD = _maxDate;
+    final today = _maxDate;
+    final anchor = DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day);
     switch (_selectedPeriod) {
       case InsightPeriod.day:
-        final next = _currentAnchorDate.add(const Duration(days: 1));
-        return !next.isAfter(maxD);
+        final next = DateTime(anchor.year, anchor.month, anchor.day + 1);
+        return !next.isAfter(today);
       case InsightPeriod.week:
-        return _rangeStart.add(const Duration(days: 7)).isBefore(maxD) || isSameDay(_rangeStart.add(const Duration(days: 7)), maxD);
+        final todayDaysFromSat = (today.weekday % 7 + 1) % 7;
+        final currentWeekSat = DateTime(today.year, today.month, today.day - todayDaysFromSat);
+        final anchorDaysFromSat = (anchor.weekday % 7 + 1) % 7;
+        final activeSat = DateTime(anchor.year, anchor.month, anchor.day - anchorDaysFromSat);
+        return activeSat.isBefore(currentWeekSat);
       case InsightPeriod.month:
-        final nextMonth = DateTime(_currentAnchorDate.year, _currentAnchorDate.month + 1, 1);
-        final maxMonth = DateTime(maxD.year, maxD.month, 1);
-        return !nextMonth.isAfter(maxMonth);
+        final activeMonthStart = DateTime(anchor.year, anchor.month, 1);
+        final currentMonthStart = DateTime(today.year, today.month, 1);
+        return activeMonthStart.isBefore(currentMonthStart);
       case InsightPeriod.trend:
-        return _rangeEnd.isBefore(maxD) && !isSameDay(_rangeEnd, maxD);
+        return _rangeEnd.isBefore(today);
     }
   }
 
   DateTime get _rangeStart {
+    final anchor = DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day);
     switch (_selectedPeriod) {
       case InsightPeriod.day:
-        final d = DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day);
-        return d.isBefore(_minDate) ? _minDate : d;
+        return anchor.isBefore(_minDate) ? _minDate : anchor;
       case InsightPeriod.week:
-        // Bangladesh academic week starts on Saturday (ISO weekday 6)
-        final daysFromSaturday = (_currentAnchorDate.weekday % 7 + 1) % 7;
-        return DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day)
-            .subtract(Duration(days: daysFromSaturday));
+        final daysFromSaturday = (anchor.weekday % 7 + 1) % 7;
+        final sat = DateTime(anchor.year, anchor.month, anchor.day - daysFromSaturday);
+        return sat.isBefore(_minDate) ? _minDate : sat;
       case InsightPeriod.month:
-        return DateTime(_currentAnchorDate.year, _currentAnchorDate.month, 1);
+        final mStart = DateTime(anchor.year, anchor.month, 1);
+        return mStart.isBefore(_minDate) ? _minDate : mStart;
       case InsightPeriod.trend:
         if (_customTrendStart != null) {
           final s = DateTime(_customTrendStart!.year, _customTrendStart!.month, _customTrendStart!.day);
           return s.isBefore(_minDate) ? _minDate : s;
         }
-        final end = DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day, 23, 59, 59);
-        final start = end.subtract(const Duration(days: 29)).copyWith(hour: 0, minute: 0, second: 0, millisecond: 0);
+        final end = anchor;
+        final start = DateTime(end.year, end.month, end.day - 29);
         return start.isBefore(_minDate) ? _minDate : start;
     }
   }
 
   DateTime get _rangeEnd {
+    final anchor = DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day);
     switch (_selectedPeriod) {
       case InsightPeriod.day:
-        return _rangeStart.add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
+        return DateTime(anchor.year, anchor.month, anchor.day, 23, 59, 59, 999);
       case InsightPeriod.week:
-        return _rangeStart.add(const Duration(days: 7)).subtract(const Duration(milliseconds: 1));
+        final daysFromSaturday = (anchor.weekday % 7 + 1) % 7;
+        final sat = DateTime(anchor.year, anchor.month, anchor.day - daysFromSaturday);
+        final fri = DateTime(sat.year, sat.month, sat.day + 6, 23, 59, 59, 999);
+        return fri.isAfter(_maxDate) ? DateTime(_maxDate.year, _maxDate.month, _maxDate.day, 23, 59, 59, 999) : fri;
       case InsightPeriod.month:
-        return DateTime(_currentAnchorDate.year, _currentAnchorDate.month + 1, 1)
-            .subtract(const Duration(milliseconds: 1));
+        final nextMonthFirst = DateTime(anchor.year, anchor.month + 1, 1);
+        final lastDay = nextMonthFirst.subtract(const Duration(milliseconds: 1));
+        return lastDay.isAfter(_maxDate) ? DateTime(_maxDate.year, _maxDate.month, _maxDate.day, 23, 59, 59, 999) : lastDay;
       case InsightPeriod.trend:
         if (_customTrendEnd != null) {
-          final e = DateTime(_customTrendEnd!.year, _customTrendEnd!.month, _customTrendEnd!.day, 23, 59, 59);
-          return e.isAfter(_maxDate) ? _maxDate.add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1)) : e;
+          final e = DateTime(_customTrendEnd!.year, _customTrendEnd!.month, _customTrendEnd!.day, 23, 59, 59, 999);
+          return e.isAfter(_maxDate) ? DateTime(_maxDate.year, _maxDate.month, _maxDate.day, 23, 59, 59, 999) : e;
         }
-        return DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day, 23, 59, 59);
+        return DateTime(anchor.year, anchor.month, anchor.day, 23, 59, 59, 999);
     }
   }
 
@@ -265,33 +279,47 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     if (direction < 0 && !_canStepBack) return;
     if (direction > 0 && !_canStepForward) return;
     SafeHaptics.selectionClick();
+    final today = _maxDate;
+    final minD = _minDate;
+    final anchor = DateTime(_currentAnchorDate.year, _currentAnchorDate.month, _currentAnchorDate.day);
+
     setState(() {
       switch (_selectedPeriod) {
         case InsightPeriod.day:
-          final next = _currentAnchorDate.add(Duration(days: direction));
-          if (!next.isBefore(_minDate) && !next.isAfter(_maxDate)) {
+          final next = DateTime(anchor.year, anchor.month, anchor.day + direction);
+          if (!next.isBefore(minD) && !next.isAfter(today)) {
             _currentAnchorDate = next;
           }
           break;
         case InsightPeriod.week:
-          _currentAnchorDate = _currentAnchorDate.add(Duration(days: 7 * direction));
-          if (_currentAnchorDate.isAfter(_maxDate)) {
-            _currentAnchorDate = _maxDate;
+          final daysFromSaturday = (anchor.weekday % 7 + 1) % 7;
+          final currentSat = DateTime(anchor.year, anchor.month, anchor.day - daysFromSaturday);
+          final nextSat = DateTime(currentSat.year, currentSat.month, currentSat.day + 7 * direction);
+          if (nextSat.isAfter(today)) {
+            _currentAnchorDate = today;
+          } else if (nextSat.isBefore(minD)) {
+            _currentAnchorDate = minD;
+          } else {
+            _currentAnchorDate = nextSat;
           }
           break;
         case InsightPeriod.month:
-          final next = DateTime(_currentAnchorDate.year, _currentAnchorDate.month + direction, 1);
-          final maxMonth = DateTime(_maxDate.year, _maxDate.month, 1);
-          final minMonth = DateTime(_minDate.year, _minDate.month, 1);
-          if (!next.isBefore(minMonth) && !next.isAfter(maxMonth)) {
-            _currentAnchorDate = next;
+          final nextMonthStart = DateTime(anchor.year, anchor.month + direction, 1);
+          final currentMonthStart = DateTime(today.year, today.month, 1);
+          final minMonthStart = DateTime(minD.year, minD.month, 1);
+          if (!nextMonthStart.isBefore(minMonthStart) && !nextMonthStart.isAfter(currentMonthStart)) {
+            _currentAnchorDate = nextMonthStart;
           }
           break;
         case InsightPeriod.trend:
           _customTrendStart = null;
           _customTrendEnd = null;
-          final next = _currentAnchorDate.add(Duration(days: 30 * direction));
-          if (!next.isBefore(_minDate) && !next.isAfter(_maxDate)) {
+          final next = DateTime(anchor.year, anchor.month, anchor.day + 30 * direction);
+          if (next.isAfter(today)) {
+            _currentAnchorDate = today;
+          } else if (next.isBefore(minD)) {
+            _currentAnchorDate = minD;
+          } else {
             _currentAnchorDate = next;
           }
           break;
@@ -315,7 +343,8 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
   void _jumpToCurrentRange() {
     SafeHaptics.selectionClick();
     setState(() {
-      _currentAnchorDate = DateTime.now();
+      final now = DateTime.now();
+      _currentAnchorDate = DateTime(now.year, now.month, now.day);
       _customTrendStart = null;
       _customTrendEnd = null;
     });

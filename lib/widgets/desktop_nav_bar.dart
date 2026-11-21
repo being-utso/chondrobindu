@@ -201,6 +201,7 @@ class _DesktopNavBarState extends ConsumerState<DesktopNavBar> {
   }
 
   Widget _buildBrand(bool isCompact, ChondrobinduThemeColors colors) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: () => _selectTab(0),
       borderRadius: BorderRadius.circular(8.0),
@@ -209,9 +210,10 @@ class _DesktopNavBarState extends ConsumerState<DesktopNavBar> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const AppLogo(
-              size: 32,
+            AppLogo(
+              size: isCompact ? 28 : 32,
               showContainer: false,
+              isDark: isDark,
             ),
             const SizedBox(width: 8),
             Row(

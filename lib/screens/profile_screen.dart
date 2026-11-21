@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/constants/app_constants.dart';
 import '../core/constants/group_constants.dart';
+import '../core/theme/app_colors.dart';
 import '../providers/analytics_provider.dart';
 import '../providers/nav_provider.dart';
 import '../providers/performance_provider.dart';
@@ -61,6 +62,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late final TextEditingController _majorController;
   String _selectedLevel = '1';
   String _selectedTerm = '1';
+  double _dailyFocusGoal = 1.0;
 
   // Dropdown Selections
   String _hscBatch = '2025';
@@ -76,6 +78,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // Tap gesture recognizer for developer website link
   late final TapGestureRecognizer _developerTapRecognizer;
 
+  User? get _currentUser {
+    try {
+      return FirebaseAuth.instance.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -85,7 +95,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       };
 
     final profile = ref.read(userProfileProvider);
-    final currentUser = FirebaseAuth.instance.currentUser;
+    final currentUser = _currentUser;
     final initialName = profile.fullName.isNotEmpty
         ? profile.fullName
         : (currentUser?.displayName ?? '');
@@ -114,6 +124,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _selectedTerm = (profile.term != null && ['1', '2'].contains(profile.term))
         ? profile.term!
         : '1';
+    _dailyFocusGoal = profile.dailyFocusGoalHours > 0 ? profile.dailyFocusGoalHours : 1.0;
 
     _hscBatch = _batchOptions.contains(profile.hscBatch) ? profile.hscBatch : '2025';
     _hscGroup = _groupOptions.contains(profile.hscGroup) ? profile.hscGroup : 'Science';
@@ -204,7 +215,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     try {
       final newSyllabus = SyllabusFactory.generateInitialSyllabus(_primaryTarget, _hscGroup);
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final uid = _currentUser?.uid;
       
       // 1. WRITE SYLLABUS TO FIRESTORE FIRST (Prevents Race Condition)
       if (uid != null) {
@@ -245,19 +256,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         term: _isUniversityStudent ? _selectedTerm : null,
       );
 
-      // 3. UPDATE PROVIDERS
+      // 3. UPDATE FOCUS GOAL & PROVIDERS
+      await ref.read(userProfileProvider.notifier).updateDailyFocusGoal(_dailyFocusGoal);
       ref.invalidate(syllabusProvider);
       ref.read(admissionTargetProvider.notifier).state = _primaryTarget;
       ref.read(syllabusProvider.notifier).setSubjects(newSyllabus);
 
       if (mounted) {
+        final colors = AppColors.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFFF2B78A),
+            backgroundColor: colors.surface,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: colors.surfaceBorder),
+            ),
             content: Text(
               'Profile updated!',
               style: GoogleFonts.plusJakartaSans(
-                color: const Color(0xFF110D0C),
+                color: colors.textPrimary,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -339,10 +357,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       return const AppLoadingScreen(message: 'Loading profile settings...');
     }
 
-    const backgroundColor = Color(0xFF110D0C);
-    const cardColor = Color(0xFF241C1A);
-    const accentColor = Color(0xFFF2B78A);
-    final currentUser = FirebaseAuth.instance.currentUser;
+    final colors = AppColors.of(context);
+    final backgroundColor = colors.background;
+    final cardColor = colors.surface;
+    final accentColor = colors.secondary;
+    final currentUser = _currentUser;
     final displayPhotoUrl = (profile.profileImageUrl != null && profile.profileImageUrl!.isNotEmpty)
         ? profile.profileImageUrl
         : currentUser?.photoURL;
@@ -354,17 +373,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        backgroundColor: backgroundColor,
+        backgroundColor: colors.surface,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Personal Profile',
-          style: TextStyle(
-            color: Colors.white,
+          style: GoogleFonts.plusJakartaSans(
+            color: colors.textPrimary,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -373,7 +392,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           // TASK 4: Clean history icon in AppBar for university students to access previous admission data
           if (profile.isUniversityStudent)
             IconButton(
-              icon: const Icon(Icons.history_rounded, color: accentColor, size: 22),
+              icon: Icon(Icons.history_rounded, color: accentColor, size: 22),
               tooltip: 'Access Previous Admission Data',
               onPressed: () {
                 SafeHaptics.lightImpact();
@@ -519,14 +538,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF241C1A),
+                        color: colors.recessed,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF4A3830)),
+                        border: Border.all(color: colors.surfaceBorder),
                       ),
                       child: Text(
                         profile.profileSubtitle,
                         style: GoogleFonts.plusJakartaSans(
-                          color: const Color(0xFFF2B78A),
+                          color: colors.secondary,
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                         ),
@@ -543,6 +562,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ref.watch(totalFocusMinutesProvider),
                 ref.watch(currentStreakProvider),
                 ref.watch(totalCompletedExamsCountProvider),
+                colors: colors,
               ),
               const SizedBox(height: 20),
 
@@ -552,9 +572,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: cardColor,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: const Color(0xFF4A3830),
+                    color: colors.surfaceBorder,
                     width: 1.0,
                   ),
                 ),
@@ -565,24 +585,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       children: [
                         Icon(
                           _isUniversityStudent ? Icons.account_balance_rounded : Icons.school_rounded,
-                          color: _isUniversityStudent ? accentColor : Colors.blueGrey.shade300,
+                          color: _isUniversityStudent ? colors.primary : colors.textMuted,
                         ),
                         const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Are you a University Student?',
-                              style: TextStyle(
-                                color: Colors.white,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: colors.textPrimary,
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             Text(
-                              _isUniversityStudent ? 'University Mode Active' : 'HSC / Admission Mode Active',
-                              style: TextStyle(
-                                color: Colors.blueGrey.shade400,
+                              _isUniversityStudent ? 'University Track Active' : 'HSC / Admission Track Active',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: colors.textMuted,
                                 fontSize: 11,
                               ),
                             ),
@@ -592,12 +612,108 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     Switch.adaptive(
                       value: _isUniversityStudent,
-                      activeThumbColor: accentColor,
+                      activeThumbColor: colors.primary,
+                      activeTrackColor: colors.primary.withValues(alpha: 0.3),
                       onChanged: (val) {
                         setState(() {
                           _isUniversityStudent = val;
                         });
                       },
+                    ),
+                  ],
+                ),
+              ),
+
+              // Daily Focus Goal Setting Card
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: colors.surfaceBorder,
+                    width: 1.0,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.track_changes_rounded, color: colors.secondary, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Daily Focus Goal',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: colors.textPrimary,
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: colors.secondary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: colors.secondary.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            '${_dailyFocusGoal.toStringAsFixed(1)}h / day',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: colors.secondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Target focus time benchmarked in Insights charts and daily focus distribution.',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [1.0, 1.5, 2.0, 3.0, 4.0, 6.0].map((goal) {
+                        final isSelected = (_dailyFocusGoal - goal).abs() < 0.05;
+                        return InkWell(
+                          onTap: () {
+                            SafeHaptics.selectionClick();
+                            setState(() => _dailyFocusGoal = goal);
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: isSelected ? colors.secondary : colors.recessed,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isSelected ? colors.secondary : colors.surfaceBorder,
+                              ),
+                            ),
+                            child: Text(
+                              '${goal.toStringAsFixed(goal.truncateToDouble() == goal ? 0 : 1)}h',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: isSelected ? const Color(0xFF171C24) : colors.textPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ],
                 ),
@@ -615,14 +731,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Row(
                           children: [
                             Icon(Icons.person_outline_rounded, color: accentColor, size: 20),
-                            SizedBox(width: 8),
-                            Text(
+                            const SizedBox(width: 8),
+                            const Text(
                               'Personal Information',
                               style: TextStyle(
                                 color: Colors.white,
@@ -887,7 +1003,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         decoration: BoxDecoration(
                           color: cardColor,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFF4A3830), width: 0.8),
+                          border: Border.all(color: colors.surfaceBorder, width: 0.8),
                         ),
                         child: Column(
                           children: [
@@ -901,7 +1017,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     color: accentColor.withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
-                                  child: const Icon(Icons.inventory_2_rounded, color: accentColor, size: 20),
+                                  child: Icon(Icons.inventory_2_rounded, color: accentColor, size: 20),
                                 ),
                                 title: const Text('Archived Semesters', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
                                 subtitle: const Text('View past courses, routines & scoped PDF reports', style: TextStyle(color: Colors.blueGrey, fontSize: 11.5)),
@@ -1052,11 +1168,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(Icons.track_changes_rounded, color: accentColor, size: 20),
-                          SizedBox(width: 8),
-                          Text(
+                          const SizedBox(width: 8),
+                          const Text(
                             'Admission Target Goals',
                             style: TextStyle(
                               color: Colors.white,
@@ -1130,18 +1246,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: ElevatedButton(
                   onPressed: _isSavingProfile ? null : _saveProfile,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: accentColor,
-                    foregroundColor: const Color(0xFF110D0C),
+                    backgroundColor: colors.secondary,
+                    foregroundColor: const Color(0xFF171C24),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     elevation: 3,
-                    shadowColor: accentColor.withValues(alpha: 0.4),
+                    shadowColor: colors.secondary.withValues(alpha: 0.4),
                   ),
                   child: _isSavingProfile
                       ? const AppPreloader(
                           size: 20,
                           strokeWidth: 2,
-                          color: Color(0xFF110D0C),
+                          color: Color(0xFF171C24),
                         )
                       : const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -1185,7 +1301,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             color: accentColor.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.help_outline_rounded, color: accentColor, size: 20),
+                          child: Icon(Icons.help_outline_rounded, color: accentColor, size: 20),
                         ),
                         const SizedBox(width: 12),
                         const Expanded(
@@ -1239,7 +1355,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           color: accentColor.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.code_rounded, color: accentColor, size: 20),
+                        child: Icon(Icons.code_rounded, color: accentColor, size: 20),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -1267,10 +1383,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   TextSpan(
                                     text: 'Shahriyer Sayem',
                                     style: GoogleFonts.plusJakartaSans(
-                                      color: const Color(0xFFF2B78A),
+                                      color: colors.secondary,
                                       fontWeight: FontWeight.w700,
                                       decoration: TextDecoration.underline,
-                                      decorationColor: const Color(0xFFF2B78A).withValues(alpha: 0.6),
+                                      decorationColor: colors.secondary.withValues(alpha: 0.6),
                                     ),
                                     recognizer: _developerTapRecognizer
                                       ..onTap = () async {
@@ -1371,28 +1487,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                           OutlinedButton.icon(
                             onPressed: () => _safeLaunchUrl(context, 'https://github.com/being-utso'),
-                            icon: const Icon(Icons.code_rounded, size: 15, color: Color(0xFFF2B78A)),
-                            label: const Text(
+                            icon: Icon(Icons.code_rounded, size: 15, color: colors.secondary),
+                            label: Text(
                               'GitHub',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                              style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 12),
                             ),
                             style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: const Color(0xFFF2B78A).withValues(alpha: 0.4)),
-                              backgroundColor: const Color(0xFFF2B78A).withValues(alpha: 0.08),
+                              side: BorderSide(color: colors.secondary.withValues(alpha: 0.4)),
+                              backgroundColor: colors.secondary.withValues(alpha: 0.08),
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                           ),
                           OutlinedButton.icon(
                             onPressed: () => _safeLaunchUrl(context, AppConstants.privacyPolicyUrl),
-                            icon: const Icon(Icons.policy_rounded, size: 15, color: Colors.blueGrey),
-                            label: const Text(
+                            icon: Icon(Icons.policy_rounded, size: 15, color: colors.textMuted),
+                            label: Text(
                               'Privacy Policy',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                              style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 12),
                             ),
                             style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: Colors.blueGrey.withValues(alpha: 0.4)),
-                              backgroundColor: Colors.blueGrey.withValues(alpha: 0.08),
+                              side: BorderSide(color: colors.surfaceBorder),
+                              backgroundColor: colors.recessed,
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
@@ -1413,19 +1529,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(16.0),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF2B78A).withValues(alpha: 0.12),
+                      color: colors.secondary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(16.0),
-                      border: Border.all(color: const Color(0xFFF2B78A).withValues(alpha: 0.4)),
+                      border: Border.all(color: colors.secondary.withValues(alpha: 0.4)),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFF2B78A), size: 20),
-                        SizedBox(width: 10),
+                        Icon(Icons.picture_as_pdf_rounded, color: colors.secondary, size: 20),
+                        const SizedBox(width: 10),
                         Text(
                           'Export Academic Progress Report (PDF)',
                           style: TextStyle(
-                            color: Color(0xFFF2B78A),
+                            color: colors.secondary,
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1441,7 +1557,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 padding: const EdgeInsets.only(top: 14.0),
                 child: InkWell(
                   onTap: () async {
-                    final uid = FirebaseAuth.instance.currentUser?.uid;
+                    final uid = _currentUser?.uid;
                     if (uid == null) return;
 
                     final confirm = await showDialog<bool>(
@@ -1648,12 +1764,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _handleDeleteAccount(BuildContext context, WidgetRef ref, UserProfile profile) async {
     SafeHaptics.heavyImpact();
+    final colors = AppColors.of(context);
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF241C1A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: colors.surfaceBorder),
+        ),
         title: const Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 24),
@@ -1717,7 +1837,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     try {
       debugPrint('--- DEBUG: ATTEMPTING ACCOUNT DELETION ---');
       debugPrint('[DELETE ACCOUNT] Starting account deletion...');
-      final user = FirebaseAuth.instance.currentUser;
+      final user = _currentUser;
       final uid = user?.uid;
       debugPrint('[DELETE ACCOUNT] User UID: $uid');
 
@@ -1833,6 +1953,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _showRecentLoginReauthDialog(BuildContext context, WidgetRef ref, UserProfile profile) {
+    final colors = AppColors.of(context);
     final passwordController = TextEditingController();
     final isGoogleUser = ref.read(authServiceProvider).currentUser?.providerData
             .any((p) => p.providerId == 'google.com') ??
@@ -1843,15 +1964,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       builder: (reauthCtx) => StatefulBuilder(
         builder: (ctx, setState) {
           return AlertDialog(
-            backgroundColor: const Color(0xFF241C1A),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Row(
+            backgroundColor: colors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: colors.surfaceBorder),
+            ),
+            title: Row(
               children: [
-                Icon(Icons.security_rounded, color: Color(0xFFF2B78A), size: 22),
-                SizedBox(width: 10),
+                Icon(Icons.security_rounded, color: colors.secondary, size: 22),
+                const SizedBox(width: 10),
                 Text(
                   'Verify Your Identity',
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -1859,9 +1983,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'For your security, Firebase requires a fresh sign-in before deleting your account.',
-                  style: TextStyle(color: Colors.blueGrey, fontSize: 12.5),
+                  style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12.5),
                 ),
                 const SizedBox(height: 16),
                 if (isGoogleUser) ...[
@@ -1888,7 +2012,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     label: const Text('Re-authenticate with Google', style: TextStyle(fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF110D0C),
+                      foregroundColor: const Color(0xFF171C24),
                       minimumSize: const Size(double.infinity, 44),
                     ),
                   ),
@@ -1896,24 +2020,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   TextField(
                     controller: passwordController,
                     obscureText: true,
-                    style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14),
+                    style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
                     decoration: InputDecoration(
                       hintText: 'Enter your account password',
-                      hintStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF786B63), fontSize: 13),
+                      hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
                       filled: true,
-                      fillColor: const Color(0xFF241C1A),
+                      fillColor: colors.recessed,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF4A3830), width: 0.8),
+                        borderSide: BorderSide(color: colors.surfaceBorder, width: 0.8),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF4A3830), width: 0.8),
+                        borderSide: BorderSide(color: colors.surfaceBorder, width: 0.8),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFFF2B78A), width: 1.2),
+                        borderSide: BorderSide(color: colors.primary, width: 1.2),
                       ),
                     ),
                   ),
@@ -1923,7 +2047,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(reauthCtx),
-                child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFABA093))),
+                child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
               ),
               if (!isGoogleUser)
                 ElevatedButton(
@@ -1947,7 +2071,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       }
                     }
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF2B78A), foregroundColor: const Color(0xFF110D0C)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.secondary,
+                    foregroundColor: const Color(0xFF171C24),
+                  ),
                   child: Text('Confirm & Delete', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
                 ),
             ],
@@ -1958,13 +2085,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   /// Helper widget to build field labels with required (*) indicators
-  Widget _buildFieldLabel(String label, {required bool isRequired}) {
+  Widget _buildFieldLabel(String label, {required bool isRequired, ChondrobinduThemeColors? colors}) {
+    final effectiveColors = colors ?? AppColors.of(context);
     return Row(
       children: [
         Text(
           label,
           style: GoogleFonts.plusJakartaSans(
-            color: const Color(0xFFABA093),
+            color: effectiveColors.textMuted,
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
           ),
@@ -1974,7 +2102,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           Text(
             '*',
             style: GoogleFonts.plusJakartaSans(
-              color: const Color(0xFFF2B78A),
+              color: effectiveColors.secondary,
               fontSize: 14,
               fontWeight: FontWeight.bold,
             ),
@@ -1990,30 +2118,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     Color accentColor,
     int totalFocusMinutes,
     int streak,
-    int completedExamsCount,
-  ) {
+    int completedExamsCount, {
+    ChondrobinduThemeColors? colors,
+  }) {
+    final effectiveColors = colors ?? AppColors.of(context);
     final hours = (totalFocusMinutes / 60).toStringAsFixed(1);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF4A3830), width: 0.8),
+        border: Border.all(color: effectiveColors.surfaceBorder, width: 0.8),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem('Total Study', '${hours}h', Icons.timer_outlined, accentColor),
-          Container(width: 1, height: 30, color: const Color(0xFF4A3830)),
-          _buildStatItem('Streak', '$streak Days', Icons.local_fire_department_rounded, const Color(0xFFF97316)),
-          Container(width: 1, height: 30, color: const Color(0xFF4A3830)),
-          _buildStatItem('Exams Logged', '$completedExamsCount', Icons.assignment_turned_in_outlined, const Color(0xFF34D399)),
+          _buildStatItem('Total Study', '${hours}h', Icons.timer_outlined, accentColor, colors: effectiveColors),
+          Container(width: 1, height: 30, color: effectiveColors.surfaceBorder),
+          _buildStatItem('Streak', '$streak Days', Icons.local_fire_department_rounded, effectiveColors.secondary, colors: effectiveColors),
+          Container(width: 1, height: 30, color: effectiveColors.surfaceBorder),
+          _buildStatItem('Exams Logged', '$completedExamsCount', Icons.assignment_turned_in_outlined, effectiveColors.success, colors: effectiveColors),
         ],
       ),
     );
   }
 
-  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
+  Widget _buildStatItem(String label, String value, IconData icon, Color color, {ChondrobinduThemeColors? colors}) {
+    final effectiveColors = colors ?? AppColors.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -2025,7 +2156,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             Text(
               value,
               style: GoogleFonts.jetBrainsMono(
-                color: Colors.white,
+                color: effectiveColors.textPrimary,
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
               ),
@@ -2036,7 +2167,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         Text(
           label,
           style: GoogleFonts.plusJakartaSans(
-            color: const Color(0xFFABA093),
+            color: effectiveColors.textMuted,
             fontSize: 11,
           ),
         ),
@@ -2046,19 +2177,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   void _showBkashNagadModal(BuildContext context) {
     const bkashNumber = AppConstants.donationBkashNumber;
+    final colors = AppColors.of(context);
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF241C1A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: colors.surfaceBorder),
+        ),
+        title: Row(
           children: [
-            Icon(Icons.volunteer_activism_rounded, color: Color(0xFFEC4899), size: 22),
-            SizedBox(width: 10),
+            const Icon(Icons.volunteer_activism_rounded, color: Color(0xFFEC4899), size: 22),
+            const SizedBox(width: 10),
             Text(
               'Donate via bKash',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -2066,16 +2201,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Send your support directly via Send Money (Personal):',
-              style: TextStyle(color: Colors.blueGrey, fontSize: 12.5),
+              style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12.5),
             ),
             const SizedBox(height: 14),
-            _buildProfileDonationTile('bKash Personal', bkashNumber, const Color(0xFFD82A74), ctx),
+            _buildProfileDonationTile('bKash Personal', bkashNumber, const Color(0xFFD82A74), ctx, colors: colors),
             const SizedBox(height: 10),
             Text(
               'Thank you so much for supporting Chondrobindu! ❤️',
-              style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11.5, fontStyle: FontStyle.italic),
+              style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11.5, fontStyle: FontStyle.italic),
             ),
           ],
         ),
@@ -2083,8 +2218,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF2B78A),
-              foregroundColor: const Color(0xFF110D0C),
+              backgroundColor: colors.secondary,
+              foregroundColor: const Color(0xFF171C24),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             child: Text('Close', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
@@ -2094,11 +2229,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _buildProfileDonationTile(String label, String number, Color color, BuildContext ctx) {
+  Widget _buildProfileDonationTile(String label, String number, Color color, BuildContext ctx, {ChondrobinduThemeColors? colors}) {
+    final effectiveColors = colors ?? AppColors.of(ctx);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF241C1A),
+        color: effectiveColors.recessed,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
@@ -2115,12 +2251,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 2),
               Text(
                 number,
-                style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                style: TextStyle(color: effectiveColors.textPrimary, fontSize: 13.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
               ),
             ],
           ),
           IconButton(
-            icon: const Icon(Icons.copy_rounded, color: Color(0xFFF2B78A), size: 18),
+            icon: Icon(Icons.copy_rounded, color: effectiveColors.secondary, size: 18),
             tooltip: 'Copy Number',
             onPressed: () {
               Clipboard.setData(ClipboardData(text: number));
@@ -2143,33 +2279,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required String hintText,
     required IconData prefixIcon,
     bool isReadOnly = false,
+    ChondrobinduThemeColors? colors,
   }) {
-    const accentColor = Color(0xFFF2B78A);
+    final effectiveColors = colors ?? AppColors.of(context);
     return InputDecoration(
       hintText: hintText,
-      hintStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF786B63), fontSize: 13),
+      hintStyle: GoogleFonts.plusJakartaSans(color: effectiveColors.textMuted, fontSize: 13),
       filled: true,
-      fillColor: isReadOnly ? const Color(0xFF191311) : const Color(0xFF241C1A),
-      prefixIcon: Icon(prefixIcon, color: isReadOnly ? const Color(0xFF786B63) : accentColor, size: 18),
+      fillColor: isReadOnly ? effectiveColors.recessed.withValues(alpha: 0.5) : effectiveColors.recessed,
+      prefixIcon: Icon(prefixIcon, color: isReadOnly ? effectiveColors.textMuted : effectiveColors.primary, size: 18),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-          color: isReadOnly ? const Color(0xFF33241F) : const Color(0xFF4A3830),
+          color: isReadOnly ? effectiveColors.surfaceBorder.withValues(alpha: 0.5) : effectiveColors.surfaceBorder,
           width: 0.8,
         ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-          color: isReadOnly ? const Color(0xFF33241F) : const Color(0xFF4A3830),
+          color: isReadOnly ? effectiveColors.surfaceBorder.withValues(alpha: 0.5) : effectiveColors.surfaceBorder,
           width: 0.8,
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-          color: isReadOnly ? const Color(0xFF33241F) : accentColor,
+          color: isReadOnly ? effectiveColors.surfaceBorder : effectiveColors.primary,
           width: 1.2,
         ),
       ),
@@ -2195,10 +2332,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final nameCtrl = TextEditingController(text: defaultTermName);
     bool isArchiving = false;
 
+    final colors = AppColors.of(context);
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF241C1A),
+      backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -2218,18 +2356,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.archive_rounded, color: Color(0xFFF59E0B), size: 22),
-                        SizedBox(width: 10),
+                        Icon(Icons.archive_rounded, color: colors.secondary, size: 22),
+                        const SizedBox(width: 10),
                         Text(
                           'Archive Current Term',
-                          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                          style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.blueGrey, size: 20),
+                      icon: Icon(Icons.close_rounded, color: colors.textMuted, size: 20),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
@@ -2238,18 +2376,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                    color: colors.secondary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                    border: Border.all(color: colors.secondary.withValues(alpha: 0.3)),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.info_outline_rounded, color: Color(0xFFF59E0B), size: 20),
-                      SizedBox(width: 10),
+                      Icon(Icons.info_outline_rounded, color: colors.secondary, size: 20),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'This will package all current courses, assessments, routine, and attendance records into Archived Semesters, and reset your active dashboard for the next term.',
-                          style: TextStyle(color: Colors.white, fontSize: 12, height: 1.35),
+                          style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 12, height: 1.35),
                         ),
                       ),
                     ],
@@ -2258,28 +2396,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const SizedBox(height: 16),
                 Text(
                   'SEMESTER / TERM NAME',
-                  style: GoogleFonts.plusJakartaSans(color: const Color(0xFFF2B78A), fontSize: 11, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.plusJakartaSans(color: colors.secondary, fontSize: 11, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 6),
                 TextField(
                   controller: nameCtrl,
-                  style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14),
+                  style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
                   decoration: InputDecoration(
                     hintText: 'e.g. Level 1 Term 1, Spring 2026',
-                    hintStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFF786B63), fontSize: 13),
+                    hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
                     filled: true,
-                    fillColor: const Color(0xFF241C1A),
+                    fillColor: colors.recessed,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFF4A3830), width: 0.8),
+                      borderSide: BorderSide(color: colors.surfaceBorder, width: 0.8),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFF4A3830), width: 0.8),
+                      borderSide: BorderSide(color: colors.surfaceBorder, width: 0.8),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFF2B78A), width: 1.2),
+                      borderSide: BorderSide(color: colors.primary, width: 1.2),
                     ),
                   ),
                 ),
@@ -2289,8 +2427,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   height: 48,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF59E0B),
-                      foregroundColor: const Color(0xFF110D0C),
+                      backgroundColor: colors.secondary,
+                      foregroundColor: const Color(0xFF171C24),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: isArchiving
@@ -2336,7 +2474,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ? const AppPreloader(
                             size: 18,
                             strokeWidth: 2,
-                            color: Color(0xFF110D0C),
+                            color: Color(0xFF171C24),
                           )
                         : const Icon(Icons.check_rounded, size: 18),
                     label: Text(
@@ -2354,6 +2492,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildFeatureToursCard(Color cardColor, Color accentColor) {
+    final colors = AppColors.of(context);
     final tourItems = [
       (
         section: TourSection.syllabus,
@@ -2440,11 +2579,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           'All onboarding tours have been reset and will display on next visit.',
                           style: TextStyle(color: Colors.white),
                         ),
-                        backgroundColor: const Color(0xFF241C1A),
+                        backgroundColor: cardColor,
                         behavior: SnackBarBehavior.floating,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                          side: BorderSide(color: colors.surfaceBorder),
                         ),
                       ),
                     );
@@ -2517,11 +2656,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               '${item.title} tour reset. It will replay when you open the screen.',
                               style: const TextStyle(color: Colors.white),
                             ),
-                            backgroundColor: const Color(0xFF241C1A),
+                            backgroundColor: cardColor,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
-                              side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                              side: BorderSide(color: colors.surfaceBorder),
                             ),
                           ),
                         );

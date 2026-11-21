@@ -141,9 +141,10 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const AppLogo(
-            size: 26,
+          AppLogo(
+            size: 28,
             showContainer: false,
+            isDark: isDark,
           ),
           const SizedBox(width: 6),
           Flexible(

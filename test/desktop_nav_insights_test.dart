@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:chondrobindu/widgets/desktop_nav_bar.dart';
+import 'package:chondrobindu/widgets/app_logo.dart';
 import 'package:chondrobindu/screens/insights_screen.dart';
 import 'package:chondrobindu/providers/user_profile_provider.dart';
 import 'package:chondrobindu/providers/firestore_providers.dart';
@@ -60,6 +61,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Brand
+      expect(find.byType(AppLogo), findsOneWidget);
       expect(find.text('চন্দ্রবিন্দু'), findsOneWidget);
       expect(find.text('CHONDROBINDU'), findsOneWidget);
 
@@ -326,7 +328,7 @@ void main() {
       // Verify 1:1 Stitch structure
       expect(find.textContaining('UNIVERSITY TRACK'), findsOneWidget);
       expect(find.text('TOTAL FOCUS TIME'), findsOneWidget);
-      expect(find.text('3h 0m'), findsNWidgets(2)); // KPI card and Donut center
+      expect(find.text('3h 0m'), findsAtLeastNWidgets(2)); // KPI card, Donut center, Course breakdown
       expect(find.text('SESSIONS RECORDED'), findsOneWidget);
       expect(find.text('2'), findsOneWidget);
       expect(find.text('MAX SINGLE SESSION'), findsOneWidget);

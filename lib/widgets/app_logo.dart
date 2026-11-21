@@ -32,6 +32,7 @@ class AppLogo extends StatelessWidget {
       assetPath,
       key: ValueKey<String>(assetPath),
       fit: fit,
+      filterQuality: FilterQuality.medium,
       errorBuilder: (_, __, ___) => Icon(
         Icons.menu_book_rounded,
         color: fallbackColor,
@@ -43,7 +44,10 @@ class AppLogo extends StatelessWidget {
       return SizedBox(
         width: size,
         height: size,
-        child: imageWidget,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(size * 0.2),
+          child: imageWidget,
+        ),
       );
     }
 
