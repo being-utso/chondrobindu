@@ -46,6 +46,7 @@ class Course {
   final bool useManualAttendanceOverride;
   final int? manualAttendedClasses;
   final int? manualTotalClasses;
+  final Map<String, dynamic>? rawData;
 
   const Course({
     required this.id,
@@ -63,6 +64,7 @@ class Course {
     this.useManualAttendanceOverride = false,
     this.manualAttendedClasses,
     this.manualTotalClasses,
+    this.rawData,
   }) : createdAt = createdAt ?? const _DefaultDateTime();
 
   double get progressPercentage => totalTopicsCount > 0
@@ -192,6 +194,7 @@ class Course {
       useManualAttendanceOverride: map['useManualAttendanceOverride'] as bool? ?? false,
       manualAttendedClasses: (map['manualAttendedClasses'] as num?)?.toInt(),
       manualTotalClasses: (map['manualTotalClasses'] as num?)?.toInt(),
+      rawData: map,
     );
   }
 
@@ -232,6 +235,7 @@ class Course {
     bool? useManualAttendanceOverride,
     int? manualAttendedClasses,
     int? manualTotalClasses,
+    Map<String, dynamic>? rawData,
   }) {
     return Course(
       id: id ?? this.id,
@@ -249,6 +253,7 @@ class Course {
       useManualAttendanceOverride: useManualAttendanceOverride ?? this.useManualAttendanceOverride,
       manualAttendedClasses: manualAttendedClasses ?? this.manualAttendedClasses,
       manualTotalClasses: manualTotalClasses ?? this.manualTotalClasses,
+      rawData: rawData ?? this.rawData,
     );
   }
 }

@@ -95,8 +95,8 @@ void main() {
       await tester.tap(find.text('CGPA Forecaster').first);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('Target CGPA & Cutoff Planner'), findsOneWidget);
-      expect(find.text('3.90'), findsOneWidget);
+      expect(find.text('Enrolled Course Simulations'), findsOneWidget);
+      expect(find.textContaining('3.90'), findsOneWidget);
 
       // 5. Test Date Stepper in CGPA Forecaster
       await tester.tap(find.byIcon(Icons.chevron_right_rounded).first);

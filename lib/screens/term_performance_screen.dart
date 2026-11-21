@@ -1,17 +1,17 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../theme/app_theme.dart';
 import '../models/assessment_model.dart';
+import '../providers/firestore_providers.dart';
+import '../providers/user_profile_provider.dart';
 import '../services/assessment_calculator.dart';
-import '../widgets/grading_scale_settings_dialog.dart';
-import '../services/course_service.dart';
-import 'grading_setup_screen.dart';
+import '../theme/app_theme.dart';
+import '../utils/safe_haptics.dart';
 import '../widgets/app_preloader.dart';
-import 'package:chondrobindu/utils/safe_haptics.dart';
+import '../widgets/cgpa_forecaster_workspace.dart';
+import '../widgets/grading_scale_settings_dialog.dart';
+import 'grading_setup_screen.dart';
 
 /// Type alias for CgpaCalculatorScreen
 typedef CgpaCalculatorScreen = TermPerformanceScreen;
@@ -293,621 +293,100 @@ class TermPerformanceScreen extends ConsumerStatefulWidget {
 }
 
 class _TermPerformanceScreenState extends ConsumerState<TermPerformanceScreen> {
-  final bool _isLoadingGradingScale = false;
-  List<GradingRow> _gradingScale = [];
-
-  // Multi-select Course State (courseId -> isSelected)
-  final Set<String> _selectedCourseIds = {};
-  bool _initialSelectionInitialized = false;
-
-  // Predictive Slider State (courseId -> projected pending percentage 0.0 - 100.0)
-  final Map<String, double> _projectedPendingPercentages = {};
-
-  // Hypothetical / Simulated Marks State (courseId -> marks)
-  final Map<String, double> _simulatedAttendanceMarks = {};
-  final Map<String, double> _simulatedCtMarks = {};
-
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _gradingScale = _defaultStandardScale;
-    _fetchGradingScale();
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  /// Default fallback BUET / UGC Standard Grading Scale
-  List<GradingRow> get _defaultStandardScale => [
-        GradingRow(letterGrade: 'A+', gradePoint: 4.00, minPercentage: 80, maxPercentage: 100),
-        GradingRow(letterGrade: 'A', gradePoint: 3.75, minPercentage: 75, maxPercentage: 79),
-        GradingRow(letterGrade: 'A-', gradePoint: 3.50, minPercentage: 70, maxPercentage: 74),
-        GradingRow(letterGrade: 'B+', gradePoint: 3.25, minPercentage: 65, maxPercentage: 69),
-        GradingRow(letterGrade: 'B', gradePoint: 3.00, minPercentage: 60, maxPercentage: 64),
-        GradingRow(letterGrade: 'B-', gradePoint: 2.75, minPercentage: 55, maxPercentage: 59),
-        GradingRow(letterGrade: 'C+', gradePoint: 2.50, minPercentage: 50, maxPercentage: 54),
-        GradingRow(letterGrade: 'C', gradePoint: 2.25, minPercentage: 45, maxPercentage: 49),
-        GradingRow(letterGrade: 'D', gradePoint: 2.00, minPercentage: 40, maxPercentage: 44),
-        GradingRow(letterGrade: 'F', gradePoint: 0.00, minPercentage: 0, maxPercentage: 39),
-      ];
-
-  /// Fetch letter-grade scale table from Firestore university_grading collection
-  Future<void> _fetchGradingScale() async {
-    try {
-      final docRef = FirebaseFirestore.instance
-          .collection('university_grading')
-          .doc(widget.universityName);
-      final doc = await docRef.get();
-
-      if (doc.exists && doc.data() != null) {
-        final rawRows = doc.data()?['rows'] as List<dynamic>?;
-        if (rawRows != null && rawRows.isNotEmpty && mounted) {
-          setState(() {
-            _gradingScale = rawRows
-                .map((r) => GradingRow.fromMap(Map<String, dynamic>.from(r)))
-                .toList();
-          });
-        }
-      }
-    } catch (_) {
-      // Retain _defaultStandardScale if offline or uninitialized in test
-    }
-  }
-
-  /// Find matching GradingRow from percentage score
-  GradingRow _getGradingRowForPercentage(double percentage) {
-    final rounded = percentage.roundToDouble();
-
-    for (final row in _gradingScale) {
-      if (rounded >= row.minPercentage && rounded <= row.maxPercentage) {
-        return row;
-      }
-    }
-    if (percentage >= 80) return _gradingScale.isNotEmpty ? _gradingScale.first : _defaultStandardScale.first;
-    return _gradingScale.isNotEmpty ? _gradingScale.last : _defaultStandardScale.last;
-  }
-
-  /// Preset simulator action: Set all pending sliders to a targeted percentage
-  void _applyTargetPreset(double targetPct, List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
-    SafeHaptics.mediumImpact();
-    setState(() {
-      for (final doc in docs) {
-        _projectedPendingPercentages[doc.id] = targetPct;
-      }
-    });
-  }
-
-  Color _getGradeColor(double gradePoint) {
-    if (gradePoint >= 3.75) return AppColors.success;
-    if (gradePoint >= 3.00) return AppColors.primary;
-    if (gradePoint >= 2.25) return AppColors.amber;
-    return AppColors.error;
-  }
-
-  void _showGradingScaleSettingsSheet() {
-    GradingScaleSettingsDialog.showAsBottomSheet(
-      context: context,
-      universityName: widget.universityName,
-      currentScale: _gradingScale,
-      onSave: (editableScale) async {
-        setState(() {
-          _gradingScale = editableScale;
-        });
-
-        try {
-          await FirebaseFirestore.instance
-              .collection('university_grading')
-              .doc(widget.universityName)
-              .set({
-            'university': widget.universityName,
-            'rows': editableScale.map((r) => r.toMap()).toList(),
-            'lastUpdated': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
-        } catch (e) {
-          debugPrint('Error saving grading scale: $e');
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              backgroundColor: AppColors.success,
-              content: Text('Grading scale updated! Real-time CGPA recalculated.'),
-            ),
-          );
-        }
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    String? uid;
-    try {
-      uid = FirebaseAuth.instance.currentUser?.uid;
-    } catch (_) {
-      uid = null;
-    }
+    final colors = AppColors.of(context);
+    final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
+
+    final coursesAsync = ref.watch(coursesStreamProvider);
+    final profileAsync = ref.watch(liveUserProfileProvider);
+    final fallbackProfile = ref.watch(userProfileProvider);
+    final baseProfile = profileAsync.value ?? fallbackProfile;
+    final profile = widget.universityName.isNotEmpty && (baseProfile.universityName ?? '').isEmpty
+        ? baseProfile.copyWith(universityName: widget.universityName)
+        : baseProfile;
 
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBackground,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.scaffoldBackground,
+        backgroundColor: colors.background,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Term Performance & CGPA',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textPrimary,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
             ),
             Text(
-              '${widget.universityName} • ${widget.term.isNotEmpty ? widget.term : 'Current Term'}',
-              style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11),
+              '${widget.universityName} • ${widget.term.isNotEmpty ? widget.term : "Current Term"}',
+              style: GoogleFonts.jetBrainsMono(
+                color: colors.textMuted,
+                fontSize: 11,
+              ),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.tune_rounded, color: AppColors.primary, size: 22),
+            icon: Icon(Icons.tune_rounded, color: colors.secondary, size: 22),
             tooltip: 'Grading Scale Settings',
-            onPressed: _showGradingScaleSettingsSheet,
+            onPressed: () {
+              GradingScaleSettingsDialog.showAdaptive(
+                context: context,
+                universityName: widget.universityName.isNotEmpty
+                    ? widget.universityName
+                    : (profile.universityName ?? 'BUET'),
+                currentScale: const [],
+                onSave: (_) {},
+              );
+            },
           ),
         ],
       ),
       body: SafeArea(
-        child: _isLoadingGradingScale
-            ? const Center(child: AppPreloader(size: 44))
-            : uid == null || uid.isEmpty
-                ? const Center(
-                    child: Text(
-                      'User authentication required.',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  )
-                : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                    stream: FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(uid)
-                        .collection('courses')
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: AppPreloader(size: 44));
-                      }
-
-                      if (snapshot.hasError) {
-                        return Center(
-                          child: Text(
-                            'Error loading course data: ${snapshot.error}',
-                            style: const TextStyle(color: AppColors.error),
-                          ),
-                        );
-                      }
-
-                      final allDocs = snapshot.data?.docs ?? [];
-
-                      // Filter by term if provided
-                      final docs = allDocs.where((doc) {
-                        if (widget.term.isEmpty) return true;
-                        final termVal = doc.data()['term'] as String?;
-                        if (termVal == null || termVal.isEmpty) return true;
-                        return termVal == widget.term;
-                      }).toList();
-
-                      // Numerical course sorting (101, 102, 106, 109, 110, 121, 157, 159)
-                      docs.sort((a, b) {
-                        final dataA = a.data();
-                        final dataB = b.data();
-                        final codeA = dataA['courseCode'] as String? ?? a.id;
-                        final codeB = dataB['courseCode'] as String? ?? b.id;
-                        return compareCourseCodes(codeA, codeB);
-                      });
-
-                      // Initialize default selection & slider state on first snapshot arrival
-                      if (!_initialSelectionInitialized && docs.isNotEmpty) {
-                        for (final doc in docs) {
-                          _selectedCourseIds.add(doc.id);
-                          _projectedPendingPercentages.putIfAbsent(doc.id, () => 80.0);
-                        }
-                        _initialSelectionInitialized = true;
-                      }
-
-                      // Compute Real-Time Term CGPA Engine
-                      double totalWeightedGradePoints = 0.0;
-                      double totalSelectedCredits = 0.0;
-                      final List<({String code, String letter, double gpa, double totalPct, bool isSelected})> coursePills = [];
-
-                      for (final doc in docs) {
-                        final data = doc.data();
-                        final docId = doc.id;
-                        final isSelected = _selectedCourseIds.contains(docId);
-                        final creditHours = (data['creditHours'] as num?)?.toDouble() ?? 3.0;
-                        final courseCode = data['courseCode'] as String? ?? 'COURSE';
-
-                        // Safely compute score breakdown
-                        final breakdown = CourseScoreBreakdown.compute(data);
-                        final pendingSlider = _projectedPendingPercentages[docId] ?? 80.0;
-                        final simAttendance = _simulatedAttendanceMarks[docId] ?? breakdown.attendanceSecured;
-                        final simCT = _simulatedCtMarks[docId] ?? breakdown.ctSecured;
-                        final totalSecured = simAttendance + simCT + breakdown.midSecured + breakdown.otherSecured;
-                        final projectedMarks = (pendingSlider / 100.0) * breakdown.remainingWeight;
-                        final totalPct = (totalSecured + projectedMarks).clamp(0.0, 100.0);
-
-                        final gradingRow = _getGradingRowForPercentage(totalPct);
-
-                        if (isSelected && creditHours > 0) {
-                          totalWeightedGradePoints += (gradingRow.gradePoint * creditHours);
-                          totalSelectedCredits += creditHours;
-                        }
-
-                        coursePills.add((
-                          code: courseCode,
-                          letter: gradingRow.letterGrade,
-                          gpa: gradingRow.gradePoint,
-                          totalPct: totalPct,
-                          isSelected: isSelected,
-                        ));
-                      }
-
-                      final double simulatedCgpa =
-                          totalSelectedCredits > 0 ? (totalWeightedGradePoints / totalSelectedCredits) : 0.0;
-
-                      return SingleChildScrollView(
-                        key: const PageStorageKey<String>('term_performance_scroll_key'),
-                        controller: _scrollController,
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // 1. REAL-TIME PERSISTENT TERM CGPA HEADER
-                            _buildTermCgpaHeroHeader(
-                              simulatedCgpa: simulatedCgpa,
-                              totalCredits: totalSelectedCredits,
-                              selectedCount: _selectedCourseIds.length,
-                              totalCount: docs.length,
-                              coursePills: coursePills,
-                              onPresetSelected: (target) => _applyTargetPreset(target, docs),
-                            ),
-                            const SizedBox(height: 20),
-
-                            // 2. SECTION HEADER & MULTI-SELECT OVERVIEW (FIX 17px OVERFLOW)
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Course Simulations',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 17,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Toggle courses & drag sliders to simulate final grades',
-                                        style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11.5),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                TextButton.icon(
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: AppColors.primary,
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  ),
-                                  onPressed: () {
-                                    SafeHaptics.lightImpact();
-                                    setState(() {
-                                      if (_selectedCourseIds.length == docs.length) {
-                                        _selectedCourseIds.clear();
-                                      } else {
-                                        _selectedCourseIds.addAll(docs.map((d) => d.id));
-                                      }
-                                    });
-                                  },
-                                  icon: Icon(
-                                    _selectedCourseIds.length == docs.length
-                                        ? Icons.check_box_rounded
-                                        : Icons.select_all_rounded,
-                                    size: 16,
-                                  ),
-                                  label: Text(
-                                    _selectedCourseIds.length == docs.length ? 'Deselect All' : 'Select All',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-
-                            if (docs.isEmpty)
-                              _buildEmptyCoursesCard()
-                            else
-                              Column(
-                                children: [
-                                  for (int i = 0; i < docs.length; i++) ...[
-                                    if (i > 0) const SizedBox(height: 14),
-                                    _CourseSimulationCard(
-                                      key: ValueKey(docs[i].id),
-                                      docId: docs[i].id,
-                                      courseCode: docs[i].data()['courseCode'] as String? ?? 'COURSE',
-                                      courseName: docs[i].data()['courseName'] as String? ?? 'Untitled Course',
-                                      creditHours: (docs[i].data()['creditHours'] as num?)?.toDouble() ?? 3.0,
-                                      courseType: docs[i].data()['courseType'] as String? ?? 'Theory',
-                                      breakdown: CourseScoreBreakdown.compute(docs[i].data()),
-                                      isSelected: _selectedCourseIds.contains(docs[i].id),
-                                      finalExamTotal: (docs[i].data()['finalExamTotal'] as num?)?.toDouble() ??
-                                          ((docs[i].data()['finalTotal'] as num?)?.toDouble() ?? 210.0),
-                                      externalSliderValue: _projectedPendingPercentages[docs[i].id] ?? 80.0,
-                                      initialSimulatedAttendance: _simulatedAttendanceMarks[docs[i].id],
-                                      initialSimulatedCT: _simulatedCtMarks[docs[i].id],
-                                      gradingScale: _gradingScale,
-                                      defaultScale: _defaultStandardScale,
-                                      onToggleSelected: (val) {
-                                        SafeHaptics.lightImpact();
-                                        setState(() {
-                                          if (val) {
-                                            _selectedCourseIds.add(docs[i].id);
-                                          } else {
-                                            _selectedCourseIds.remove(docs[i].id);
-                                          }
-                                        });
-                                      },
-                                      onSimulationChanged: (sliderVal, simAtt, simCt) {
-                                        setState(() {
-                                          _projectedPendingPercentages[docs[i].id] = sliderVal;
-                                          _simulatedAttendanceMarks[docs[i].id] = simAtt;
-                                          _simulatedCtMarks[docs[i].id] = simCt;
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            const SizedBox(height: 32),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-      ),
-    );
-  }
-
-  /// 1. REAL-TIME PERSISTENT HERO HEADER WITH PRESETS AND PILLS
-  Widget _buildTermCgpaHeroHeader({
-    required double simulatedCgpa,
-    required double totalCredits,
-    required int selectedCount,
-    required int totalCount,
-    required List<({String code, String letter, double gpa, double totalPct, bool isSelected})> coursePills,
-    required ValueChanged<double> onPresetSelected,
-  }) {
-    return buildGlassCard(
-      padding: const EdgeInsets.all(20),
-      borderRadius: BorderRadius.circular(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Top Row: Big CGPA Counter + Credits Pill
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.auto_awesome_rounded, size: 14, color: AppColors.primary),
-                      const SizedBox(width: 6),
-                      Text(
-                        'SIMULATED TERM CGPA',
-                        style: AppTypography.geist(
-                          color: AppColors.primary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: Text(
-                      simulatedCgpa.toStringAsFixed(2),
-                      key: ValueKey(simulatedCgpa.toStringAsFixed(2)),
-                      style: AppTypography.cgpaDisplay.copyWith(
-                        fontSize: 40,
-                        height: 1.1,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.borderMedium),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${totalCredits.toStringAsFixed(1)} Cr',
-                      style: AppTypography.geist(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '$selectedCount of $totalCount Selected',
-                      style: AppTypography.subtext,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Course-by-course Letter Grade Pills
-          if (coursePills.isNotEmpty) ...[
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              child: Row(
-                children: coursePills.map((pill) {
-                  final pillColor = pill.isSelected ? _getGradeColor(pill.gpa) : AppColors.textSecondary;
-                  return Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: pill.isSelected ? pillColor.withValues(alpha: 0.15) : AppColors.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: pill.isSelected ? pillColor.withValues(alpha: 0.35) : AppColors.borderMedium,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '${pill.code}: ',
-                          style: AppTypography.geistMono(
-                            color: pill.isSelected ? Colors.white70 : AppColors.textSecondary,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          '${pill.letter} (${pill.gpa.toStringAsFixed(2)})',
-                          style: AppTypography.geistMono(
-                            color: pillColor,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
+        child: coursesAsync.when(
+          loading: () => const Center(child: AppPreloader(size: 44)),
+          error: (err, stack) => Center(
+            child: Text(
+              'Error loading course data: $err',
+              style: const TextStyle(color: AppColors.error),
             ),
-            const SizedBox(height: 16),
-          ],
+          ),
+          data: (allCourses) {
+            final courses = widget.term.isNotEmpty
+                ? allCourses.where((c) {
+                    final t = c.rawData?['term'] as String?;
+                    return t == null || t.isEmpty || t == widget.term;
+                  }).toList()
+                : allCourses;
 
-          // Quick Simulation Presets
-          Row(
-            children: [
-              Text(
-                'Targets:',
-                style: AppTypography.subtext.copyWith(fontWeight: FontWeight.bold),
+            return SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: isDesktop ? 32 : 16,
+                vertical: 20,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  child: Row(
-                    children: [
-                      _buildPresetChip('A+ (100%)', 100.0, onPresetSelected),
-                      _buildPresetChip('A (80%)', 80.0, onPresetSelected),
-                      _buildPresetChip('B (60%)', 60.0, onPresetSelected),
-                      _buildPresetChip('Pass (40%)', 40.0, onPresetSelected),
-                      _buildPresetChip('Reset (0%)', 0.0, onPresetSelected),
-                    ],
-                  ),
-                ),
+              child: CgpaForecasterWorkspace(
+                courses: courses.isNotEmpty ? courses : allCourses,
+                profile: profile,
+                isDesktop: isDesktop,
               ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPresetChip(String label, double target, ValueChanged<double> onSelected) {
-    return Container(
-      margin: const EdgeInsets.only(right: 6),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => onSelected(target),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.borderMedium),
-          ),
-          child: Text(
-            label,
-            style: AppTypography.geist(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-          ),
+            );
+          },
         ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyCoursesCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.assessment_outlined, size: 48, color: Colors.blueGrey.shade400),
-          const SizedBox(height: 12),
-          const Text(
-            'No Courses Enrolled for this Term',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Add courses from the University Dashboard to track marks and CGPA.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.blueGrey.shade400,
-              fontSize: 12.5,
-            ),
-          ),
-        ],
       ),
     );
   }
 }
 
-/// 2. COURSE SIMULATION CARD (SELECTION + SECURED BREAKDOWN + WHAT-IF SLIDER + WHAT DO I NEED ON THE FINAL ACCORDION)
-typedef _CourseSimulationCard = CourseSimulationCard;
 
 class CourseSimulationCard extends StatefulWidget {
   final String docId;
@@ -964,7 +443,7 @@ class _CourseSimulationCardState extends State<CourseSimulationCard> {
   }
 
   @override
-  void didUpdateWidget(covariant _CourseSimulationCard oldWidget) {
+  void didUpdateWidget(covariant CourseSimulationCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.externalSliderValue != oldWidget.externalSliderValue) {
       _sliderValue = widget.externalSliderValue;
@@ -1268,7 +747,7 @@ class _CourseSimulationCardState extends State<CourseSimulationCard> {
             Text(
               label,
               style: TextStyle(
-                color: isSimulated ? const Color(0xFFF2B78A) : Colors.blueGrey.shade400,
+                color: isSimulated ? const Color(0xFFC88256) : Colors.blueGrey.shade400,
                 fontSize: 10.5,
                 fontWeight: FontWeight.w500,
               ),
@@ -1278,7 +757,7 @@ class _CourseSimulationCardState extends State<CourseSimulationCard> {
               Icon(
                 Icons.edit_rounded,
                 size: 10,
-                color: isSimulated ? const Color(0xFFF2B78A) : Colors.blueGrey.shade500,
+                color: isSimulated ? const Color(0xFFC88256) : Colors.blueGrey.shade500,
               ),
             ],
           ],
@@ -1287,7 +766,7 @@ class _CourseSimulationCardState extends State<CourseSimulationCard> {
         Text(
           hasWeight ? value : '—',
           style: TextStyle(
-            color: isSimulated ? const Color(0xFFF2B78A) : (hasWeight ? Colors.white : Colors.blueGrey.shade600),
+            color: isSimulated ? const Color(0xFFC88256) : (hasWeight ? Colors.white : Colors.blueGrey.shade600),
             fontSize: 11.5,
             fontWeight: FontWeight.bold,
           ),
@@ -1295,7 +774,7 @@ class _CourseSimulationCardState extends State<CourseSimulationCard> {
         if (isSimulated)
           const Text(
             '(Simulated)',
-            style: TextStyle(color: Color(0xFFF2B78A), fontSize: 9.5, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Color(0xFFC88256), fontSize: 9.5, fontWeight: FontWeight.bold),
           ),
       ],
     );
@@ -1355,7 +834,7 @@ class _CourseSimulationCardState extends State<CourseSimulationCard> {
           Text(
             '$percentage ($gpa)',
             style: GoogleFonts.jetBrainsMono(
-              color: const Color(0xFFABA093),
+              color: const Color(0xFF94A3B8),
               fontSize: 11.5,
             ),
           ),
@@ -1390,7 +869,7 @@ class _CourseSimulationCardState extends State<CourseSimulationCard> {
                     valueColor: AlwaysStoppedAnimation<Color>(
                       isImpossible
                           ? const Color(0xFFFF5964)
-                          : (ratio > 0.85 ? const Color(0xFFF2B78A) : const Color(0xFF06D6A0)),
+                          : (ratio > 0.85 ? const Color(0xFFC88256) : const Color(0xFF06D6A0)),
                     ),
                   ),
                 ),
@@ -1398,7 +877,7 @@ class _CourseSimulationCardState extends State<CourseSimulationCard> {
             ],
           ),
           const SizedBox(width: 8),
-          const Icon(Icons.chevron_right_rounded, color: Color(0xFF4A3830), size: 16),
+          const Icon(Icons.chevron_right_rounded, color: Color(0xFF2E3846), size: 16),
         ],
       ),
     );
@@ -1659,12 +1138,12 @@ class _CourseSimulationCardState extends State<CourseSimulationCard> {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.refresh_rounded, size: 12, color: Color(0xFFF2B78A)),
+                      Icon(Icons.refresh_rounded, size: 12, color: Color(0xFFC88256)),
                       SizedBox(width: 4),
                       Text(
                         'Reset hypothetical marks to actual',
                         style: TextStyle(
-                          color: Color(0xFFF2B78A),
+                          color: Color(0xFFC88256),
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1890,7 +1369,7 @@ class _CourseSimulationCardState extends State<CourseSimulationCard> {
                       Text(
                         'Score Needed in Final Exam',
                         style: TextStyle(
-                          color: Color(0xFFABA093),
+                          color: Color(0xFF94A3B8),
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1899,14 +1378,14 @@ class _CourseSimulationCardState extends State<CourseSimulationCard> {
                       Icon(
                         Icons.info_outline_rounded,
                         size: 13,
-                        color: Color(0xFFABA093),
+                        color: Color(0xFF94A3B8),
                       ),
                     ],
                   ),
                   Text(
                     'Out of ${finTot.toStringAsFixed(0)} marks',
                     style: GoogleFonts.jetBrainsMono(
-                      color: const Color(0xFF786B63),
+                      color: const Color(0xFF94A3B8),
                       fontSize: 11,
                     ),
                   ),

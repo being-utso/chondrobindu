@@ -18,8 +18,8 @@ import '../services/exam_service.dart';
 import '../services/timer_service.dart' show deduplicateSessions;
 import '../theme/app_theme.dart';
 import '../utils/safe_haptics.dart';
+import '../widgets/cgpa_forecaster_workspace.dart';
 import 'journal_screen.dart' show holidaySettingsStreamProvider;
-import 'term_performance_screen.dart';
 
 /// Period selector for analytics and study sessions
 enum InsightPeriod { day, week, month, trend }
@@ -1326,7 +1326,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                   const SizedBox(height: 20),
                   _buildDesktopPerformanceLedger(colors),
                 ] else if (effectiveCategoryTab == 'CGPA Forecaster') ...[
-                  _buildDesktopCgpaForecasterWorkspace(colors),
+                  _buildDesktopCgpaForecasterWorkspace(colors, isDesktop: true),
                 ] else ...[
                   // Default 'Overview'
                   _buildDesktopTopKpis(colors, sessions, profile, recentSessions),
@@ -3406,7 +3406,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
                 const SizedBox(height: 16),
                 _buildDesktopPerformanceLedger(colors),
               ] else if (effectiveCategoryTab == 'CGPA Forecaster') ...[
-                _buildDesktopCgpaForecasterWorkspace(colors),
+                _buildDesktopCgpaForecasterWorkspace(colors, isDesktop: false),
               ] else ...[
                 // Default 'Overview'
                 _buildMobileTopKpis(colors, sessions, profile),
@@ -4934,428 +4934,25 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
     );
   }
 
-  Widget _buildDesktopCgpaForecasterWorkspace(ChondrobinduThemeColors colors) {
+  Widget _buildDesktopCgpaForecasterWorkspace(ChondrobinduThemeColors colors, {bool isDesktop = true}) {
     final profileAsync = ref.watch(liveUserProfileProvider);
     final fallbackProfile = ref.watch(userProfileProvider);
     final profile = profileAsync.value ?? fallbackProfile;
-    final levelStr = profile.level?.isNotEmpty == true ? profile.level! : '1';
-    final termStr = profile.term?.isNotEmpty == true ? profile.term! : '1';
-    final uniStr = profile.universityName?.isNotEmpty == true ? profile.universityName! : 'BUET';
-    final deptStr = profile.department?.isNotEmpty == true ? profile.department! : 'Engineering';
+    final enrolledCourses = ref.watch(coursesStreamProvider).valueOrNull ?? [];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildCgpaSimulatorCard(
-          context: context,
-          uniName: uniStr,
-          major: deptStr,
-          level: levelStr,
-          term: termStr,
-          cardColor: colors.surface,
-          accentColor: colors.secondary,
-        ),
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colors.surfaceBorder),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth < 650) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Target CGPA & Cutoff Planner',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: colors.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Forecast minimum grades needed across remaining credits to achieve your graduation goal.',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: colors.textMuted,
-                            fontSize: 12.5,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: colors.secondary,
-                            foregroundColor: const Color(0xFF171C24),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            elevation: 0,
-                          ),
-                          onPressed: () {
-                            SafeHaptics.mediumImpact();
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TermPerformanceScreen(
-                                  universityName: uniStr,
-                                  term: termStr,
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.calculate_rounded, size: 16),
-                          label: Text(
-                            'Launch Interactive Simulator',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                      ],
-                    );
-                  }
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Target CGPA & Cutoff Planner',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: colors.textPrimary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Forecast minimum grades needed across remaining credits to achieve your graduation goal.',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.plusJakartaSans(
-                                color: colors.textMuted,
-                                fontSize: 12.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colors.secondary,
-                          foregroundColor: const Color(0xFF171C24),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          elevation: 0,
-                        ),
-                        onPressed: () {
-                          SafeHaptics.mediumImpact();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => TermPerformanceScreen(
-                                universityName: uniStr,
-                                term: termStr,
-                              ),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.calculate_rounded, size: 16),
-                        label: Text(
-                          'Launch Interactive Simulator',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth < 650) {
-                    return Column(
-                      children: [
-                        _desktopForecasterStatCard(
-                          colors: colors,
-                          label: 'TARGET CGPA',
-                          value: profile.targetGpa > 0 ? profile.targetGpa.toStringAsFixed(2) : '3.80',
-                          subtext: 'Graduation Target',
-                          accent: colors.secondary,
-                        ),
-                        const SizedBox(height: 12),
-                        _desktopForecasterStatCard(
-                          colors: colors,
-                          label: 'CURRENT LEVEL & TERM',
-                          value: 'Level $levelStr, Term $termStr',
-                          subtext: deptStr,
-                          accent: colors.success,
-                        ),
-                        const SizedBox(height: 12),
-                        _desktopForecasterStatCard(
-                          colors: colors,
-                          label: 'SIMULATION SCALE',
-                          value: '4.00 Max',
-                          subtext: 'Standard University Scale',
-                          accent: colors.primary,
-                        ),
-                      ],
-                    );
-                  }
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: _desktopForecasterStatCard(
-                          colors: colors,
-                          label: 'TARGET CGPA',
-                          value: profile.targetGpa > 0 ? profile.targetGpa.toStringAsFixed(2) : '3.80',
-                          subtext: 'Graduation Target',
-                          accent: colors.secondary,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _desktopForecasterStatCard(
-                          colors: colors,
-                          label: 'CURRENT LEVEL & TERM',
-                          value: 'Level $levelStr, Term $termStr',
-                          subtext: deptStr,
-                          accent: colors.success,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _desktopForecasterStatCard(
-                          colors: colors,
-                          label: 'SIMULATION SCALE',
-                          value: '4.00 Max',
-                          subtext: 'Standard University Scale',
-                          accent: colors.primary,
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ],
+    return CgpaForecasterWorkspace(
+      courses: enrolledCourses,
+      profile: profile,
+      isDesktop: isDesktop,
+      onNavigateToCourses: () {
+        setState(() {
+          _desktopCategoryTab = 'Subjects';
+        });
+      },
     );
   }
 
-  Widget _desktopForecasterStatCard({
-    required ChondrobinduThemeColors colors,
-    required String label,
-    required String value,
-    required String subtext,
-    required Color accent,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.recessed,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.surfaceBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.jetBrainsMono(
-              color: colors.textMuted,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.0,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.jetBrainsMono(
-              color: accent,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtext,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(
-              color: colors.textMuted,
-              fontSize: 11.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildCgpaSimulatorCard({
-    required BuildContext context,
-    required String uniName,
-    required String major,
-    required String level,
-    required String term,
-    required Color cardColor,
-    required Color accentColor,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2E3846)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFC88256).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFC88256).withValues(alpha: 0.3), width: 0.8),
-                  ),
-                  child: const Icon(Icons.school_rounded, color: Color(0xFFC88256), size: 18),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        uniName.isNotEmpty ? uniName : 'BUET',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: const Color(0xFFEDEAE0),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Text(
-                        '${major.isNotEmpty ? major : "EEE"} • Level ${level.isNotEmpty ? level : "1"}, Term ${term.isNotEmpty ? term : "1"}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: const Color(0xFF8B95A5),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1B222C),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFF2E3846), width: 0.6),
-                  ),
-                  child: Text(
-                    'Active Term',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: const Color(0xFFC88256),
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 14),
-            const Divider(color: Color(0xFF2E3846), height: 1),
-            const SizedBox(height: 12),
-
-            InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () {
-                SafeHaptics.lightImpact();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => TermPerformanceScreen(
-                      universityName: uniName,
-                      term: term,
-                    ),
-                  ),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1B222C),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF2E3846), width: 0.8),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF4E9F72).withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.insights_rounded, color: Color(0xFF4E9F72), size: 16),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'CGPA Forecaster & Target Planner',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: const Color(0xFFEDEAE0),
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Text(
-                            'Project grades, calculate cutoffs, and track credits',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: const Color(0xFF8B95A5),
-                              fontSize: 10.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.arrow_forward_rounded, color: Color(0xFFC88256), size: 16),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildExamPerformanceDeltas(WidgetRef ref, Color cardColor, Color accentColor) {
     final examsAsync = ref.watch(examsStreamProvider);
