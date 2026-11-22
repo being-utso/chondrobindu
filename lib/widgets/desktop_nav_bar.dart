@@ -7,7 +7,11 @@ import 'package:google_fonts/google_fonts.dart';
 import '../core/theme/app_colors.dart';
 import '../models/assessment_model.dart';
 import '../models/course_model.dart';
+import '../models/journal_entry_model.dart';
+import '../models/syllabus_models.dart';
+import '../models/syllabus_node.dart';
 import '../providers/firestore_providers.dart';
+import '../providers/journal_provider.dart';
 import '../providers/nav_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/user_profile_provider.dart';
@@ -143,7 +147,7 @@ class _DesktopNavBarState extends ConsumerState<DesktopNavBar> {
                           onTap: () => _selectTab(0),
                         ),
                         _NavTabPill(
-                          label: 'Courses',
+                          label: profile.isUniversityStudent ? 'Courses' : 'Subjects',
                           isSelected: activeIndex == 1,
                           colors: colors,
                           isDark: isDark,
@@ -930,6 +934,18 @@ class _NavTabPillState extends State<_NavTabPill> {
   }
 }
 
+class _MatchedTopic {
+  final String title;
+  final String parentTitle;
+  final String? chapterTitle;
+
+  const _MatchedTopic({
+    required this.title,
+    required this.parentTitle,
+    this.chapterTitle,
+  });
+}
+
 /// Global Search Command Palette Dialog (`⌘K` / click)
 class _GlobalSearchDialog extends ConsumerStatefulWidget {
   final ValueChanged<int>? onDestinationSelected;
@@ -950,11 +966,29 @@ class _GlobalSearchDialogState extends ConsumerState<_GlobalSearchDialog> {
     super.dispose();
   }
 
+  Widget _buildSectionHeader(String title, ChondrobinduThemeColors colors) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        title,
+        style: GoogleFonts.jetBrainsMono(
+          color: colors.textMuted,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final courses = ref.watch(coursesStreamProvider).value ?? [];
-    final assessments = ref.watch(upcomingAssessmentsStreamProvider).value ?? [];
+    final subjects = ref.watch(activeSyllabusSubjectsStreamProvider).value ?? [];
+    final assessments = ref.watch(allAssessmentsStreamProvider).value ??
+        ref.watch(upcomingAssessmentsStreamProvider).value ?? [];
+    final journalEntries = ref.watch(journalStreamProvider).value ?? [];
     final q = _query.trim().toLowerCase();
 
     final matchedCourses = q.isEmpty
@@ -963,13 +997,80 @@ class _GlobalSearchDialogState extends ConsumerState<_GlobalSearchDialog> {
             c.code.toLowerCase().contains(q) ||
             c.title.toLowerCase().contains(q)).toList();
 
+    final matchedSubjects = q.isEmpty
+        ? <Subject>[]
+        : subjects.where((s) => s.title.toLowerCase().contains(q)).toList();
+
+    final matchedTopics = <_MatchedTopic>[];
+    if (q.isNotEmpty) {
+      // 1. Search topics from courses (university)
+      for (final c in courses) {
+        final rawData = c.rawData?['syllabusData'] ?? c.rawData?['syllabus'];
+        if (rawData is List) {
+          for (final item in rawData) {
+            if (item is Map) {
+              final node = SyllabusNode.fromMap(Map<String, dynamic>.from(item));
+              void searchNode(SyllabusNode n, String? chTitle) {
+                final currentCh = chTitle ?? (n.children.isNotEmpty ? n.title : null);
+                if (n.title.toLowerCase().contains(q) && matchedTopics.length < 8) {
+                  matchedTopics.add(_MatchedTopic(
+                    title: n.title,
+                    parentTitle: c.code.isNotEmpty ? c.code : c.title,
+                    chapterTitle: currentCh != n.title ? currentCh : null,
+                  ));
+                }
+                for (final child in n.children) {
+                  searchNode(child, currentCh);
+                }
+              }
+              searchNode(node, null);
+            }
+          }
+        }
+      }
+
+      // 2. Search topics from subjects (college/admission)
+      for (final s in subjects) {
+        for (final ch in s.chapters) {
+          if (ch.title.toLowerCase().contains(q) && matchedTopics.length < 8) {
+            matchedTopics.add(_MatchedTopic(
+              title: ch.title,
+              parentTitle: s.title,
+            ));
+          }
+          for (final sec in ch.sections) {
+            if (sec.title.toLowerCase().contains(q) && matchedTopics.length < 8) {
+              matchedTopics.add(_MatchedTopic(
+                title: sec.title,
+                parentTitle: s.title,
+                chapterTitle: ch.title,
+              ));
+            }
+          }
+        }
+      }
+    }
+
     final matchedAssessments = q.isEmpty
         ? <Assessment>[]
         : assessments.where((a) =>
             a.name.toLowerCase().contains(q) ||
-            a.courseCode.toLowerCase().contains(q)).toList();
+            a.courseCode.toLowerCase().contains(q) ||
+            a.type.toLowerCase().contains(q)).take(8).toList();
 
-    final bool hasResults = matchedCourses.isNotEmpty || matchedAssessments.isNotEmpty;
+    final matchedJournal = q.isEmpty
+        ? <StudyJournalEntry>[]
+        : journalEntries.where((j) =>
+            j.title.toLowerCase().contains(q) ||
+            (j.topicsCovered?.toLowerCase().contains(q) ?? false) ||
+            j.content.toLowerCase().contains(q) ||
+            (j.reflections?.toLowerCase().contains(q) ?? false)).take(8).toList();
+
+    final bool hasResults = matchedCourses.isNotEmpty ||
+        matchedSubjects.isNotEmpty ||
+        matchedTopics.isNotEmpty ||
+        matchedAssessments.isNotEmpty ||
+        matchedJournal.isNotEmpty;
 
     return Dialog(
       backgroundColor: colors.surface,
@@ -1004,7 +1105,7 @@ class _GlobalSearchDialogState extends ConsumerState<_GlobalSearchDialog> {
                         autofocus: true,
                         style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'Search courses, topics, assessments...',
+                          hintText: 'Search courses, subjects, topics, assessments, journal...',
                           hintStyle: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 14),
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
@@ -1052,7 +1153,7 @@ class _GlobalSearchDialogState extends ConsumerState<_GlobalSearchDialog> {
                               Icon(Icons.travel_explore_rounded, color: colors.textMuted.withValues(alpha: 0.5), size: 40),
                               const SizedBox(height: 10),
                               Text(
-                                'Type a course code (e.g. EEE 2105) or assessment name...',
+                                'Type a course (e.g. EEE 2105), topic, assessment, or journal entry...',
                                 style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
                               ),
                             ],
@@ -1064,7 +1165,7 @@ class _GlobalSearchDialogState extends ConsumerState<_GlobalSearchDialog> {
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 36.0),
                               child: Text(
-                                'No matching courses or assessments found.',
+                                'No matching results found.',
                                 style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13),
                               ),
                             ),
@@ -1073,18 +1174,7 @@ class _GlobalSearchDialogState extends ConsumerState<_GlobalSearchDialog> {
                             shrinkWrap: true,
                             children: [
                               if (matchedCourses.isNotEmpty) ...[
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 4, bottom: 8),
-                                  child: Text(
-                                    'COURSES',
-                                    style: GoogleFonts.jetBrainsMono(
-                                      color: colors.textMuted,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.8,
-                                    ),
-                                  ),
-                                ),
+                                _buildSectionHeader('COURSES', colors),
                                 ...matchedCourses.map((c) => ListTile(
                                   dense: true,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1105,35 +1195,98 @@ class _GlobalSearchDialogState extends ConsumerState<_GlobalSearchDialog> {
                                 )),
                                 const SizedBox(height: 12),
                               ],
-                              if (matchedAssessments.isNotEmpty) ...[
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 4, bottom: 8),
-                                  child: Text(
-                                    'ASSESSMENTS & EXAMS',
-                                    style: GoogleFonts.jetBrainsMono(
-                                      color: colors.textMuted,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.8,
-                                    ),
+                              if (matchedSubjects.isNotEmpty) ...[
+                                _buildSectionHeader('SUBJECTS', colors),
+                                ...matchedSubjects.map((s) => ListTile(
+                                  dense: true,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  leading: Icon(Icons.menu_book_rounded, color: colors.secondary, size: 20),
+                                  title: Text(
+                                    s.title,
+                                    style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 13),
                                   ),
-                                ),
+                                  subtitle: Text(
+                                    '${s.chapters.length} Chapters • Syllabus Subject',
+                                    style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    widget.onDestinationSelected?.call(1);
+                                    ref.read(navigationIndexProvider.notifier).state = 1;
+                                  },
+                                )),
+                                const SizedBox(height: 12),
+                              ],
+                              if (matchedTopics.isNotEmpty) ...[
+                                _buildSectionHeader('SYLLABUS TOPICS', colors),
+                                ...matchedTopics.map((t) => ListTile(
+                                  dense: true,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  leading: Icon(Icons.account_tree_outlined, color: colors.primary, size: 18),
+                                  title: Text(
+                                    t.title,
+                                    style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 13),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: Text(
+                                    t.chapterTitle != null ? '${t.parentTitle} • ${t.chapterTitle}' : t.parentTitle,
+                                    style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    widget.onDestinationSelected?.call(1);
+                                    ref.read(navigationIndexProvider.notifier).state = 1;
+                                  },
+                                )),
+                                const SizedBox(height: 12),
+                              ],
+                              if (matchedAssessments.isNotEmpty) ...[
+                                _buildSectionHeader('PLANNER & ASSESSMENTS', colors),
                                 ...matchedAssessments.map((a) => ListTile(
                                   dense: true,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   leading: Icon(Icons.assignment_outlined, color: colors.success, size: 20),
                                   title: Text(
-                                    '${a.courseCode} — ${a.name}',
+                                    a.courseCode.isNotEmpty ? '${a.courseCode} — ${a.name}' : a.name,
                                     style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 13),
                                   ),
                                   subtitle: Text(
-                                    a.date != null ? 'Date: ${a.date!.day}/${a.date!.month}/${a.date!.year}' : 'Unscheduled',
+                                    a.date != null
+                                        ? 'Date: ${a.date!.day}/${a.date!.month}/${a.date!.year} • Total Marks: ${a.totalMarks.toStringAsFixed(0)}'
+                                        : 'Unscheduled • Total Marks: ${a.totalMarks.toStringAsFixed(0)}',
                                     style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11),
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
                                     widget.onDestinationSelected?.call(3);
                                     ref.read(navigationIndexProvider.notifier).state = 3;
+                                  },
+                                )),
+                                const SizedBox(height: 12),
+                              ],
+                              if (matchedJournal.isNotEmpty) ...[
+                                _buildSectionHeader('JOURNAL ENTRIES', colors),
+                                ...matchedJournal.map((j) => ListTile(
+                                  dense: true,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  leading: Icon(Icons.edit_note_rounded, color: colors.secondary, size: 22),
+                                  title: Text(
+                                    j.title,
+                                    style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.w600, fontSize: 13),
+                                  ),
+                                  subtitle: Text(
+                                    '${j.timestamp.day}/${j.timestamp.month}/${j.timestamp.year} • ${j.durationMinutes}m focus • ${j.topicsCovered ?? j.subjectOrCourseId}',
+                                    style: GoogleFonts.jetBrainsMono(color: colors.textMuted, fontSize: 11),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    widget.onDestinationSelected?.call(4);
+                                    ref.read(navigationIndexProvider.notifier).state = 4;
                                   },
                                 )),
                               ],

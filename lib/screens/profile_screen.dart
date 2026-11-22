@@ -22,6 +22,7 @@ import '../services/auth_service.dart';
 import '../services/pdf_report_service.dart';
 import '../services/syllabus_factory.dart';
 import '../services/timer_service.dart';
+import '../services/soundscape_service.dart';
 import '../services/tour_service.dart';
 import 'admission_archive_screen.dart';
 import 'archived_terms_screen.dart';
@@ -31,6 +32,17 @@ import '../widgets/app_loading_screen.dart';
 import '../widgets/app_preloader.dart';
 import '../widgets/compact_loading_dialog.dart';
 import 'package:chondrobindu/utils/safe_haptics.dart';
+
+/// 3 Core Academic Pathways supported by Chondrobindu
+enum AcademicTrack {
+  university('University', Icons.account_balance_rounded),
+  college('College / HSC', Icons.school_rounded),
+  admission('Admission Prep', Icons.stars_rounded);
+
+  final String label;
+  final IconData icon;
+  const AcademicTrack(this.label, this.icon);
+}
 
 /// Comprehensive Profile Screen for Chondrobindu engineering prep app.
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -56,13 +68,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late final TextEditingController _collegeController;
   late final TextEditingController _districtController;
 
-  // University Mode State & Controllers
-  bool _isUniversityStudent = false;
+  // Academic Track Selection
+  AcademicTrack _selectedTrack = AcademicTrack.university;
   late final TextEditingController _universityController;
   late final TextEditingController _majorController;
+  late final TextEditingController _targetCgpaController;
+  DateTime? _termStartDate;
   String _selectedLevel = '1';
   String _selectedTerm = '1';
   double _dailyFocusGoal = 1.0;
+
+  // Ambient Audio & Soundscape State
+  String _selectedSoundscape = 'Rainfall';
+  double _ambientVolume = 0.65;
+  bool _isPreviewPlaying = false;
 
   // Dropdown Selections
   String _hscBatch = '2025';
@@ -115,9 +134,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _collegeController = TextEditingController(text: profile.college);
     _districtController = TextEditingController(text: profile.district);
 
-    _isUniversityStudent = profile.isUniversityStudent;
+    if (profile.isUniversityStudent) {
+      _selectedTrack = AcademicTrack.university;
+    } else if (profile.primaryTarget == 'HSC Candidate / Board Exam') {
+      _selectedTrack = AcademicTrack.college;
+    } else {
+      _selectedTrack = AcademicTrack.admission;
+    }
+
     _universityController = TextEditingController(text: profile.universityName ?? '');
     _majorController = TextEditingController(text: profile.major ?? '');
+    _targetCgpaController = TextEditingController(
+      text: profile.targetGpa > 0 ? profile.targetGpa.toStringAsFixed(2) : '3.75',
+    );
+    _termStartDate = profile.termStartDate;
     _selectedLevel = (profile.level != null && ['1', '2', '3', '4'].contains(profile.level))
         ? profile.level!
         : '1';
@@ -125,6 +155,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ? profile.term!
         : '1';
     _dailyFocusGoal = profile.dailyFocusGoalHours > 0 ? profile.dailyFocusGoalHours : 1.0;
+
+    _ambientVolume = SoundscapeService.instance.volume;
+    final currentSoundTrack = SoundscapeService.toLabel(SoundscapeService.instance.currentTrack);
+    _selectedSoundscape = currentSoundTrack != 'None' ? currentSoundTrack : 'Rainfall';
+    _isPreviewPlaying = SoundscapeService.instance.isPlaying;
 
     _hscBatch = _batchOptions.contains(profile.hscBatch) ? profile.hscBatch : '2025';
     _hscGroup = _groupOptions.contains(profile.hscGroup) ? profile.hscGroup : 'Science';
@@ -153,6 +188,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _districtController.dispose();
     _universityController.dispose();
     _majorController.dispose();
+    _targetCgpaController.dispose();
     super.dispose();
   }
 
@@ -205,6 +241,303 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     });
   }
 
+  Widget _buildAcademicTrackSelector(ChondrobinduThemeColors colors) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.surfaceBorder, width: 1.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.school_rounded, color: colors.primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Academic Track',
+                style: GoogleFonts.plusJakartaSans(
+                  color: colors.textPrimary,
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Select your primary academic pathway to personalize routines, metrics, and syllabus.',
+            style: GoogleFonts.plusJakartaSans(
+              color: colors.textMuted,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 14),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 520;
+              final items = AcademicTrack.values.map((track) {
+                final isSelected = _selectedTrack == track;
+                final itemWidget = InkWell(
+                  onTap: () {
+                    SafeHaptics.selectionClick();
+                    setState(() {
+                      _selectedTrack = track;
+                      if (track == AcademicTrack.college) {
+                        _primaryTarget = 'HSC Candidate / Board Exam';
+                      } else if (track == AcademicTrack.admission) {
+                        if (_primaryTarget == 'HSC Candidate / Board Exam' || _primaryTarget == 'University Studies') {
+                          _primaryTarget = 'Engineering (BUET, CKRUET)';
+                        }
+                      }
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(10),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isSelected ? colors.primary.withValues(alpha: 0.15) : colors.recessed,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isSelected ? colors.primary : colors.surfaceBorder,
+                        width: isSelected ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          track.icon,
+                          size: 15,
+                          color: isSelected ? colors.primary : colors.textMuted,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            track.label,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: isSelected ? colors.textPrimary : colors.textMuted,
+                              fontSize: 12.0,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+
+                if (isNarrow) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: itemWidget,
+                  );
+                } else {
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                      child: itemWidget,
+                    ),
+                  );
+                }
+              }).toList();
+
+              return isNarrow
+                  ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: items)
+                  : Row(children: items);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAmbientAudioPreferencesCard(ChondrobinduThemeColors colors) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.surfaceBorder, width: 1.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.graphic_eq_rounded, color: colors.secondary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Ambient Audio & Soundscapes',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textPrimary,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                tooltip: _isPreviewPlaying ? 'Stop Audio' : 'Preview Soundscape',
+                icon: Icon(
+                  _isPreviewPlaying ? Icons.stop_circle_rounded : Icons.play_circle_fill_rounded,
+                  color: _isPreviewPlaying ? const Color(0xFFEF4444) : colors.secondary,
+                  size: 24,
+                ),
+                onPressed: () async {
+                  SafeHaptics.selectionClick();
+                  if (_isPreviewPlaying) {
+                    await SoundscapeService.instance.stop();
+                    setState(() => _isPreviewPlaying = false);
+                  } else {
+                    final track = SoundscapeService.fromLabel(_selectedSoundscape);
+                    if (track != SoundscapeTrack.none) {
+                      await SoundscapeService.instance.play(track);
+                      setState(() => _isPreviewPlaying = true);
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Background acoustic masking for focus timer sessions and deep work.',
+            style: GoogleFonts.plusJakartaSans(
+              color: colors.textMuted,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: ['Rainfall', 'Heavy Rain', 'Brown Noise', 'Cafe Ambiance', 'Forest Birds', 'None'].map((label) {
+              final isSelected = _selectedSoundscape == label;
+              return InkWell(
+                onTap: () async {
+                  SafeHaptics.selectionClick();
+                  setState(() => _selectedSoundscape = label);
+                  if (_isPreviewPlaying) {
+                    final track = SoundscapeService.fromLabel(label);
+                    if (track == SoundscapeTrack.none) {
+                      await SoundscapeService.instance.stop();
+                      setState(() => _isPreviewPlaying = false);
+                    } else {
+                      await SoundscapeService.instance.play(track);
+                    }
+                  }
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isSelected ? colors.secondary : colors.recessed,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected ? colors.secondary : colors.surfaceBorder,
+                    ),
+                  ),
+                  child: Text(
+                    label,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: isSelected ? const Color(0xFF171C24) : colors.textPrimary,
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Icon(Icons.volume_down_rounded, color: colors.textMuted, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: colors.secondary,
+                    inactiveTrackColor: colors.surfaceBorder,
+                    thumbColor: colors.secondary,
+                    overlayColor: colors.secondary.withValues(alpha: 0.2),
+                    trackHeight: 3.5,
+                  ),
+                  child: Slider(
+                    value: _ambientVolume,
+                    min: 0.0,
+                    max: 1.0,
+                    onChanged: (val) {
+                      setState(() => _ambientVolume = val);
+                      SoundscapeService.instance.setVolume(val);
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${(_ambientVolume * 100).round()}%',
+                style: GoogleFonts.jetBrainsMono(
+                  color: colors.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickTermStartDate(BuildContext context) async {
+    SafeHaptics.lightImpact();
+    final colors = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final initial = _termStartDate ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+      builder: (ctx, child) {
+        return Theme(
+          data: Theme.of(ctx).copyWith(
+            colorScheme: isDark
+                ? ColorScheme.dark(
+                    primary: colors.primary,
+                    onPrimary: colors.background,
+                    surface: colors.surface,
+                    onSurface: colors.textPrimary,
+                  )
+                : ColorScheme.light(
+                    primary: colors.primary,
+                    onPrimary: Colors.white,
+                    surface: colors.surface,
+                    onSurface: colors.textPrimary,
+                  ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() => _termStartDate = picked);
+    }
+  }
+
   bool _isSavingProfile = false;
 
  Future<void> _saveProfile() async {
@@ -214,11 +547,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     setState(() => _isSavingProfile = true);
 
     try {
-      final newSyllabus = SyllabusFactory.generateInitialSyllabus(_primaryTarget, _hscGroup);
+      final isUni = _selectedTrack == AcademicTrack.university;
+      final double parsedTargetCgpa = (double.tryParse(_targetCgpaController.text.trim()) ?? 3.75).clamp(0.0, 4.0);
+      final String primaryTargetToSave = isUni
+          ? 'University Studies'
+          : (_selectedTrack == AcademicTrack.college ? 'HSC Candidate / Board Exam' : _primaryTarget);
+
       final uid = _currentUser?.uid;
       
-      // 1. WRITE SYLLABUS TO FIRESTORE FIRST (Prevents Race Condition)
-      if (uid != null) {
+      // 1. WRITE SYLLABUS TO FIRESTORE FIRST (Only for non-university college/admission candidates)
+      if (uid != null && !isUni) {
+        final newSyllabus = SyllabusFactory.generateInitialSyllabus(primaryTargetToSave, _hscGroup);
         final firestore = FirebaseFirestore.instance;
         final subjectsData = newSyllabus.map((s) => s.toMap()).toList();
         
@@ -228,39 +567,45 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             .collection('syllabus_state')
             .doc('active_syllabus')
             .set({
-          'target': _primaryTarget,
+          'target': primaryTargetToSave,
           'subjects': subjectsData,
           'updatedAt': FieldValue.serverTimestamp(),
         });
+
+        ref.invalidate(syllabusProvider);
+        ref.read(admissionTargetProvider.notifier).state = primaryTargetToSave;
+        ref.read(syllabusProvider.notifier).setSubjects(newSyllabus);
       }
 
-      // 2. NOW UPDATE PROFILE (This triggers the SyllabusScreen to listen)
+      // 2. NOW UPDATE PROFILE
       await ref.read(userProfileProvider.notifier).updateProfile(
         fullName: _fullNameController.text.trim(),
         nickname: _nicknameController.text.trim(),
         username: _usernameController.text.trim(),
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim(),
-        college: _isUniversityStudent
+        college: isUni
             ? (_universityController.text.trim().isNotEmpty ? _universityController.text.trim() : 'University')
             : _collegeController.text.trim(),
         district: _districtController.text.trim(),
-        hscBatch: _isUniversityStudent ? 'Varsity' : _hscBatch,
-        hscGroup: _isUniversityStudent ? 'Science' : _hscGroup,
-        primaryTarget: _isUniversityStudent ? 'University Studies' : _primaryTarget,
-        secondaryTarget: _isUniversityStudent ? 'None' : (_secondaryTarget ?? 'None'),
-        isUniversityStudent: _isUniversityStudent,
-        universityName: _isUniversityStudent ? _universityController.text.trim() : null,
-        major: _isUniversityStudent ? _majorController.text.trim() : null,
-        level: _isUniversityStudent ? _selectedLevel : null,
-        term: _isUniversityStudent ? _selectedTerm : null,
+        hscBatch: isUni ? 'Varsity' : _hscBatch,
+        hscGroup: isUni ? 'Science' : _hscGroup,
+        primaryTarget: primaryTargetToSave,
+        secondaryTarget: isUni ? 'None' : (_secondaryTarget ?? 'None'),
+        isUniversityStudent: isUni,
+        institutionType: isUni ? InstitutionType.university : InstitutionType.college,
+        universityName: isUni ? _universityController.text.trim() : null,
+        major: isUni ? _majorController.text.trim() : null,
+        level: isUni ? _selectedLevel : null,
+        term: isUni ? _selectedTerm : null,
+        targetGpa: isUni ? parsedTargetCgpa : 5.00,
+        termStartDate: isUni ? _termStartDate : null,
+        clearTermStartDate: !isUni || _termStartDate == null,
+        dailyFocusGoalHours: _dailyFocusGoal,
       );
 
       // 3. UPDATE FOCUS GOAL & PROVIDERS
       await ref.read(userProfileProvider.notifier).updateDailyFocusGoal(_dailyFocusGoal);
-      ref.invalidate(syllabusProvider);
-      ref.read(admissionTargetProvider.notifier).state = _primaryTarget;
-      ref.read(syllabusProvider.notifier).setSubjects(newSyllabus);
 
       if (mounted) {
         final colors = AppColors.of(context);
@@ -409,19 +754,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  backgroundColor: cardColor,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  title: const Text('Sign Out', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  content: const Text('Are you sure you want to sign out?', style: TextStyle(color: Colors.blueGrey)),
+                  backgroundColor: colors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: colors.surfaceBorder),
+                  ),
+                  title: Text('Sign Out', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+                  content: Text('Are you sure you want to sign out?', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancel', style: TextStyle(color: Colors.blueGrey)),
+                      child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
                     ),
                     ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEF4444),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
                       onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Sign Out', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      child: Text('Sign Out', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -437,100 +789,103 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Profile Avatar & Camera Button
-                Center(
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: accentColor.withValues(alpha: 0.4),
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: accentColor.withValues(alpha: 0.2),
-                              blurRadius: 20,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: CircleAvatar(
-                          radius: 48,
-                          backgroundColor: cardColor,
-                          backgroundImage: hasProfileImage
-                              ? NetworkImage(displayPhotoUrl)
-                              : null,
-                          child: !hasProfileImage
-                              ? (_isUploadingImage
-                                  ? const AppPreloader(size: 26, strokeWidth: 2.5)
-                                  : Icon(Icons.person_rounded, size: 48, color: Colors.blueGrey.shade400))
-                              : (_isUploadingImage
-                                  ? Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: 0.5),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Center(
-                                        child: AppPreloader(size: 26, strokeWidth: 2.5),
-                                      ),
-                                    )
-                                  : null),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: GestureDetector(
-                          onTap: _isUploadingImage ? null : _pickAndUploadProfileImage,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Profile Avatar & Camera Button
+                    Center(
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF8C5D3E),
                               shape: BoxShape.circle,
-                              border: Border.all(color: backgroundColor, width: 2.5),
+                              border: Border.all(
+                                color: accentColor.withValues(alpha: 0.4),
+                                width: 2,
+                              ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.3),
-                                  blurRadius: 6,
+                                  color: accentColor.withValues(alpha: 0.2),
+                                  blurRadius: 20,
+                                  spreadRadius: 2,
                                 ),
                               ],
                             ),
-                            child: const Icon(
-                              Icons.camera_alt_rounded,
-                              size: 16,
-                              color: Colors.white,
+                            child: CircleAvatar(
+                              radius: 48,
+                              backgroundColor: cardColor,
+                              backgroundImage: hasProfileImage
+                                  ? NetworkImage(displayPhotoUrl)
+                                  : null,
+                              child: !hasProfileImage
+                                  ? (_isUploadingImage
+                                      ? const AppPreloader(size: 26, strokeWidth: 2.5)
+                                      : Icon(Icons.person_rounded, size: 48, color: colors.textMuted))
+                                  : (_isUploadingImage
+                                      ? Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(alpha: 0.5),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Center(
+                                            child: AppPreloader(size: 26, strokeWidth: 2.5),
+                                          ),
+                                        )
+                                      : null),
                             ),
                           ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: GestureDetector(
+                              onTap: _isUploadingImage ? null : _pickAndUploadProfileImage,
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: colors.secondary,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: backgroundColor, width: 2.5),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.3),
+                                      blurRadius: 6,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt_rounded,
+                                  size: 16,
+                                  color: Color(0xFF171C24),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Center(
+                      child: Text(
+                        profile.fullName.isNotEmpty
+                            ? profile.fullName
+                            : (_fullNameController.text.isNotEmpty ? _fullNameController.text : 'Candidate'),
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Center(
-                  child: Text(
-                    profile.fullName.isNotEmpty
-                        ? profile.fullName
-                        : (_fullNameController.text.isNotEmpty ? _fullNameController.text : 'Candidate'),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
                     ),
-                  ),
-                ),
                 const SizedBox(height: 4),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -566,63 +921,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 20),
 
-              // University Mode Toggle Switch Card
-              Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: colors.surfaceBorder,
-                    width: 1.0,
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          _isUniversityStudent ? Icons.account_balance_rounded : Icons.school_rounded,
-                          color: _isUniversityStudent ? colors.primary : colors.textMuted,
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Are you a University Student?',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: colors.textPrimary,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              _isUniversityStudent ? 'University Track Active' : 'HSC / Admission Track Active',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: colors.textMuted,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    Switch.adaptive(
-                      value: _isUniversityStudent,
-                      activeThumbColor: colors.primary,
-                      activeTrackColor: colors.primary.withValues(alpha: 0.3),
-                      onChanged: (val) {
-                        setState(() {
-                          _isUniversityStudent = val;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
+              // Academic Track Selector (University / College / Admission)
+              _buildAcademicTrackSelector(colors),
+
+              // Ambient Audio & Soundscape Preferences Card
+              _buildAmbientAudioPreferencesCard(colors),
 
               // Daily Focus Goal Setting Card
               Container(
@@ -726,7 +1029,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 decoration: BoxDecoration(
                   color: cardColor,
                   borderRadius: BorderRadius.circular(20.0),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                  border: Border.all(color: colors.surfaceBorder),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -738,10 +1041,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           children: [
                             Icon(Icons.person_outline_rounded, color: accentColor, size: 20),
                             const SizedBox(width: 8),
-                            const Text(
+                            Text(
                               'Personal Information',
-                              style: TextStyle(
-                                color: Colors.white,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: colors.textPrimary,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -753,28 +1056,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     const SizedBox(height: 16),
 
                     // Full Name
-                    _buildFieldLabel('Full Name', isRequired: false),
+                    _buildFieldLabel('Full Name', isRequired: false, colors: colors),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _fullNameController,
-                      style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14),
+                      style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
                       decoration: _buildInputDecoration(
                         hintText: 'Enter your full name',
                         prefixIcon: Icons.badge_outlined,
+                        colors: colors,
                       ),
                       onChanged: (_) => setState(() {}),
                     ),
                     const SizedBox(height: 14),
 
                     // Nickname*
-                    _buildFieldLabel('Nickname', isRequired: true),
+                    _buildFieldLabel('Nickname', isRequired: true, colors: colors),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _nicknameController,
-                      style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14),
+                      style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
                       decoration: _buildInputDecoration(
                         hintText: 'e.g., Sayem',
                         prefixIcon: Icons.face_outlined,
+                        colors: colors,
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
@@ -786,14 +1091,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     const SizedBox(height: 14),
 
                     // Username*
-                    _buildFieldLabel('Username', isRequired: true),
+                    _buildFieldLabel('Username', isRequired: true, colors: colors),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _usernameController,
-                      style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14),
+                      style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
                       decoration: _buildInputDecoration(
                         hintText: 'e.g., sayem_25',
                         prefixIcon: Icons.alternate_email_rounded,
+                        colors: colors,
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
@@ -808,21 +1114,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildFieldLabel('Email Address', isRequired: true),
+                        _buildFieldLabel('Email Address', isRequired: true, colors: colors),
                         if (isEmailReadOnly)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.06),
+                              color: colors.recessed,
                               borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: colors.surfaceBorder),
                             ),
-                            child: const Row(
+                            child: Row(
                               children: [
-                                Icon(Icons.lock_outline_rounded, size: 10, color: Colors.grey),
-                                SizedBox(width: 4),
+                                Icon(Icons.lock_outline_rounded, size: 10, color: colors.textMuted),
+                                const SizedBox(width: 4),
                                 Text(
                                   'Primary Signup (Locked)',
-                                  style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold),
+                                  style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 10, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -834,13 +1141,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       controller: _emailController,
                       readOnly: isEmailReadOnly,
                       style: GoogleFonts.plusJakartaSans(
-                        color: isEmailReadOnly ? const Color(0xFF786B63) : Colors.white,
+                        color: isEmailReadOnly ? colors.textMuted : colors.textPrimary,
                         fontSize: 14,
                       ),
                       decoration: _buildInputDecoration(
                         hintText: 'Email address',
                         prefixIcon: Icons.email_outlined,
                         isReadOnly: isEmailReadOnly,
+                        colors: colors,
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty || !value.contains('@')) {
@@ -855,21 +1163,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildFieldLabel('Phone Number', isRequired: false),
+                        _buildFieldLabel('Phone Number', isRequired: false, colors: colors),
                         if (isPhoneReadOnly)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.06),
+                              color: colors.recessed,
                               borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: colors.surfaceBorder),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.lock_outline_rounded, size: 10, color: Color(0xFF786B63)),
+                                Icon(Icons.lock_outline_rounded, size: 10, color: colors.textMuted),
                                 const SizedBox(width: 4),
                                 Text(
                                   'Primary Signup (Locked)',
-                                  style: GoogleFonts.plusJakartaSans(color: const Color(0xFF786B63), fontSize: 10, fontWeight: FontWeight.bold),
+                                  style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 10, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -882,31 +1191,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       readOnly: isPhoneReadOnly,
                       keyboardType: TextInputType.phone,
                       style: GoogleFonts.plusJakartaSans(
-                        color: isPhoneReadOnly ? const Color(0xFF786B63) : Colors.white,
+                        color: isPhoneReadOnly ? colors.textMuted : colors.textPrimary,
                         fontSize: 14,
                       ),
                       decoration: _buildInputDecoration(
                         hintText: '+8801XXXXXXXXX',
                         prefixIcon: Icons.phone_android_outlined,
                         isReadOnly: isPhoneReadOnly,
+                        colors: colors,
                       ),
                     ),
                     const SizedBox(height: 14),
 
                     // Conditional Fields: University vs HSC
-                    if (_isUniversityStudent) ...[
+                    if (_selectedTrack == AcademicTrack.university) ...[
                       // University Name
-                      _buildFieldLabel('University Name', isRequired: true),
+                      _buildFieldLabel('University Name', isRequired: true, colors: colors),
                       const SizedBox(height: 6),
                       TextFormField(
                         controller: _universityController,
-                        style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14),
+                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
                         decoration: _buildInputDecoration(
                           hintText: 'e.g., BUET, DU, CUET, RUET',
                           prefixIcon: Icons.account_balance_rounded,
+                          colors: colors,
                         ),
                         validator: (value) {
-                          if (_isUniversityStudent && (value == null || value.trim().isEmpty)) {
+                          if (_selectedTrack == AcademicTrack.university && (value == null || value.trim().isEmpty)) {
                             return 'University name is required';
                           }
                           return null;
@@ -915,17 +1226,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       const SizedBox(height: 14),
 
                       // Major / Department
-                      _buildFieldLabel('Major / Department', isRequired: true),
+                      _buildFieldLabel('Major / Department', isRequired: true, colors: colors),
                       const SizedBox(height: 6),
                       TextFormField(
                         controller: _majorController,
-                        style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14),
+                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
                         decoration: _buildInputDecoration(
                           hintText: 'e.g., EEE, CSE, Mechanical',
                           prefixIcon: Icons.domain_rounded,
+                          colors: colors,
                         ),
                         validator: (value) {
-                          if (_isUniversityStudent && (value == null || value.trim().isEmpty)) {
+                          if (_selectedTrack == AcademicTrack.university && (value == null || value.trim().isEmpty)) {
                             return 'Major / Department is required';
                           }
                           return null;
@@ -940,16 +1252,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('Level', isRequired: true),
+                                _buildFieldLabel('Level', isRequired: true, colors: colors),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _selectedLevel,
                                   dropdownColor: cardColor,
                                   isExpanded: true,
-                                  style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
+                                  style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13.5),
                                   decoration: _buildInputDecoration(
                                     hintText: 'Level',
                                     prefixIcon: Icons.layers_rounded,
+                                    colors: colors,
                                   ),
                                   items: ['1', '2', '3', '4']
                                       .map((l) => DropdownMenuItem(
@@ -969,16 +1282,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('Term', isRequired: true),
+                                _buildFieldLabel('Term', isRequired: true, colors: colors),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _selectedTerm,
                                   dropdownColor: cardColor,
                                   isExpanded: true,
-                                  style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
+                                  style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13.5),
                                   decoration: _buildInputDecoration(
                                     hintText: 'Term',
                                     prefixIcon: Icons.timelapse_rounded,
+                                    colors: colors,
                                   ),
                                   items: ['1', '2']
                                       .map((t) => DropdownMenuItem(
@@ -989,6 +1303,84 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   onChanged: (val) {
                                     if (val != null) setState(() => _selectedTerm = val);
                                   },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Target CGPA & Term Start Date Row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildFieldLabel('Target CGPA', isRequired: true, colors: colors),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: _targetCgpaController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  style: GoogleFonts.jetBrainsMono(color: colors.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
+                                  decoration: _buildInputDecoration(
+                                    hintText: 'e.g. 3.75',
+                                    prefixIcon: Icons.emoji_events_outlined,
+                                    colors: colors,
+                                  ),
+                                  validator: (val) {
+                                    if (val == null || val.trim().isEmpty) return 'Target CGPA is required';
+                                    final n = double.tryParse(val.trim());
+                                    if (n == null || n < 0.0 || n > 4.0) return 'Enter 0.00 - 4.00';
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildFieldLabel('Term Start Date', isRequired: false, colors: colors),
+                                const SizedBox(height: 6),
+                                InkWell(
+                                  onTap: () => _pickTermStartDate(context),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: colors.recessed,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: colors.surfaceBorder, width: 0.8),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.calendar_month_outlined, color: colors.primary, size: 18),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            _termStartDate != null
+                                                ? '${_termStartDate!.day}/${_termStartDate!.month}/${_termStartDate!.year}'
+                                                : 'Set Start Date',
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: _termStartDate != null ? colors.textPrimary : colors.textMuted,
+                                              fontSize: 13,
+                                              fontWeight: _termStartDate != null ? FontWeight.w600 : FontWeight.normal,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (_termStartDate != null)
+                                          GestureDetector(
+                                            onTap: () => setState(() => _termStartDate = null),
+                                            child: Icon(Icons.close_rounded, size: 16, color: colors.textMuted),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
@@ -1019,16 +1411,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   ),
                                   child: Icon(Icons.inventory_2_rounded, color: accentColor, size: 20),
                                 ),
-                                title: const Text('Archived Semesters', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
-                                subtitle: const Text('View past courses, routines & scoped PDF reports', style: TextStyle(color: Colors.blueGrey, fontSize: 11.5)),
-                                trailing: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.blueGrey, size: 14),
+                                title: Text('Archived Semesters', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                                subtitle: Text('View past courses, routines & scoped PDF reports', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11.5)),
+                                trailing: Icon(Icons.arrow_forward_ios_rounded, color: colors.textMuted, size: 14),
                                 onTap: () {
                                   SafeHaptics.lightImpact();
                                   Navigator.push(context, MaterialPageRoute(builder: (_) => const ArchivedTermsScreen()));
                                 },
                               ),
                             ),
-                            const Divider(color: Colors.white10, height: 16),
+                            Divider(color: colors.surfaceBorder, height: 16),
                             SizedBox(
                               width: double.infinity,
                               child: OutlinedButton.icon(
@@ -1039,7 +1431,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 ),
                                 onPressed: () => _showArchiveTermModal(context, profile),
                                 icon: const Icon(Icons.archive_rounded, size: 16),
-                                label: const Text('Archive Current Term', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                                label: Text('Archive Current Term', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 12.5)),
                               ),
                             ),
                           ],
@@ -1048,17 +1440,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       const SizedBox(height: 14),
                     ] else ...[
                       // College*
-                      _buildFieldLabel('College / Institution', isRequired: true),
+                      _buildFieldLabel('College / Institution', isRequired: true, colors: colors),
                       const SizedBox(height: 6),
                       TextFormField(
                         controller: _collegeController,
-                        style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14),
+                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
                         decoration: _buildInputDecoration(
                           hintText: 'Enter college name',
                           prefixIcon: Icons.account_balance_outlined,
+                          colors: colors,
                         ),
                         validator: (value) {
-                          if (!_isUniversityStudent && (value == null || value.trim().isEmpty)) {
+                          if (_selectedTrack != AcademicTrack.university && (value == null || value.trim().isEmpty)) {
                             return 'College name is required';
                           }
                           return null;
@@ -1073,16 +1466,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('HSC Batch', isRequired: true),
+                                _buildFieldLabel('HSC Batch', isRequired: true, colors: colors),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _hscBatch,
                                   dropdownColor: cardColor,
                                   isExpanded: true,
-                                  style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
+                                  style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13.5),
                                   decoration: _buildInputDecoration(
                                     hintText: 'Batch',
                                     prefixIcon: Icons.calendar_today_outlined,
+                                    colors: colors,
                                   ),
                                   items: _batchOptions
                                       .map((b) => DropdownMenuItem(
@@ -1102,16 +1496,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('HSC Group / Division', isRequired: true),
+                                _buildFieldLabel('HSC Group / Division', isRequired: true, colors: colors),
                                 const SizedBox(height: 6),
                                 DropdownButtonFormField<String>(
                                   initialValue: _hscGroup,
                                   dropdownColor: cardColor,
                                   isExpanded: true,
-                                  style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
+                                  style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13.5),
                                   decoration: _buildInputDecoration(
                                     hintText: 'Group',
                                     prefixIcon: Icons.category_outlined,
+                                    colors: colors,
                                   ),
                                   items: _groupOptions
                                       .map((g) => DropdownMenuItem(
@@ -1140,14 +1535,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ],
 
                     // Home District
-                    _buildFieldLabel('Home District', isRequired: false),
+                    _buildFieldLabel('Home District', isRequired: false, colors: colors),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _districtController,
-                      style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14),
+                      style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 14),
                       decoration: _buildInputDecoration(
                         hintText: 'e.g., Dhaka, Chattogram',
                         prefixIcon: Icons.location_on_outlined,
+                        colors: colors,
                       ),
                     ),
                   ],
@@ -1155,27 +1551,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 16),
 
-              // 3. Admission Targets Section (Dynamic Dropdowns with "None" option)
-              if (!_isUniversityStudent) ...[
+              // 3. Admission Targets Section (Only for Admission Prep track)
+              if (_selectedTrack == AcademicTrack.admission) ...[
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20.0),
                   decoration: BoxDecoration(
                     color: cardColor,
                     borderRadius: BorderRadius.circular(20.0),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                    border: Border.all(color: colors.surfaceBorder),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.track_changes_rounded, color: accentColor, size: 20),
+                          Icon(Icons.stars_rounded, color: accentColor, size: 20),
                           const SizedBox(width: 8),
-                          const Text(
+                          Text(
                             'Admission Target Goals',
-                            style: TextStyle(
-                              color: Colors.white,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: colors.textPrimary,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1185,16 +1581,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       const SizedBox(height: 16),
 
                       // Primary Admission Target Goal*
-                      _buildFieldLabel('Admission Target Goal', isRequired: true),
+                      _buildFieldLabel('Admission Target Goal', isRequired: true, colors: colors),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
                         initialValue: _primaryTarget,
                         dropdownColor: cardColor,
                         isExpanded: true,
-                        style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
+                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13.5),
                         decoration: _buildInputDecoration(
                           hintText: 'Select primary target',
                           prefixIcon: Icons.stars_rounded,
+                          colors: colors,
                         ),
                         items: _allTargetOptions
                             .map((opt) => DropdownMenuItem(
@@ -1210,16 +1607,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       const SizedBox(height: 14),
 
                       // 2nd Admission Target Goal (Optional Dynamic Dropdown with "None")
-                      _buildFieldLabel('2nd Admission Target Goal', isRequired: false),
+                      _buildFieldLabel('2nd Admission Target Goal', isRequired: false, colors: colors),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
                         initialValue: _secondaryTargetOptions.contains(_secondaryTarget) ? _secondaryTarget : 'None',
                         dropdownColor: cardColor,
                         isExpanded: true,
-                        style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13.5),
+                        style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontSize: 13.5),
                         decoration: _buildInputDecoration(
                           hintText: 'Select secondary target',
                           prefixIcon: Icons.flag_outlined,
+                          colors: colors,
                         ),
                         items: _secondaryTargetOptions
                             .map((opt) => DropdownMenuItem(
@@ -1259,14 +1657,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           strokeWidth: 2,
                           color: Color(0xFF171C24),
                         )
-                      : const Row(
+                      : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.check_circle_rounded, size: 20),
-                            SizedBox(width: 8),
+                            const Icon(Icons.check_circle_rounded, size: 20),
+                            const SizedBox(width: 8),
                             Text(
                               'Save Profile',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF171C24),
+                              ),
                             ),
                           ],
                         ),
@@ -1291,7 +1693,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                      border: Border.all(color: colors.surfaceBorder),
                     ),
                     child: Row(
                       children: [
@@ -1304,30 +1706,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           child: Icon(Icons.help_outline_rounded, color: accentColor, size: 20),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'Help & Support',
-                                style: TextStyle(
-                                  color: Colors.white,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: colors.textPrimary,
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              SizedBox(height: 2),
+                              const SizedBox(height: 2),
                               Text(
                                 'Contact support & launch AI tutors',
-                                style: TextStyle(
-                                  color: Colors.grey,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: colors.textMuted,
                                   fontSize: 11.5,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                        Icon(Icons.chevron_right_rounded, color: colors.textMuted),
                       ],
                     ),
                   ),
@@ -1345,7 +1747,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   decoration: BoxDecoration(
                     color: cardColor,
                     borderRadius: BorderRadius.circular(16.0),
-                    border: Border.all(color: accentColor.withValues(alpha: 0.2)),
+                    border: Border.all(color: colors.surfaceBorder),
                   ),
                   child: Row(
                     children: [
@@ -1362,10 +1764,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'About the Developer',
-                              style: TextStyle(
-                                color: Colors.white,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: colors.textPrimary,
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -1374,7 +1776,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             RichText(
                               text: TextSpan(
                                 style: GoogleFonts.plusJakartaSans(
-                                  color: const Color(0xFFABA093),
+                                  color: colors.textMuted,
                                   fontSize: 12,
                                   height: 1.4,
                                 ),
@@ -1411,7 +1813,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
 
-              // Task 2: Support the Project / Donate Section
+              // Support the Project / Donate Section
               Padding(
                 padding: const EdgeInsets.only(top: 14.0),
                 child: Container(
@@ -1435,10 +1837,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             child: const Icon(Icons.favorite_rounded, color: Color(0xFFF59E0B), size: 16),
                           ),
                           const SizedBox(width: 10),
-                          const Text(
+                          Text(
                             'Support the Project / Donate',
-                            style: TextStyle(
-                              color: Colors.white,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: colors.textPrimary,
                               fontSize: 13.5,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1448,7 +1850,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       const SizedBox(height: 8),
                       Text(
                         'Support continuous app updates, study tools, and server maintenance:',
-                        style: TextStyle(color: Colors.blueGrey.shade400, fontSize: 11.5),
+                        style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 11.5),
                       ),
                       const SizedBox(height: 12),
                       Wrap(
@@ -1564,25 +1966,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       context: context,
                       builder: (ctx) => AlertDialog(
                         backgroundColor: cardColor,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        title: const Text('Clean Duplicate Sessions', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: colors.surfaceBorder),
+                        ),
+                        title: Text('Clean Duplicate Sessions', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold)),
                         content: Text(
                           'This will inspect all your study and focus sessions, merge multi-device duplicates, and preserve all your completed study time and notes. Proceed?',
-                          style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 13.5),
+                          style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13.5),
                         ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, false),
-                            child: Text('Cancel', style: TextStyle(color: Colors.blueGrey.shade400)),
+                            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
                           ),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF3B82F6),
-                              foregroundColor: Colors.white,
+                              backgroundColor: colors.primary,
+                              foregroundColor: colors.background,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                             onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('Clean Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                            child: Text('Clean Now', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
                           ),
                         ],
                       ),
@@ -1650,13 +2055,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       context: context,
                       builder: (ctx) => AlertDialog(
                         backgroundColor: cardColor,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        title: const Text('Sign Out', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        content: Text('Are you sure you want to sign out of your account?', style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 13.5)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: colors.surfaceBorder),
+                        ),
+                        title: Text('Sign Out', style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+                        content: Text('Are you sure you want to sign out of your account?', style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13.5)),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, false),
-                            child: Text('Cancel', style: TextStyle(color: Colors.blueGrey.shade400)),
+                            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
                           ),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
@@ -1665,7 +2073,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                             onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
+                            child: Text('Sign Out', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold)),
                           ),
                         ],
                       ),
@@ -1685,15 +2093,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       borderRadius: BorderRadius.circular(16.0),
                       border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.25)),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 18),
-                        SizedBox(width: 8),
+                        const Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 18),
+                        const SizedBox(width: 8),
                         Text(
                           'Sign Out',
-                          style: TextStyle(
-                            color: Color(0xFFEF4444),
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFFEF4444),
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1704,7 +2112,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
 
-              // Task 1: Delete Account Button (Google Play Data Privacy Compliance)
+              // Delete Account Button
               Padding(
                 padding: const EdgeInsets.only(top: 14.0),
                 child: InkWell(
@@ -1717,15 +2125,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       borderRadius: BorderRadius.circular(16.0),
                       border: Border.all(color: const Color(0xFFDC2626).withValues(alpha: 0.4)),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.delete_forever_rounded, color: Color(0xFFEF4444), size: 20),
-                        SizedBox(width: 8),
+                        const Icon(Icons.delete_forever_rounded, color: Color(0xFFEF4444), size: 20),
+                        const SizedBox(width: 8),
                         Text(
                           'Delete Account & Data',
-                          style: TextStyle(
-                            color: Color(0xFFEF4444),
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFFEF4444),
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1741,10 +2149,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       ),
     ),
-  );
+  ),
+),
+);
 }
 
-  Widget _buildDeletionWarningPoint(String text) {
+  Widget _buildDeletionWarningPoint(String text, ChondrobinduThemeColors colors) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6.0),
       child: Row(
@@ -1754,7 +2164,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 12),
+              style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 12),
             ),
           ),
         ],
@@ -1774,13 +2184,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(color: colors.surfaceBorder),
         ),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 24),
-            SizedBox(width: 10),
+            const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 24),
+            const SizedBox(width: 10),
             Text(
               'Delete Account?',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
+              style: GoogleFonts.plusJakartaSans(color: colors.textPrimary, fontWeight: FontWeight.bold, fontSize: 17),
             ),
           ],
         ),
@@ -1788,26 +2198,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'This action is permanent and cannot be undone. All your data will be wiped immediately:',
-              style: TextStyle(color: Colors.blueGrey, fontSize: 13, height: 1.4),
+              style: GoogleFonts.plusJakartaSans(color: colors.textMuted, fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 12),
-            _buildDeletionWarningPoint('All focus sessions, study stats & streak'),
-            _buildDeletionWarningPoint('All mock exam records & merit rankings'),
-            _buildDeletionWarningPoint('Syllabus checklists & chapter progress'),
-            _buildDeletionWarningPoint('Profile photo & personal account info'),
+            _buildDeletionWarningPoint('All focus sessions, study stats & streak', colors),
+            _buildDeletionWarningPoint('All mock exam records & merit rankings', colors),
+            _buildDeletionWarningPoint('Syllabus checklists & chapter progress', colors),
+            _buildDeletionWarningPoint('Profile photo & personal account info', colors),
             const SizedBox(height: 14),
             Text(
               'Are you sure you want to permanently delete your account?',
-              style: TextStyle(color: Colors.red.shade300, fontSize: 12.5, fontWeight: FontWeight.w600),
+              style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEF4444), fontSize: 12.5, fontWeight: FontWeight.w600),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel', style: TextStyle(color: Colors.blueGrey.shade400)),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: colors.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -1816,7 +2226,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete Permanently', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text('Delete Permanently', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -2526,7 +2936,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: colors.surfaceBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2545,22 +2955,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: Icon(Icons.explore_rounded, color: accentColor, size: 20),
                   ),
                   const SizedBox(width: 12),
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Feature Tours',
-                        style: TextStyle(
-                          color: Colors.white,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
                         'Replay interactive guided walkthroughs',
-                        style: TextStyle(
-                          color: Colors.grey,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textMuted,
                           fontSize: 11.5,
                         ),
                       ),
@@ -2575,9 +2985,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text(
+                        content: Text(
                           'All onboarding tours have been reset and will display on next visit.',
-                          style: TextStyle(color: Colors.white),
+                          style: GoogleFonts.plusJakartaSans(color: colors.textPrimary),
                         ),
                         backgroundColor: cardColor,
                         behavior: SnackBarBehavior.floating,
@@ -2595,7 +3005,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 child: Text(
                   'Reset All',
-                  style: TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     color: accentColor,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -2605,7 +3015,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          const Divider(color: Colors.white10, height: 1),
+          Divider(color: colors.surfaceBorder, height: 1),
           const SizedBox(height: 8),
           ...tourItems.map((item) {
             return Padding(
@@ -2615,10 +3025,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Container(
                     padding: const EdgeInsets.all(7),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.04),
+                      color: colors.recessed,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(item.icon, color: Colors.blueGrey.shade300, size: 16),
+                    child: Icon(item.icon, color: colors.textMuted, size: 16),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -2627,8 +3037,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       children: [
                         Text(
                           item.title,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: colors.textPrimary,
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
@@ -2636,8 +3046,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         const SizedBox(height: 2),
                         Text(
                           item.subtitle,
-                          style: TextStyle(
-                            color: Colors.blueGrey.shade400,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: colors.textMuted,
                             fontSize: 11,
                           ),
                         ),
@@ -2654,7 +3064,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           SnackBar(
                             content: Text(
                               '${item.title} tour reset. It will replay when you open the screen.',
-                              style: const TextStyle(color: Colors.white),
+                              style: GoogleFonts.plusJakartaSans(color: colors.textPrimary),
                             ),
                             backgroundColor: cardColor,
                             behavior: SnackBarBehavior.floating,
@@ -2681,7 +3091,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           const SizedBox(width: 4),
                           Text(
                             'Replay',
-                            style: TextStyle(
+                            style: GoogleFonts.plusJakartaSans(
                               color: accentColor,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,

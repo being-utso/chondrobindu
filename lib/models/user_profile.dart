@@ -31,6 +31,7 @@ class UserProfile {
   final String? level;        // e.g., "Level 2"
   final String? term;         // e.g., "Term 1"
   final String? universityName;
+  final DateTime? termStartDate;
 
   // College Fields (nullable if university)
   final String? collegeClass; // e.g., "Class 11", "Class 12"
@@ -81,6 +82,7 @@ class UserProfile {
     this.level,
     this.term,
     this.universityName,
+    this.termStartDate,
     this.collegeClass,
     this.academicGroup,
     this.rollNumber,
@@ -191,6 +193,7 @@ class UserProfile {
     level: null,
     term: null,
     universityName: null,
+    termStartDate: null,
     collegeClass: null,
     academicGroup: 'Science',
     rollNumber: null,
@@ -310,6 +313,16 @@ class UserProfile {
       }
     }
 
+    DateTime? termStart;
+    final rawTermStart = map['termStartDate'] ?? map['term_start_date'];
+    if (rawTermStart != null) {
+      if (rawTermStart is Timestamp) {
+        termStart = rawTermStart.toDate();
+      } else if (rawTermStart is String) {
+        termStart = DateTime.tryParse(rawTermStart);
+      }
+    }
+
     final fullName = map['fullName'] as String? ?? map['full_name'] as String? ?? map['name'] as String? ?? dName;
     final nickname = map['nickname'] as String? ?? dName;
     final username = map['username'] as String? ?? '';
@@ -332,6 +345,7 @@ class UserProfile {
       level: lvl,
       term: trm,
       universityName: uniName,
+      termStartDate: termStart,
       collegeClass: cClass,
       academicGroup: aGroup ?? 'Science',
       rollNumber: rNum,
@@ -405,6 +419,8 @@ class UserProfile {
       'term': term,
       'universityName': universityName,
       'university_name': universityName,
+      'termStartDate': termStartDate != null ? Timestamp.fromDate(termStartDate!) : null,
+      'term_start_date': termStartDate != null ? Timestamp.fromDate(termStartDate!) : null,
       'collegeClass': collegeClass,
       'college_class': collegeClass,
       'academicGroup': academicGroup,
@@ -476,6 +492,8 @@ class UserProfile {
     String? level,
     String? term,
     String? universityName,
+    DateTime? termStartDate,
+    bool clearTermStartDate = false,
     String? collegeClass,
     String? academicGroup,
     String? rollNumber,
@@ -527,6 +545,7 @@ class UserProfile {
       level: level ?? this.level,
       term: term ?? this.term,
       universityName: universityName ?? this.universityName,
+      termStartDate: clearTermStartDate ? null : (termStartDate ?? this.termStartDate),
       collegeClass: collegeClass ?? this.collegeClass,
       academicGroup: academicGroup ?? hscGroup ?? this.academicGroup,
       rollNumber: rollNumber ?? this.rollNumber,

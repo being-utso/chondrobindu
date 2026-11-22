@@ -246,6 +246,11 @@ class UserProfileNotifier extends StateNotifier<UserProfile> {
     String? major,
     String? level,
     String? term,
+    double? targetGpa,
+    DateTime? termStartDate,
+    bool clearTermStartDate = false,
+    InstitutionType? institutionType,
+    double? dailyFocusGoalHours,
     String? uid,
   }) async {
     final updated = state.copyWith(
@@ -265,13 +270,18 @@ class UserProfileNotifier extends StateNotifier<UserProfile> {
       todaysFocusMinutes: todaysFocusMinutes,
       totalFocusMinutes: totalFocusMinutes,
       streakDays: streakDays,
-      targetFocusMinutes: targetFocusMinutes,
+      targetFocusMinutes: targetFocusMinutes ?? (dailyFocusGoalHours != null ? (dailyFocusGoalHours * 60).round() : null),
+      dailyFocusGoalHours: dailyFocusGoalHours,
       scratchpadText: scratchpadText,
       isUniversityStudent: isUniversityStudent,
+      institutionType: institutionType,
       universityName: universityName,
       major: major,
       level: level,
       term: term,
+      targetGpa: targetGpa,
+      termStartDate: termStartDate,
+      clearTermStartDate: clearTermStartDate,
     );
 
     await saveProfile(updated, uid: uid);

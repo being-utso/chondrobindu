@@ -7,6 +7,7 @@ import 'package:chondrobindu/widgets/app_logo.dart';
 import 'package:chondrobindu/screens/insights_screen.dart';
 import 'package:chondrobindu/providers/user_profile_provider.dart';
 import 'package:chondrobindu/providers/firestore_providers.dart';
+import 'package:chondrobindu/providers/journal_provider.dart';
 import 'package:chondrobindu/models/study_session_model.dart';
 import 'package:chondrobindu/models/course_model.dart';
 
@@ -91,6 +92,9 @@ void main() {
             userProfileProvider.overrideWith((ref) => FakeUserProfileNotifier(UserProfile.defaultProfile)),
             upcomingAssessmentsStreamProvider.overrideWith((ref) => Stream.value([])),
             coursesStreamProvider.overrideWith((ref) => Stream.value([])),
+            activeSyllabusSubjectsStreamProvider.overrideWith((ref) => Stream.value([])),
+            allAssessmentsStreamProvider.overrideWith((ref) => Stream.value([])),
+            journalStreamProvider.overrideWith((ref) => Stream.value([])),
           ],
           child: MaterialApp(
             home: Scaffold(
@@ -115,7 +119,7 @@ void main() {
 
       // Dialog opens
       expect(find.byType(TextField), findsOneWidget);
-      expect(find.text('Type a course code (e.g. EEE 2105) or assessment name...'), findsOneWidget);
+      expect(find.text('Search courses, subjects, topics, assessments, journal...'), findsOneWidget);
       expect(find.text('ESC'), findsOneWidget);
     });
 
